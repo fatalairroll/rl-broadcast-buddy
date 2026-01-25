@@ -56,9 +56,59 @@ export interface BroadcastSession {
   updated_at: string;
 }
 
+// Element style configuration - shared by all editable elements
+export interface ElementStyle {
+  backgroundColor: string;
+  backgroundGradient?: GradientConfig;
+  borderRadius: number;
+  borderWidth: number;
+  borderColor: string;
+  padding: number;
+  fontFamily: string;
+  fontSize: number;
+  textColor: string;
+  opacity: number;
+}
+
+// Scoreboard sub-elements
+export interface ScoreDisplayConfig extends ElementStyle {
+  visible: boolean;
+  gap: number; // gap between scores
+  separatorColor: string;
+  separatorWidth: number;
+}
+
+export interface TimerDisplayConfig extends ElementStyle {
+  visible: boolean;
+  showOvertimeLabel: boolean;
+  overtimeLabelColor: string;
+}
+
+export interface SeriesDisplayConfig extends ElementStyle {
+  visible: boolean;
+  showSeriesType: boolean;
+  dotSize: number;
+  dotSpacing: number;
+  activeDotColor: string;
+  inactiveDotColor: string;
+}
+
+export interface TeamNameConfig extends ElementStyle {
+  visible: boolean;
+  maxWidth: number;
+  showLogo: boolean;
+  logoSize: number;
+  logoPosition: 'left' | 'right';
+}
+
 // Overlay configuration types
 export interface OverlayConfig {
   scoreboard: ScoreboardConfig;
+  scoreDisplay: ScoreDisplayConfig;
+  timerDisplay: TimerDisplayConfig;
+  seriesDisplay: SeriesDisplayConfig;
+  teamAName: TeamNameConfig;
+  teamBName: TeamNameConfig;
   boostBars: BoostBarsConfig;
   boostCircle: BoostCircleConfig;
   playerStats: PlayerStatsConfig;
@@ -75,11 +125,8 @@ export interface ScoreboardConfig {
   borderRadius: number;
   borderWidth: number;
   borderColor: string;
-  fontFamily: string;
-  fontSize: number;
-  textColor: string;
-  showTimer: boolean;
-  showSeriesScore: boolean;
+  gap: number;
+  layout: 'horizontal' | 'compact';
 }
 
 export interface BoostBarsConfig {
@@ -195,22 +242,111 @@ export interface GameStateEvent {
 
 export type BroadcastEvent = SetTeamsEvent | GameStateEvent;
 
+// Editable element types for Creator
+export type EditableElement = 
+  | 'scoreboard'
+  | 'scoreDisplay'
+  | 'timerDisplay'
+  | 'seriesDisplay'
+  | 'teamAName'
+  | 'teamBName'
+  | 'boostBars'
+  | 'boostCircle'
+  | 'playerStats';
+
+export const ELEMENT_LABELS: Record<EditableElement, string> = {
+  scoreboard: 'Tło Scoreboardu',
+  scoreDisplay: 'Wynik meczu',
+  timerDisplay: 'Timer / Czas',
+  seriesDisplay: 'Wynik serii',
+  teamAName: 'Nazwa drużyny A',
+  teamBName: 'Nazwa drużyny B',
+  boostBars: 'Paski boosta graczy',
+  boostCircle: 'Wskaźnik boosta',
+  playerStats: 'Statystyki gracza',
+};
+
+// Default element style
+const defaultElementStyle: ElementStyle = {
+  backgroundColor: 'rgba(15, 17, 23, 0.9)',
+  borderRadius: 8,
+  borderWidth: 0,
+  borderColor: 'rgba(255, 255, 255, 0.1)',
+  padding: 8,
+  fontFamily: 'Inter',
+  fontSize: 16,
+  textColor: '#ffffff',
+  opacity: 1,
+};
+
 // Default overlay config
 export const defaultOverlayConfig: OverlayConfig = {
   scoreboard: {
     visible: true,
     position: { x: 50, y: 2 },
-    width: 600,
+    width: 700,
     height: 80,
-    backgroundColor: 'rgba(15, 17, 23, 0.9)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(15, 17, 23, 0.95)',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    fontFamily: 'Inter',
-    fontSize: 24,
-    textColor: '#ffffff',
-    showTimer: true,
-    showSeriesScore: true,
+    gap: 16,
+    layout: 'horizontal',
+  },
+  scoreDisplay: {
+    ...defaultElementStyle,
+    visible: true,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 36,
+    gap: 12,
+    separatorColor: 'rgba(255, 255, 255, 0.3)',
+    separatorWidth: 2,
+  },
+  timerDisplay: {
+    ...defaultElementStyle,
+    visible: true,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 6,
+    padding: 8,
+    fontSize: 20,
+    fontFamily: 'JetBrains Mono',
+    showOvertimeLabel: true,
+    overtimeLabelColor: '#F59E0B',
+  },
+  seriesDisplay: {
+    ...defaultElementStyle,
+    visible: true,
+    backgroundColor: 'transparent',
+    borderRadius: 4,
+    padding: 4,
+    fontSize: 12,
+    showSeriesType: true,
+    dotSize: 8,
+    dotSpacing: 4,
+    activeDotColor: '#22C55E',
+    inactiveDotColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  teamAName: {
+    ...defaultElementStyle,
+    visible: true,
+    backgroundColor: 'transparent',
+    fontSize: 18,
+    maxWidth: 150,
+    showLogo: true,
+    logoSize: 40,
+    logoPosition: 'left',
+  },
+  teamBName: {
+    ...defaultElementStyle,
+    visible: true,
+    backgroundColor: 'transparent',
+    fontSize: 18,
+    maxWidth: 150,
+    showLogo: true,
+    logoSize: 40,
+    logoPosition: 'right',
   },
   boostBars: {
     visible: true,

@@ -44,6 +44,12 @@ export default function Overlay() {
   const orangeTeamPlayers = currentGameState.players.filter((p) => p.team === 1);
   const targetPlayer = currentGameState.players.find((p) => p.isPrimary);
 
+  const getSeriesDots = () => {
+    const seriesType = session?.series_type || 'bo5';
+    const maxWins = seriesType === 'bo5' ? 3 : seriesType === 'bo7' ? 4 : seriesType === 'bo3' ? 2 : 1;
+    return { maxWins, teamAWins: session?.team_a_series_score || 0, teamBWins: session?.team_b_series_score || 0 };
+  };
+
   return (
     <div className="w-screen h-screen overflow-hidden relative overlay-transparent">
       {/* Scoreboard */}
@@ -57,86 +63,207 @@ export default function Overlay() {
           }}
         >
           <div
-            className="flex items-center gap-4 px-6 py-3"
+            className="flex items-center"
             style={{
               backgroundColor: config.scoreboard.backgroundColor,
               borderRadius: config.scoreboard.borderRadius,
               border: `${config.scoreboard.borderWidth}px solid ${config.scoreboard.borderColor}`,
+              gap: config.scoreboard.gap,
+              padding: '12px 24px',
             }}
           >
-            {/* Team A */}
-            <div className="flex items-center gap-3">
-              {session?.team_a_logo && (
-                <img
-                  src={session.team_a_logo}
-                  alt=""
-                  className="w-10 h-10 object-contain"
-                />
-              )}
-              <span
-                className="font-semibold text-lg"
-                style={{ color: session?.team_a_color || '#3B82F6' }}
+            {/* Team A Name */}
+            {config.teamAName.visible && (
+              <div className="flex items-center gap-3"
+                style={{
+                  backgroundColor: config.teamAName.backgroundColor,
+                  borderRadius: config.teamAName.borderRadius,
+                  padding: config.teamAName.padding,
+                }}
               >
-                {session?.team_a_name || 'Blue Team'}
-              </span>
-            </div>
-
-            {/* Score */}
-            <div className="flex items-center gap-2 px-4">
-              <motion.span
-                key={currentGameState.teams.blue.score}
-                initial={{ scale: 1.2 }}
-                animate={{ scale: 1 }}
-                className="text-4xl font-bold"
-                style={{ color: session?.team_a_color || '#3B82F6' }}
-              >
-                {currentGameState.teams.blue.score}
-              </motion.span>
-              <span className="text-2xl text-muted-foreground">-</span>
-              <motion.span
-                key={currentGameState.teams.orange.score}
-                initial={{ scale: 1.2 }}
-                animate={{ scale: 1 }}
-                className="text-4xl font-bold"
-                style={{ color: session?.team_b_color || '#F97316' }}
-              >
-                {currentGameState.teams.orange.score}
-              </motion.span>
-            </div>
-
-            {/* Team B */}
-            <div className="flex items-center gap-3">
-              <span
-                className="font-semibold text-lg"
-                style={{ color: session?.team_b_color || '#F97316' }}
-              >
-                {session?.team_b_name || 'Orange Team'}
-              </span>
-              {session?.team_b_logo && (
-                <img
-                  src={session.team_b_logo}
-                  alt=""
-                  className="w-10 h-10 object-contain"
-                />
-              )}
-            </div>
-
-            {/* Timer */}
-            {config.scoreboard.showTimer && (
-              <div className="ml-4 px-3 py-1 bg-secondary/50 rounded">
-                <span className="font-mono text-lg">
-                  {formatTime(currentGameState.game.time)}
+                {config.teamAName.showLogo && session?.team_a_logo && (
+                  <img
+                    src={session.team_a_logo}
+                    alt=""
+                    style={{ width: config.teamAName.logoSize, height: config.teamAName.logoSize }}
+                    className="object-contain"
+                  />
+                )}
+                <span
+                  className="font-semibold"
+                  style={{ 
+                    color: session?.team_a_color || '#3B82F6',
+                    fontSize: config.teamAName.fontSize,
+                    maxWidth: config.teamAName.maxWidth,
+                  }}
+                >
+                  {session?.team_a_name || 'Blue Team'}
                 </span>
-                {currentGameState.game.isOT && (
-                  <span className="ml-2 text-warning font-semibold">OT</span>
+              </div>
+            )}
+
+            {/* Score Display */}
+            {config.scoreDisplay.visible && (
+              <div 
+                className="flex items-center justify-center"
+                style={{
+                  backgroundColor: config.scoreDisplay.backgroundColor,
+                  borderRadius: config.scoreDisplay.borderRadius,
+                  padding: config.scoreDisplay.padding,
+                  gap: config.scoreDisplay.gap,
+                }}
+              >
+                <motion.span
+                  key={currentGameState.teams.blue.score}
+                  initial={{ scale: 1.2 }}
+                  animate={{ scale: 1 }}
+                  className="font-bold"
+                  style={{ 
+                    color: session?.team_a_color || '#3B82F6',
+                    fontSize: config.scoreDisplay.fontSize,
+                  }}
+                >
+                  {currentGameState.teams.blue.score}
+                </motion.span>
+                <span 
+                  style={{ 
+                    color: config.scoreDisplay.separatorColor,
+                    fontSize: config.scoreDisplay.fontSize * 0.7,
+                  }}
+                >
+                  -
+                </span>
+                <motion.span
+                  key={currentGameState.teams.orange.score}
+                  initial={{ scale: 1.2 }}
+                  animate={{ scale: 1 }}
+                  className="font-bold"
+                  style={{ 
+                    color: session?.team_b_color || '#F97316',
+                    fontSize: config.scoreDisplay.fontSize,
+                  }}
+                >
+                  {currentGameState.teams.orange.score}
+                </motion.span>
+              </div>
+            )}
+
+            {/* Team B Name */}
+            {config.teamBName.visible && (
+              <div className="flex items-center gap-3"
+                style={{
+                  backgroundColor: config.teamBName.backgroundColor,
+                  borderRadius: config.teamBName.borderRadius,
+                  padding: config.teamBName.padding,
+                }}
+              >
+                <span
+                  className="font-semibold"
+                  style={{ 
+                    color: session?.team_b_color || '#F97316',
+                    fontSize: config.teamBName.fontSize,
+                    maxWidth: config.teamBName.maxWidth,
+                  }}
+                >
+                  {session?.team_b_name || 'Orange Team'}
+                </span>
+                {config.teamBName.showLogo && session?.team_b_logo && (
+                  <img
+                    src={session.team_b_logo}
+                    alt=""
+                    style={{ width: config.teamBName.logoSize, height: config.teamBName.logoSize }}
+                    className="object-contain"
+                  />
                 )}
               </div>
             )}
 
-            {/* Series Score */}
-            {config.scoreboard.showSeriesScore && session && (
-              <div className="ml-2 text-sm text-muted-foreground">
-                {session.series_type.toUpperCase()} • {session.team_a_series_score} - {session.team_b_series_score}
+            {/* Timer Display */}
+            {config.timerDisplay.visible && (
+              <div 
+                style={{
+                  backgroundColor: config.timerDisplay.backgroundColor,
+                  borderRadius: config.timerDisplay.borderRadius,
+                  padding: config.timerDisplay.padding,
+                }}
+              >
+                <span 
+                  className="font-mono"
+                  style={{ 
+                    color: config.timerDisplay.textColor,
+                    fontSize: config.timerDisplay.fontSize,
+                  }}
+                >
+                  {formatTime(currentGameState.game.time)}
+                </span>
+                {config.timerDisplay.showOvertimeLabel && currentGameState.game.isOT && (
+                  <span 
+                    className="ml-2 font-semibold"
+                    style={{ color: config.timerDisplay.overtimeLabelColor }}
+                  >
+                    OT
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Series Display */}
+            {config.seriesDisplay.visible && session && (
+              <div 
+                className="flex items-center gap-2"
+                style={{
+                  backgroundColor: config.seriesDisplay.backgroundColor,
+                  borderRadius: config.seriesDisplay.borderRadius,
+                  padding: config.seriesDisplay.padding,
+                }}
+              >
+                {config.seriesDisplay.showSeriesType && (
+                  <span
+                    style={{ 
+                      color: config.seriesDisplay.textColor,
+                      fontSize: config.seriesDisplay.fontSize,
+                    }}
+                  >
+                    {session.series_type.toUpperCase()}
+                  </span>
+                )}
+                <div className="flex items-center" style={{ gap: config.seriesDisplay.dotSpacing }}>
+                  {Array.from({ length: getSeriesDots().maxWins }).map((_, i) => (
+                    <div
+                      key={`a-${i}`}
+                      className="rounded-full"
+                      style={{
+                        width: config.seriesDisplay.dotSize,
+                        height: config.seriesDisplay.dotSize,
+                        backgroundColor: i < getSeriesDots().teamAWins 
+                          ? config.seriesDisplay.activeDotColor 
+                          : config.seriesDisplay.inactiveDotColor,
+                      }}
+                    />
+                  ))}
+                  <span 
+                    style={{ 
+                      color: config.seriesDisplay.textColor, 
+                      fontSize: config.seriesDisplay.fontSize * 0.8,
+                      margin: '0 4px',
+                    }}
+                  >
+                    •
+                  </span>
+                  {Array.from({ length: getSeriesDots().maxWins }).map((_, i) => (
+                    <div
+                      key={`b-${i}`}
+                      className="rounded-full"
+                      style={{
+                        width: config.seriesDisplay.dotSize,
+                        height: config.seriesDisplay.dotSize,
+                        backgroundColor: i < getSeriesDots().teamBWins 
+                          ? config.seriesDisplay.activeDotColor 
+                          : config.seriesDisplay.inactiveDotColor,
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
