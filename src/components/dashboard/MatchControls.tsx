@@ -9,13 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { RefreshCw, Send, Wifi, WifiOff } from 'lucide-react';
+import { RefreshCw, Send } from 'lucide-react';
+import { RelayStatus } from './RelayStatus';
 import type { BroadcastSession, SeriesType } from '@/types/broadcast';
 
 interface MatchControlsProps {
   session: BroadcastSession | null;
-  isConnected: boolean;
   onUpdate: (updates: Partial<BroadcastSession>) => void;
   onResetGameScore: () => void;
   onBroadcast: () => void;
@@ -30,7 +29,6 @@ const seriesOptions: { value: SeriesType; label: string }[] = [
 
 export function MatchControls({
   session,
-  isConnected,
   onUpdate,
   onResetGameScore,
   onBroadcast,
@@ -40,19 +38,7 @@ export function MatchControls({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Kontrola meczu</CardTitle>
-          <Badge variant={isConnected ? 'default' : 'destructive'} className="gap-1">
-            {isConnected ? (
-              <>
-                <Wifi className="h-3 w-3" />
-                Połączono
-              </>
-            ) : (
-              <>
-                <WifiOff className="h-3 w-3" />
-                Brak połączenia
-              </>
-            )}
-          </Badge>
+          <RelayStatus />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
