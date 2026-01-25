@@ -4,22 +4,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Gamepad2, ArrowLeft, Copy, Download, Check } from 'lucide-react';
 import { useState } from 'react';
 
-const RELAY_SCRIPT = `// RL Broadcast Relay Script
+// Get values from environment
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+const getRelayScript = () => `// RL Broadcast Relay Script
 // Łączy BakkesMod SOS Plugin z Lovable Cloud
 // 
 // INSTALACJA:
 // 1. Upewnij się, że masz Node.js zainstalowany
 // 2. Zapisz ten plik jako relay.js
 // 3. Zainstaluj zależności: npm install ws @supabase/supabase-js
-// 4. Uzupełnij SUPABASE_URL i SUPABASE_ANON_KEY poniżej
-// 5. Uruchom: node relay.js
+// 4. Uruchom: node relay.js
+//
+// UWAGA: Ten plik jest już skonfigurowany - nie musisz nic edytować!
 
 const WebSocket = require('ws');
 const { createClient } = require('@supabase/supabase-js');
 
-// === KONFIGURACJA ===
-const SUPABASE_URL = 'TWÓJ_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'TWÓJ_SUPABASE_ANON_KEY';
+// === KONFIGURACJA (automatycznie uzupełniona) ===
+const SUPABASE_URL = '${SUPABASE_URL}';
+const SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}';
 const SOS_PORT = 49122;
 const BROADCAST_CHANNEL = 'rl_broadcast_room';
 
@@ -140,15 +145,15 @@ connect();
 export default function Relay() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-
+  const relayScript = getRelayScript();
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(RELAY_SCRIPT);
+    await navigator.clipboard.writeText(relayScript);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownload = () => {
-    const blob = new Blob([RELAY_SCRIPT], { type: 'text/javascript' });
+    const blob = new Blob([relayScript], { type: 'text/javascript' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -220,11 +225,11 @@ export default function Relay() {
                 </ol>
               </div>
 
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <p className="text-sm">
-                  <strong>Twój SUPABASE_URL:</strong>
+              <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <p className="text-sm text-green-400">
+                  <strong>✓ Automatycznie skonfigurowane!</strong>
                   <br />
-                  <code className="text-xs break-all">{import.meta.env.VITE_SUPABASE_URL || 'Sprawdź w ustawieniach projektu'}</code>
+                  Skrypt jest gotowy do użycia - nie musisz nic edytować.
                 </p>
               </div>
             </CardContent>
@@ -237,7 +242,7 @@ export default function Relay() {
             </CardHeader>
             <CardContent>
               <pre className="bg-secondary/50 p-4 rounded-lg overflow-auto max-h-[600px] text-xs font-mono">
-                {RELAY_SCRIPT}
+                {relayScript}
               </pre>
             </CardContent>
           </Card>

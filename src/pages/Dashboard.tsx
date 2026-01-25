@@ -5,6 +5,7 @@ import { useBroadcast } from '@/hooks/useBroadcast';
 import { supabase } from '@/integrations/supabase/client';
 import { TeamEditor } from '@/components/dashboard/TeamEditor';
 import { MatchControls } from '@/components/dashboard/MatchControls';
+import { RelayStatus } from '@/components/dashboard/RelayStatus';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -25,7 +26,6 @@ export default function Dashboard() {
   const { user, loading: authLoading, hasAccess, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isConnected, setIsConnected] = useState(false);
 
   const {
     session,
@@ -56,27 +56,6 @@ export default function Dashboard() {
   //     navigate('/');
   //   }
   // }, [authLoading, user, hasAccess, navigate, toast]);
-
-  // Check relay connection
-  useEffect(() => {
-    const channel = supabase.channel(BROADCAST_CHANNEL);
-    
-    channel
-      .on('broadcast', { event: 'RELAY_PING' }, () => {
-        setIsConnected(true);
-      })
-      .subscribe();
-
-    // Ping timeout - if no ping received, consider disconnected
-    const interval = setInterval(() => {
-      setIsConnected(false);
-    }, 5000);
-
-    return () => {
-      clearInterval(interval);
-      channel.unsubscribe();
-    };
-  }, []);
 
   const handleBroadcast = async () => {
     if (!session) return;
@@ -186,7 +165,6 @@ export default function Dashboard() {
             {/* Match Controls */}
             <MatchControls
               session={session}
-              isConnected={isConnected}
               onUpdate={updateSession}
               onResetGameScore={resetGameScore}
               onBroadcast={handleBroadcast}
