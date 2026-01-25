@@ -230,14 +230,14 @@ export function useOverlayPresets() {
   const createPreset = async (preset: Omit<OverlayPreset, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase
       .from('overlay_presets')
-      .insert({
+      .insert([{
         name: preset.name,
         description: preset.description || null,
-        config: preset.config as unknown as Record<string, unknown>,
+        config: JSON.parse(JSON.stringify(preset.config)),
         thumbnail_url: preset.thumbnail_url || null,
-        is_default: preset.is_default,
+        is_default: preset.is_default ?? false,
         created_by: preset.created_by || null,
-      })
+      }])
       .select()
       .single();
     
@@ -251,7 +251,7 @@ export function useOverlayPresets() {
     const updateData: Record<string, unknown> = {};
     if (updates.name !== undefined) updateData.name = updates.name;
     if (updates.description !== undefined) updateData.description = updates.description;
-    if (updates.config !== undefined) updateData.config = updates.config as unknown as Record<string, unknown>;
+    if (updates.config !== undefined) updateData.config = JSON.parse(JSON.stringify(updates.config));
     if (updates.thumbnail_url !== undefined) updateData.thumbnail_url = updates.thumbnail_url;
     if (updates.is_default !== undefined) updateData.is_default = updates.is_default;
 

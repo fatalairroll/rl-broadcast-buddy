@@ -39,22 +39,23 @@ export default function Dashboard() {
     resetGameScore,
   } = useBroadcast();
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [authLoading, user, navigate]);
+  // Tymczasowo wyłączone - dev mode
+  // useEffect(() => {
+  //   if (!authLoading && !user) {
+  //     navigate('/auth');
+  //   }
+  // }, [authLoading, user, navigate]);
 
-  useEffect(() => {
-    if (!authLoading && user && !hasAccess) {
-      toast({
-        variant: 'destructive',
-        title: 'Brak dostępu',
-        description: 'Nie masz uprawnień do panelu sterowania. Skontaktuj się z administratorem.',
-      });
-      navigate('/');
-    }
-  }, [authLoading, user, hasAccess, navigate, toast]);
+  // useEffect(() => {
+  //   if (!authLoading && user && !hasAccess) {
+  //     toast({
+  //       variant: 'destructive',
+  //       title: 'Brak dostępu',
+  //       description: 'Nie masz uprawnień do panelu sterowania. Skontaktuj się z administratorem.',
+  //     });
+  //     navigate('/');
+  //   }
+  // }, [authLoading, user, hasAccess, navigate, toast]);
 
   // Check relay connection
   useEffect(() => {
@@ -141,18 +142,15 @@ export default function Dashboard() {
               Overlay
               <ExternalLink className="ml-1 h-3 w-3" />
             </Button>
-            {isAdmin && (
-              <>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/creator')}>
-                  <Palette className="mr-2 h-4 w-4" />
-                  Kreator
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
-                  <Users className="mr-2 h-4 w-4" />
-                  Admin
-                </Button>
-              </>
-            )}
+            {/* Tymczasowo bez sprawdzania isAdmin - dev mode */}
+            <Button variant="ghost" size="sm" onClick={() => navigate('/creator')}>
+              <Palette className="mr-2 h-4 w-4" />
+              Kreator
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
+              <Users className="mr-2 h-4 w-4" />
+              Admin
+            </Button>
             <Button variant="ghost" size="icon" onClick={handleSignOut}>
               <LogOut className="h-4 w-4" />
             </Button>
