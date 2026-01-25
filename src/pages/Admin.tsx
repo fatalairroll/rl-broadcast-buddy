@@ -69,16 +69,17 @@ export default function Admin() {
     secondary_color: '#1E40AF',
   });
 
-  useEffect(() => {
-    if (!authLoading && !isAdmin) {
-      toast({
-        variant: 'destructive',
-        title: 'Brak dostępu',
-        description: 'Tylko administratorzy mają dostęp do tego panelu.',
-      });
-      navigate('/dashboard');
-    }
-  }, [authLoading, isAdmin, navigate, toast]);
+  // Tymczasowo wyłączone - dev mode
+  // useEffect(() => {
+  //   if (!authLoading && !isAdmin) {
+  //     toast({
+  //       variant: 'destructive',
+  //       title: 'Brak dostępu',
+  //       description: 'Tylko administratorzy mają dostęp do tego panelu.',
+  //     });
+  //     navigate('/dashboard');
+  //   }
+  // }, [authLoading, isAdmin, navigate, toast]);
 
   // Fetch users with roles
   useEffect(() => {
