@@ -2,6 +2,8 @@ export type AppRole = 'admin' | 'moderator';
 
 export type SeriesType = 'bo1' | 'bo3' | 'bo5' | 'bo7';
 
+export type EdgeStyle = 'rounded' | 'skewed' | 'sharp';
+
 export interface UserRole {
   id: string;
   user_id: string;
@@ -127,16 +129,20 @@ export interface ScoreboardConfig {
   borderColor: string;
   gap: number;
   layout: 'horizontal' | 'compact';
+  edgeStyle: EdgeStyle;
 }
 
 export interface BoostBarsConfig {
   visible: boolean;
   position: 'bottom-corners' | 'bottom-center' | 'sides';
+  verticalPosition: number; // 0-100, default 66 (2/3 screen)
+  horizontalPadding: number;
   width: number;
   height: number;
   barHeight: number;
   backgroundColor: string;
   borderRadius: number;
+  edgeStyle: EdgeStyle;
   showPlayerNames: boolean;
   showBoostValue: boolean;
   fontFamily: string;
@@ -292,6 +298,7 @@ export const defaultOverlayConfig: OverlayConfig = {
     borderColor: 'rgba(255, 255, 255, 0.1)',
     gap: 16,
     layout: 'horizontal',
+    edgeStyle: 'rounded',
   },
   scoreDisplay: {
     ...defaultElementStyle,
@@ -351,11 +358,14 @@ export const defaultOverlayConfig: OverlayConfig = {
   boostBars: {
     visible: true,
     position: 'bottom-corners',
+    verticalPosition: 66,
+    horizontalPadding: 16,
     width: 200,
     height: 150,
     barHeight: 8,
     backgroundColor: 'rgba(15, 17, 23, 0.85)',
     borderRadius: 6,
+    edgeStyle: 'rounded',
     showPlayerNames: true,
     showBoostValue: true,
     fontFamily: 'Inter',

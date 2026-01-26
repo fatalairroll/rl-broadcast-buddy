@@ -1,12 +1,12 @@
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import type { EditableElement, OverlayConfig } from '@/types/broadcast';
+import { ColorPicker } from '@/components/ui/color-picker';
+import { EdgeStylePicker } from '@/components/ui/edge-style-picker';
+import type { EditableElement, OverlayConfig, EdgeStyle } from '@/types/broadcast';
 import { ELEMENT_LABELS } from '@/types/broadcast';
-import { Palette, Box, Type, Sliders } from 'lucide-react';
+import { Palette } from 'lucide-react';
 
 interface StyleEditorProps {
   element: EditableElement;
@@ -15,35 +15,6 @@ interface StyleEditorProps {
 }
 
 export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
-  const section = config[element];
-
-  // Color input with preview
-  const ColorInput = ({ 
-    label, 
-    value, 
-    onValueChange 
-  }: { 
-    label: string; 
-    value: string; 
-    onValueChange: (v: string) => void 
-  }) => (
-    <div className="space-y-2">
-      <Label className="text-xs">{label}</Label>
-      <div className="flex items-center gap-2">
-        <div 
-          className="w-8 h-8 rounded border border-border cursor-pointer"
-          style={{ backgroundColor: value }}
-        />
-        <Input
-          value={value}
-          onChange={(e) => onValueChange(e.target.value)}
-          className="flex-1 h-8 text-xs font-mono"
-          placeholder="rgba(0,0,0,0.9)"
-        />
-      </div>
-    </div>
-  );
-
   // Slider with label and value
   const SliderInput = ({
     label,
@@ -122,10 +93,15 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
 
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorInput
+        <ColorPicker
           label="Kolor tła"
           value={config.scoreboard.backgroundColor}
-          onValueChange={(v) => onChange('scoreboard', { backgroundColor: v })}
+          onChange={(v) => onChange('scoreboard', { backgroundColor: v })}
+        />
+        <EdgeStylePicker
+          label="Styl krawędzi"
+          value={config.scoreboard.edgeStyle}
+          onChange={(v) => onChange('scoreboard', { edgeStyle: v })}
         />
         <div className="grid grid-cols-2 gap-4">
           <SliderInput
@@ -145,10 +121,10 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             unit="px"
           />
         </div>
-        <ColorInput
+        <ColorPicker
           label="Kolor obramowania"
           value={config.scoreboard.borderColor}
-          onValueChange={(v) => onChange('scoreboard', { borderColor: v })}
+          onChange={(v) => onChange('scoreboard', { borderColor: v })}
         />
         <SliderInput
           label="Odstęp między elementami"
@@ -166,15 +142,15 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
     <div className="space-y-6">
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorInput
+        <ColorPicker
           label="Kolor tła"
           value={config.scoreDisplay.backgroundColor}
-          onValueChange={(v) => onChange('scoreDisplay', { backgroundColor: v })}
+          onChange={(v) => onChange('scoreDisplay', { backgroundColor: v })}
         />
-        <ColorInput
+        <ColorPicker
           label="Kolor tekstu"
           value={config.scoreDisplay.textColor}
-          onValueChange={(v) => onChange('scoreDisplay', { textColor: v })}
+          onChange={(v) => onChange('scoreDisplay', { textColor: v })}
         />
         <div className="grid grid-cols-2 gap-4">
           <SliderInput
@@ -213,10 +189,10 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
       </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Separator</h4>
-        <ColorInput
+        <ColorPicker
           label="Kolor separatora"
           value={config.scoreDisplay.separatorColor}
-          onValueChange={(v) => onChange('scoreDisplay', { separatorColor: v })}
+          onChange={(v) => onChange('scoreDisplay', { separatorColor: v })}
         />
         <SliderInput
           label="Grubość separatora"
@@ -234,15 +210,15 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
     <div className="space-y-6">
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorInput
+        <ColorPicker
           label="Kolor tła"
           value={config.timerDisplay.backgroundColor}
-          onValueChange={(v) => onChange('timerDisplay', { backgroundColor: v })}
+          onChange={(v) => onChange('timerDisplay', { backgroundColor: v })}
         />
-        <ColorInput
+        <ColorPicker
           label="Kolor tekstu"
           value={config.timerDisplay.textColor}
-          onValueChange={(v) => onChange('timerDisplay', { textColor: v })}
+          onChange={(v) => onChange('timerDisplay', { textColor: v })}
         />
         <div className="grid grid-cols-2 gap-4">
           <SliderInput
@@ -280,10 +256,10 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             onCheckedChange={(v) => onChange('timerDisplay', { showOvertimeLabel: v })}
           />
         </div>
-        <ColorInput
+        <ColorPicker
           label="Kolor etykiety OT"
           value={config.timerDisplay.overtimeLabelColor}
-          onValueChange={(v) => onChange('timerDisplay', { overtimeLabelColor: v })}
+          onChange={(v) => onChange('timerDisplay', { overtimeLabelColor: v })}
         />
       </div>
     </div>
@@ -293,15 +269,15 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
     <div className="space-y-6">
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorInput
+        <ColorPicker
           label="Kolor tła"
           value={config.seriesDisplay.backgroundColor}
-          onValueChange={(v) => onChange('seriesDisplay', { backgroundColor: v })}
+          onChange={(v) => onChange('seriesDisplay', { backgroundColor: v })}
         />
-        <ColorInput
+        <ColorPicker
           label="Kolor tekstu"
           value={config.seriesDisplay.textColor}
-          onValueChange={(v) => onChange('seriesDisplay', { textColor: v })}
+          onChange={(v) => onChange('seriesDisplay', { textColor: v })}
         />
         <SliderInput
           label="Rozmiar czcionki"
@@ -332,15 +308,15 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             unit="px"
           />
         </div>
-        <ColorInput
+        <ColorPicker
           label="Kolor aktywnej kropki"
           value={config.seriesDisplay.activeDotColor}
-          onValueChange={(v) => onChange('seriesDisplay', { activeDotColor: v })}
+          onChange={(v) => onChange('seriesDisplay', { activeDotColor: v })}
         />
-        <ColorInput
+        <ColorPicker
           label="Kolor nieaktywnej kropki"
           value={config.seriesDisplay.inactiveDotColor}
-          onValueChange={(v) => onChange('seriesDisplay', { inactiveDotColor: v })}
+          onChange={(v) => onChange('seriesDisplay', { inactiveDotColor: v })}
         />
         <div className="flex items-center justify-between">
           <Label>Pokaż typ serii</Label>
@@ -359,15 +335,15 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
       <div className="space-y-6">
         <div className="space-y-4">
           <h4 className="text-sm font-medium">Styl tekstu</h4>
-          <ColorInput
+          <ColorPicker
             label="Kolor tła"
             value={teamConfig.backgroundColor}
-            onValueChange={(v) => onChange(team, { backgroundColor: v })}
+            onChange={(v) => onChange(team, { backgroundColor: v })}
           />
-          <ColorInput
+          <ColorPicker
             label="Kolor tekstu"
             value={teamConfig.textColor}
-            onValueChange={(v) => onChange(team, { textColor: v })}
+            onChange={(v) => onChange(team, { textColor: v })}
           />
           <div className="grid grid-cols-2 gap-4">
             <SliderInput
@@ -413,6 +389,27 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
   const renderBoostBarsEditor = () => (
     <div className="space-y-6">
       <div className="space-y-4">
+        <h4 className="text-sm font-medium">Pozycja</h4>
+        <div className="grid grid-cols-2 gap-4">
+          <SliderInput
+            label="Pozycja pionowa"
+            value={config.boostBars.verticalPosition}
+            onValueChange={(v) => onChange('boostBars', { verticalPosition: v })}
+            min={10}
+            max={90}
+            unit="%"
+          />
+          <SliderInput
+            label="Odstęp od krawędzi"
+            value={config.boostBars.horizontalPadding}
+            onValueChange={(v) => onChange('boostBars', { horizontalPadding: v })}
+            min={8}
+            max={100}
+            unit="px"
+          />
+        </div>
+      </div>
+      <div className="space-y-4">
         <h4 className="text-sm font-medium">Rozmiar</h4>
         <div className="grid grid-cols-2 gap-4">
           <SliderInput
@@ -435,20 +432,25 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
       </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorInput
+        <ColorPicker
           label="Kolor tła"
           value={config.boostBars.backgroundColor}
-          onValueChange={(v) => onChange('boostBars', { backgroundColor: v })}
+          onChange={(v) => onChange('boostBars', { backgroundColor: v })}
         />
-        <ColorInput
+        <EdgeStylePicker
+          label="Styl krawędzi"
+          value={config.boostBars.edgeStyle}
+          onChange={(v) => onChange('boostBars', { edgeStyle: v })}
+        />
+        <ColorPicker
           label="Kolor drużyny A"
           value={config.boostBars.teamAColor}
-          onValueChange={(v) => onChange('boostBars', { teamAColor: v })}
+          onChange={(v) => onChange('boostBars', { teamAColor: v })}
         />
-        <ColorInput
+        <ColorPicker
           label="Kolor drużyny B"
           value={config.boostBars.teamBColor}
-          onValueChange={(v) => onChange('boostBars', { teamBColor: v })}
+          onChange={(v) => onChange('boostBars', { teamBColor: v })}
         />
         <SliderInput
           label="Zaokrąglenie"
@@ -528,15 +530,15 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
       </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorInput
+        <ColorPicker
           label="Kolor tła"
           value={config.boostCircle.backgroundColor}
-          onValueChange={(v) => onChange('boostCircle', { backgroundColor: v })}
+          onChange={(v) => onChange('boostCircle', { backgroundColor: v })}
         />
-        <ColorInput
+        <ColorPicker
           label="Kolor tekstu"
           value={config.boostCircle.textColor}
-          onValueChange={(v) => onChange('boostCircle', { textColor: v })}
+          onChange={(v) => onChange('boostCircle', { textColor: v })}
         />
         <SliderInput
           label="Rozmiar czcionki"
@@ -601,15 +603,15 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
       </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorInput
+        <ColorPicker
           label="Kolor tła"
           value={config.playerStats.backgroundColor}
-          onValueChange={(v) => onChange('playerStats', { backgroundColor: v })}
+          onChange={(v) => onChange('playerStats', { backgroundColor: v })}
         />
-        <ColorInput
+        <ColorPicker
           label="Kolor tekstu"
           value={config.playerStats.textColor}
-          onValueChange={(v) => onChange('playerStats', { textColor: v })}
+          onChange={(v) => onChange('playerStats', { textColor: v })}
         />
         <div className="grid grid-cols-2 gap-4">
           <SliderInput
