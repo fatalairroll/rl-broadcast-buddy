@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useBroadcast } from '@/hooks/useBroadcast';
-import type { GameState, OverlayConfig, PlayerState } from '@/types/broadcast';
+import type { GameState, OverlayConfig, PlayerState, EdgeStyle } from '@/types/broadcast';
 import { defaultOverlayConfig } from '@/types/broadcast';
 
 function formatTime(seconds: number): string {
@@ -11,11 +11,34 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+function normalizeBoost(value: number, max: number = 100): number {
+  return Math.min(100, Math.max(0, Math.round((value / max) * 100)));
+}
+
 function getBoostColor(boost: number): string {
   if (boost >= 75) return 'hsl(217, 91%, 60%)';
   if (boost >= 50) return 'hsl(142, 76%, 46%)';
   if (boost >= 25) return 'hsl(38, 92%, 50%)';
   return 'hsl(0, 84%, 60%)';
+}
+
+function getEdgeStyle(edgeStyle: EdgeStyle, borderRadius: number): React.CSSProperties {
+  switch (edgeStyle) {
+    case 'skewed':
+      return { 
+        clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
+        borderRadius: 0,
+      };
+    case 'sharp':
+      return { borderRadius: 0 };
+    case 'rounded':
+    default:
+      return { borderRadius };
+  }
+}
+
+function getSkewedBorderRadius(edgeStyle: EdgeStyle, borderRadius: number): number {
+  return edgeStyle === 'rounded' ? borderRadius : 0;
 }
 
 export default function Overlay() {
@@ -27,16 +50,16 @@ export default function Overlay() {
   // Mock game state for development
   const [mockGameState] = useState<GameState>({
     players: [
-      { id: '1', name: 'Player1', team: 0, boost: 85, goals: 2, shots: 5, assists: 1, saves: 0, score: 450, isPrimary: true },
-      { id: '2', name: 'Player2', team: 0, boost: 33, goals: 0, shots: 2, assists: 1, saves: 2, score: 180, isPrimary: false },
-      { id: '3', name: 'Player3', team: 0, boost: 100, goals: 1, shots: 3, assists: 0, saves: 1, score: 290, isPrimary: false },
-      { id: '4', name: 'Player4', team: 1, boost: 67, goals: 1, shots: 4, assists: 0, saves: 0, score: 220, isPrimary: false },
-      { id: '5', name: 'Player5', team: 1, boost: 12, goals: 0, shots: 1, assists: 1, saves: 3, score: 200, isPrimary: false },
-      { id: '6', name: 'Player6', team: 1, boost: 45, goals: 0, shots: 2, assists: 0, saves: 1, score: 130, isPrimary: false },
+      { id: '1', name: 'BUZZ', team: 0, boost: 33, goals: 2, shots: 5, assists: 1, saves: 0, score: 450, isPrimary: true },
+      { id: '2', name: 'FURY', team: 0, boost: 0, goals: 0, shots: 2, assists: 1, saves: 2, score: 180, isPrimary: false },
+      { id: '3', name: 'HOLLYWOOD', team: 0, boost: 4, goals: 1, shots: 3, assists: 0, saves: 1, score: 290, isPrimary: false },
+      { id: '4', name: 'BANDIT', team: 1, boost: 8, goals: 1, shots: 4, assists: 0, saves: 0, score: 220, isPrimary: false },
+      { id: '5', name: 'CHIPPER', team: 1, boost: 33, goals: 0, shots: 1, assists: 1, saves: 3, score: 200, isPrimary: false },
+      { id: '6', name: 'REX', team: 1, boost: 100, goals: 0, shots: 2, assists: 0, saves: 1, score: 130, isPrimary: false },
     ],
-    teams: { blue: { score: 3 }, orange: { score: 1 } },
+    teams: { blue: { score: 1 }, orange: { score: 5 } },
     ball: { speed: 87, location: { x: 0, y: 0, z: 100 } },
-    game: { time: 245, isOT: false, hasTarget: true },
+    game: { time: 121, isOT: false, hasTarget: true },
   });
 
   const currentGameState = gameState || mockGameState;
@@ -44,151 +67,145 @@ export default function Overlay() {
   const orangeTeamPlayers = currentGameState.players.filter((p) => p.team === 1);
   const targetPlayer = currentGameState.players.find((p) => p.isPrimary);
 
-  const getSeriesDots = () => {
+  const getSeriesDotsCount = () => {
     const seriesType = session?.series_type || 'bo5';
-    const maxWins = seriesType === 'bo5' ? 3 : seriesType === 'bo7' ? 4 : seriesType === 'bo3' ? 2 : 1;
-    return { maxWins, teamAWins: session?.team_a_series_score || 0, teamBWins: session?.team_b_series_score || 0 };
+    switch (seriesType) {
+      case 'bo1': return 0;
+      case 'bo3': return 2;
+      case 'bo5': return 3;
+      case 'bo7': return 4;
+      default: return 3;
+    }
   };
+
+  const teamAWins = session?.team_a_series_score || 0;
+  const teamBWins = session?.team_b_series_score || 0;
+  const seriesDotsCount = getSeriesDotsCount();
 
   return (
     <div className="w-screen h-screen overflow-hidden relative overlay-transparent">
-      {/* Scoreboard */}
+      {/* Main Scoreboard - New Professional Layout */}
       {config.scoreboard.visible && (
         <div
-          className="absolute flex items-center justify-center"
+          className="absolute flex flex-col items-center"
           style={{
             left: `${config.scoreboard.position.x}%`,
             top: `${config.scoreboard.position.y}%`,
             transform: 'translateX(-50%)',
           }}
         >
+          {/* Main scoreboard bar */}
           <div
-            className="flex items-center"
+            className="flex items-center justify-center"
             style={{
               backgroundColor: config.scoreboard.backgroundColor,
-              borderRadius: config.scoreboard.borderRadius,
               border: `${config.scoreboard.borderWidth}px solid ${config.scoreboard.borderColor}`,
-              gap: config.scoreboard.gap,
-              padding: '12px 24px',
+              ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreboard.borderRadius),
+              padding: '8px 0',
             }}
           >
-            {/* Team A Name */}
-            {config.teamAName.visible && (
-              <div className="flex items-center gap-3"
-                style={{
-                  backgroundColor: config.teamAName.backgroundColor,
-                  borderRadius: config.teamAName.borderRadius,
-                  padding: config.teamAName.padding,
-                }}
-              >
-                {config.teamAName.showLogo && session?.team_a_logo && (
-                  <img
-                    src={session.team_a_logo}
-                    alt=""
-                    style={{ width: config.teamAName.logoSize, height: config.teamAName.logoSize }}
-                    className="object-contain"
-                  />
-                )}
-                <span
-                  className="font-semibold"
-                  style={{ 
-                    color: session?.team_a_color || '#3B82F6',
-                    fontSize: config.teamAName.fontSize,
-                    maxWidth: config.teamAName.maxWidth,
+            {/* Team A: Logo + Name + Score */}
+            <div className="flex items-center">
+              {/* Team A Logo */}
+              {config.teamAName.visible && config.teamAName.showLogo && (
+                <div 
+                  className="flex items-center justify-center px-4"
+                  style={{
+                    height: config.scoreboard.height * 0.7,
                   }}
                 >
-                  {session?.team_a_name || 'Blue Team'}
-                </span>
-              </div>
-            )}
+                  {session?.team_a_logo ? (
+                    <img
+                      src={session.team_a_logo}
+                      alt=""
+                      style={{ width: config.teamAName.logoSize, height: config.teamAName.logoSize }}
+                      className="object-contain"
+                    />
+                  ) : (
+                    <div 
+                      className="flex items-center justify-center font-bold text-sm"
+                      style={{ 
+                        width: config.teamAName.logoSize, 
+                        height: config.teamAName.logoSize,
+                        backgroundColor: `${session?.team_a_color || '#3B82F6'}33`,
+                        color: session?.team_a_color || '#3B82F6',
+                        borderRadius: getSkewedBorderRadius(config.scoreboard.edgeStyle, 8),
+                      }}
+                    >
+                      BD
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {/* Score Display */}
-            {config.scoreDisplay.visible && (
-              <div 
-                className="flex items-center justify-center"
-                style={{
-                  backgroundColor: config.scoreDisplay.backgroundColor,
-                  borderRadius: config.scoreDisplay.borderRadius,
-                  padding: config.scoreDisplay.padding,
-                  gap: config.scoreDisplay.gap,
-                }}
-              >
-                <motion.span
-                  key={currentGameState.teams.blue.score}
-                  initial={{ scale: 1.2 }}
-                  animate={{ scale: 1 }}
-                  className="font-bold"
-                  style={{ 
-                    color: session?.team_a_color || '#3B82F6',
+              {/* Team A Name */}
+              {config.teamAName.visible && (
+                <div className="flex flex-col items-end pr-3">
+                  <span
+                    className="font-bold uppercase tracking-wide"
+                    style={{ 
+                      color: config.teamAName.textColor,
+                      fontSize: config.teamAName.fontSize,
+                      maxWidth: config.teamAName.maxWidth,
+                    }}
+                  >
+                    {session?.team_a_name || 'Blue Team'}
+                  </span>
+                  {/* Team A Series dots - under team name */}
+                  {config.seriesDisplay.visible && seriesDotsCount > 0 && (
+                    <div className="flex items-center gap-1 mt-1">
+                      {Array.from({ length: seriesDotsCount }).map((_, i) => (
+                        <div
+                          key={`a-${i}`}
+                          className="rounded-full"
+                          style={{
+                            width: config.seriesDisplay.dotSize,
+                            height: config.seriesDisplay.dotSize,
+                            backgroundColor: i < teamAWins 
+                              ? config.seriesDisplay.activeDotColor 
+                              : config.seriesDisplay.inactiveDotColor,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Team A Score */}
+              {config.scoreDisplay.visible && (
+                <motion.div
+                  className="flex items-center justify-center font-bold"
+                  style={{
+                    backgroundColor: session?.team_a_color || '#3B82F6',
+                    color: '#ffffff',
                     fontSize: config.scoreDisplay.fontSize,
+                    minWidth: config.scoreDisplay.fontSize * 1.8,
+                    height: config.scoreDisplay.fontSize * 1.6,
+                    ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreDisplay.borderRadius),
                   }}
+                  key={`a-${currentGameState.teams.blue.score}`}
+                  initial={{ scale: 1.1 }}
+                  animate={{ scale: 1 }}
                 >
                   {currentGameState.teams.blue.score}
-                </motion.span>
-                <span 
-                  style={{ 
-                    color: config.scoreDisplay.separatorColor,
-                    fontSize: config.scoreDisplay.fontSize * 0.7,
-                  }}
-                >
-                  -
-                </span>
-                <motion.span
-                  key={currentGameState.teams.orange.score}
-                  initial={{ scale: 1.2 }}
-                  animate={{ scale: 1 }}
-                  className="font-bold"
-                  style={{ 
-                    color: session?.team_b_color || '#F97316',
-                    fontSize: config.scoreDisplay.fontSize,
-                  }}
-                >
-                  {currentGameState.teams.orange.score}
-                </motion.span>
-              </div>
-            )}
+                </motion.div>
+              )}
+            </div>
 
-            {/* Team B Name */}
-            {config.teamBName.visible && (
-              <div className="flex items-center gap-3"
-                style={{
-                  backgroundColor: config.teamBName.backgroundColor,
-                  borderRadius: config.teamBName.borderRadius,
-                  padding: config.teamBName.padding,
-                }}
-              >
-                <span
-                  className="font-semibold"
-                  style={{ 
-                    color: session?.team_b_color || '#F97316',
-                    fontSize: config.teamBName.fontSize,
-                    maxWidth: config.teamBName.maxWidth,
-                  }}
-                >
-                  {session?.team_b_name || 'Orange Team'}
-                </span>
-                {config.teamBName.showLogo && session?.team_b_logo && (
-                  <img
-                    src={session.team_b_logo}
-                    alt=""
-                    style={{ width: config.teamBName.logoSize, height: config.teamBName.logoSize }}
-                    className="object-contain"
-                  />
-                )}
-              </div>
-            )}
-
-            {/* Timer Display */}
+            {/* Timer in center */}
             {config.timerDisplay.visible && (
               <div 
+                className="flex items-center justify-center mx-2"
                 style={{
                   backgroundColor: config.timerDisplay.backgroundColor,
-                  borderRadius: config.timerDisplay.borderRadius,
-                  padding: config.timerDisplay.padding,
+                  padding: `${config.timerDisplay.padding}px ${config.timerDisplay.padding * 2}px`,
+                  ...getEdgeStyle(config.scoreboard.edgeStyle, config.timerDisplay.borderRadius),
+                  minWidth: 80,
                 }}
               >
                 <span 
-                  className="font-mono"
+                  className="font-mono font-bold"
                   style={{ 
                     color: config.timerDisplay.textColor,
                     fontSize: config.timerDisplay.fontSize,
@@ -207,97 +224,136 @@ export default function Overlay() {
               </div>
             )}
 
-            {/* Series Display */}
-            {config.seriesDisplay.visible && session && (
-              <div 
-                className="flex items-center gap-2"
-                style={{
-                  backgroundColor: config.seriesDisplay.backgroundColor,
-                  borderRadius: config.seriesDisplay.borderRadius,
-                  padding: config.seriesDisplay.padding,
-                }}
-              >
-                {config.seriesDisplay.showSeriesType && (
+            {/* Team B: Score + Name + Logo */}
+            <div className="flex items-center">
+              {/* Team B Score */}
+              {config.scoreDisplay.visible && (
+                <motion.div
+                  className="flex items-center justify-center font-bold"
+                  style={{
+                    backgroundColor: session?.team_b_color || '#F97316',
+                    color: '#ffffff',
+                    fontSize: config.scoreDisplay.fontSize,
+                    minWidth: config.scoreDisplay.fontSize * 1.8,
+                    height: config.scoreDisplay.fontSize * 1.6,
+                    ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreDisplay.borderRadius),
+                  }}
+                  key={`b-${currentGameState.teams.orange.score}`}
+                  initial={{ scale: 1.1 }}
+                  animate={{ scale: 1 }}
+                >
+                  {currentGameState.teams.orange.score}
+                </motion.div>
+              )}
+
+              {/* Team B Name */}
+              {config.teamBName.visible && (
+                <div className="flex flex-col items-start pl-3">
                   <span
+                    className="font-bold uppercase tracking-wide"
                     style={{ 
-                      color: config.seriesDisplay.textColor,
-                      fontSize: config.seriesDisplay.fontSize,
+                      color: config.teamBName.textColor,
+                      fontSize: config.teamBName.fontSize,
+                      maxWidth: config.teamBName.maxWidth,
                     }}
                   >
-                    {session.series_type.toUpperCase()}
+                    {session?.team_b_name || 'Orange Team'}
                   </span>
-                )}
-                <div className="flex items-center" style={{ gap: config.seriesDisplay.dotSpacing }}>
-                  {Array.from({ length: getSeriesDots().maxWins }).map((_, i) => (
-                    <div
-                      key={`a-${i}`}
-                      className="rounded-full"
-                      style={{
-                        width: config.seriesDisplay.dotSize,
-                        height: config.seriesDisplay.dotSize,
-                        backgroundColor: i < getSeriesDots().teamAWins 
-                          ? config.seriesDisplay.activeDotColor 
-                          : config.seriesDisplay.inactiveDotColor,
-                      }}
-                    />
-                  ))}
-                  <span 
-                    style={{ 
-                      color: config.seriesDisplay.textColor, 
-                      fontSize: config.seriesDisplay.fontSize * 0.8,
-                      margin: '0 4px',
-                    }}
-                  >
-                    •
-                  </span>
-                  {Array.from({ length: getSeriesDots().maxWins }).map((_, i) => (
-                    <div
-                      key={`b-${i}`}
-                      className="rounded-full"
-                      style={{
-                        width: config.seriesDisplay.dotSize,
-                        height: config.seriesDisplay.dotSize,
-                        backgroundColor: i < getSeriesDots().teamBWins 
-                          ? config.seriesDisplay.activeDotColor 
-                          : config.seriesDisplay.inactiveDotColor,
-                      }}
-                    />
-                  ))}
+                  {/* Team B Series dots - under team name */}
+                  {config.seriesDisplay.visible && seriesDotsCount > 0 && (
+                    <div className="flex items-center gap-1 mt-1">
+                      {Array.from({ length: seriesDotsCount }).map((_, i) => (
+                        <div
+                          key={`b-${i}`}
+                          className="rounded-full"
+                          style={{
+                            width: config.seriesDisplay.dotSize,
+                            height: config.seriesDisplay.dotSize,
+                            backgroundColor: i < teamBWins 
+                              ? config.seriesDisplay.activeDotColor 
+                              : config.seriesDisplay.inactiveDotColor,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* Team B Logo */}
+              {config.teamBName.visible && config.teamBName.showLogo && (
+                <div 
+                  className="flex items-center justify-center px-4"
+                  style={{
+                    height: config.scoreboard.height * 0.7,
+                  }}
+                >
+                  {session?.team_b_logo ? (
+                    <img
+                      src={session.team_b_logo}
+                      alt=""
+                      style={{ width: config.teamBName.logoSize, height: config.teamBName.logoSize }}
+                      className="object-contain"
+                    />
+                  ) : (
+                    <div 
+                      className="flex items-center justify-center font-bold text-sm"
+                      style={{ 
+                        width: config.teamBName.logoSize, 
+                        height: config.teamBName.logoSize,
+                        backgroundColor: `${session?.team_b_color || '#F97316'}33`,
+                        color: session?.team_b_color || '#F97316',
+                        borderRadius: getSkewedBorderRadius(config.scoreboard.edgeStyle, 8),
+                      }}
+                    >
+                      OP
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Blue Team Boost Bars (Left) */}
+      {/* Blue Team Boost Bars (Left) - positioned at verticalPosition% */}
       {config.boostBars.visible && (
         <div
-          className="absolute left-4 bottom-4 space-y-2"
-          style={{ width: config.boostBars.width }}
+          className="absolute space-y-2"
+          style={{ 
+            width: config.boostBars.width,
+            left: config.boostBars.horizontalPadding,
+            top: `${config.boostBars.verticalPosition}%`,
+            transform: 'translateY(-50%)',
+          }}
         >
           {blueTeamPlayers.map((player) => (
             <BoostBar
               key={player.id}
               player={player}
-              teamColor={session?.team_a_color || '#3B82F6'}
+              teamColor={session?.team_a_color || config.boostBars.teamAColor}
               config={config.boostBars}
             />
           ))}
         </div>
       )}
 
-      {/* Orange Team Boost Bars (Right) */}
+      {/* Orange Team Boost Bars (Right) - positioned at verticalPosition% */}
       {config.boostBars.visible && (
         <div
-          className="absolute right-4 bottom-4 space-y-2"
-          style={{ width: config.boostBars.width }}
+          className="absolute space-y-2"
+          style={{ 
+            width: config.boostBars.width,
+            right: config.boostBars.horizontalPadding,
+            top: `${config.boostBars.verticalPosition}%`,
+            transform: 'translateY(-50%)',
+          }}
         >
           {orangeTeamPlayers.map((player) => (
             <BoostBar
               key={player.id}
               player={player}
-              teamColor={session?.team_b_color || '#F97316'}
+              teamColor={session?.team_b_color || config.boostBars.teamBColor}
               config={config.boostBars}
               reversed
             />
@@ -316,7 +372,7 @@ export default function Overlay() {
           }}
         >
           <BoostCircle
-            boost={targetPlayer.boost}
+            boost={normalizeBoost(targetPlayer.boost)}
             config={config.boostCircle}
             teamColor={
               targetPlayer.team === 0
@@ -351,35 +407,57 @@ interface BoostBarProps {
 }
 
 function BoostBar({ player, teamColor, config, reversed }: BoostBarProps) {
+  const normalizedBoost = normalizeBoost(player.boost);
+  const edgeStyles = getEdgeStyle(config.edgeStyle, config.borderRadius);
+  
   return (
     <div
       className={`flex items-center gap-2 px-3 py-2 ${reversed ? 'flex-row-reverse' : ''}`}
       style={{
         backgroundColor: config.backgroundColor,
-        borderRadius: config.borderRadius,
+        ...edgeStyles,
       }}
     >
       {config.showPlayerNames && (
         <span
-          className="text-sm font-medium truncate"
-          style={{ fontSize: config.fontSize, maxWidth: '80px' }}
+          className="text-sm font-semibold truncate uppercase"
+          style={{ 
+            fontSize: config.fontSize, 
+            maxWidth: '80px',
+            color: '#ffffff',
+          }}
         >
           {player.name}
         </span>
       )}
-      <div className="flex-1 h-2 bg-secondary/50 rounded-full overflow-hidden">
+      <div 
+        className="flex-1 overflow-hidden"
+        style={{
+          height: config.barHeight,
+          backgroundColor: 'rgba(255,255,255,0.1)',
+          ...getEdgeStyle(config.edgeStyle, config.barHeight / 2),
+        }}
+      >
         <motion.div
-          className="h-full rounded-full"
+          className="h-full"
           initial={false}
           animate={{
-            width: `${player.boost}%`,
-            backgroundColor: getBoostColor(player.boost),
+            width: `${normalizedBoost}%`,
+            backgroundColor: teamColor,
           }}
           transition={{ duration: config.animationSpeed / 1000 }}
+          style={{
+            ...getEdgeStyle(config.edgeStyle, config.barHeight / 2),
+          }}
         />
       </div>
       {config.showBoostValue && (
-        <span className="font-mono text-sm w-8 text-right">{player.boost}</span>
+        <span 
+          className="font-mono font-bold w-8 text-center"
+          style={{ fontSize: config.fontSize, color: '#ffffff' }}
+        >
+          {normalizedBoost}
+        </span>
       )}
     </div>
   );
