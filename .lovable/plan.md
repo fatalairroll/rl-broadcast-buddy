@@ -1,180 +1,292 @@
 
 
-# Plan: Redesign układu overlay na wzór profesjonalnych turniejów RL
+# Plan: Rozszerzenie możliwości projektowania overlay
 
-## Analiza referencji
+## Przegląd
 
-Na podstawie przesłanego screena z profesjonalnego overlaya Rocket League, nowy układ powinien zawierać:
+Na podstawie przesłanych przykładów profesjonalnych overlayów oraz sugestii użytkownika, rozszerzam kreator overlay o:
+
+1. **Kształty elementów** - możliwość wyboru kształtu dla każdego elementu
+2. **Pozycjonowanie X/Y** - precyzyjne przesuwanie elementów według osi
+3. **Gotowe warianty overlay** - predefiniowane szablony do wyboru
+4. **Naprawa layoutu boost barów** - stała szerokość paska boost, elastyczna przestrzeń na nick
+
+---
+
+## 1. Kształty elementów
+
+### Aktualny stan
+Obecnie istnieje `EdgeStyle` z opcjami: `'rounded'`, `'skewed'`, `'sharp'`
+
+### Nowy system kształtów
+Rozszerzam opcje kształtów o dodatkowe warianty:
 
 ```text
-+------------------------------------------------------------------+
-|                    [Zinshin no LAN] (tytuł turnieju)             |
-|  [LOGO] [Nazwa drużyny A] [1] [2:01] [5] [Nazwa drużyny B] [LOGO]|
-|                       [GAME 672 / seria]                          |
-+------------------------------------------------------------------+
-
-[Boost bary lewa strona]                    [Boost bary prawa strona]
-BUZZ         [===33==]                              [===8===] BANDIT
-FURY         [===0===]                              [===33==] CHIPPER
-HOLLYWOOD    [===4===]                              [===REX=] REX
+┌─────────────────────────────────────────────────────────────────┐
+│ Kształty elementów:                                             │
+│                                                                 │
+│ ┌────────┐   ╱────────╲   ┌────────┐   (  ────  )   ╔════════╗  │
+│ │ SHARP  │   │ SKEWED │   │ROUNDED │   │ PILL   │   ║ DOUBLE ║  │
+│ └────────┘   ╲────────╱   └────────┘   (  ────  )   ╚════════╝  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Zmiany do wprowadzenia
+**Nowe kształty:**
+- `sharp` - ostre rogi (bez zaokrągleń)
+- `rounded` - zaokrąglone rogi
+- `skewed` - ścięte/skośne krawędzie
+- `pill` - pełne zaokrąglenie (jak kapsułka)
+- `hexagon` - sześciokąt (popularny w esportowych overlayach)
 
-### 1. Nowy układ Scoreboard (górny pasek)
+### Implementacja CSS
 
-**Struktura pozioma (od lewej do prawej):**
-1. Logo drużyny A
-2. Nazwa drużyny A
-3. Wynik drużyny A (kolorowe tło - niebieskie)
-4. Timer (środek, biały tekst na czarnym tle)
-5. Wynik drużyny B (kolorowe tło - pomarańczowe)
-6. Nazwa drużyny B
-7. Logo drużyny B
+```css
+/* Pill shape */
+.shape-pill {
+  border-radius: 9999px;
+}
 
-**Pod scoreboardem:**
-- Pasek serii (np. "GAME 672" lub wskaźniki wygranych meczy)
+/* Hexagon shape */
+.shape-hexagon {
+  clip-path: polygon(5% 50%, 15% 0%, 85% 0%, 95% 50%, 85% 100%, 15% 100%);
+}
 
-### 2. Paski serii
+/* Double skew (parallelogram) */
+.shape-double-skew {
+  clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
+}
+```
 
-Logika dla różnych typów serii:
-- **BO1**: brak wskaźników serii (pojedynczy mecz)
-- **BO3**: 2 pola na stronę (wygrywa kto zdobędzie 2)
-- **BO5**: 3 pola na stronę (wygrywa kto zdobędzie 3)
-- **BO7**: 4 pola na stronę (wygrywa kto zdobędzie 4)
+---
 
-### 3. Boost Bars na 2/3 wysokości ekranu
+## 2. Pozycjonowanie X/Y dla każdego elementu
 
-**Pozycja:**
-- Lewa strona: boost bary drużyny niebieskiej (na ~66% wysokości ekranu)
-- Prawa strona: boost bary drużyny pomarańczowej (lustrzane odbicie)
+### Aktualny stan
+Tylko niektóre elementy (scoreboard, boostCircle, playerStats) mają pozycję X/Y. 
 
-**Dynamiczna liczba barów:**
-- Automatyczne dostosowanie do liczby graczy w meczu (1v1, 2v2, 3v3, 4v4)
+### Nowe możliwości
+Każdy element overlay będzie miał własne pole `position: { x: number, y: number }` oraz opcję `offsetX` i `offsetY` dla precyzyjnego przesuwania.
 
-**Wartość boosta:**
-- Min: 0, Max: 100 (przeliczane jeśli źródło danych używa innych jednostek)
+### Zmiany w typach
 
-### 4. Opcje stylizacji krawędzi
+```typescript
+// Rozszerzenie ElementStyle o pozycję
+interface PositionableElement {
+  position: { x: number; y: number }; // % ekranu
+  offsetX: number; // px offset
+  offsetY: number; // px offset
+}
 
-Nowa opcja dla boost barów i elementów scoreboard:
-- `edgeStyle`: `'rounded'` | `'skewed'` | `'sharp'`
-- **Rounded**: zaokrąglone rogi (obecne)
-- **Skewed**: ścięte/skośne krawędzie (jak w referencji)
-- **Sharp**: ostre krawędzie (prostokąt)
+// Aktualizacja interfejsów elementów
+interface ScoreDisplayConfig extends ElementStyle, PositionableElement {
+  // ... istniejące pola
+}
+```
 
-### 5. Color Picker z paletą
+### UI w StyleEditor
 
-Nowy komponent `ColorPicker`:
-- Wizualna paleta kolorów (preset colors)
-- Suwak odcienia (hue slider)
-- Input HEX/RGBA dla dokładnych wartości
-- Podgląd wybranego koloru
+Dla każdego elementu dodaję sekcję "Pozycja":
 
-## Pliki do modyfikacji
+```text
+┌───────────────────────────────────────┐
+│ Pozycja i przesunięcie                │
+├───────────────────────────────────────┤
+│ Pozycja X      [──●───────] 50%       │
+│ Pozycja Y      [──────●───] 5%        │
+│ Przesunięcie X [──────●───] 0px       │
+│ Przesunięcie Y [────●─────] 0px       │
+└───────────────────────────────────────┘
+```
 
-### `src/types/broadcast.ts`
-- Dodanie nowego typu `EdgeStyle = 'rounded' | 'skewed' | 'sharp'`
-- Dodanie pola `edgeStyle` do `BoostBarsConfig` i innych konfiguracji
-- Aktualizacja `BoostBarsConfig` z nową pozycją (% ekranu zamiast stałej)
+---
 
-### `src/pages/Overlay.tsx`
-- Kompletna przebudowa struktury scoreboardu
-- Nowy układ: LOGO | NAZWA | WYNIK | TIMER | WYNIK | NAZWA | LOGO
-- Pasek serii pod głównym scoreboardem
-- Boost bary na 66% wysokości ekranu
-- Obsługa skośnych krawędzi (CSS clip-path lub transform: skewX)
+## 3. Gotowe warianty overlay (Templates)
 
-### `src/components/creator/OverlayPreview.tsx`
-- Aktualizacja podglądu zgodnie z nowym układem
-- Dodanie wizualizacji skośnych krawędzi
+Na podstawie przesłanych przykładów tworzę 4 predefiniowane szablony:
 
-### `src/components/creator/StyleEditor.tsx`
-- Dodanie nowego komponentu `ColorPicker` z paletą
-- Zamiana `ColorInput` na `ColorPicker` we wszystkich edytorach
-- Dodanie opcji wyboru stylu krawędzi (`EdgeStyle`)
+### Template 1: "RLCS Classic" (screen 1)
+- Kompaktowy scoreboard z logo
+- Boost bary po bokach z wartością liczbową
+- Okrągły wskaźnik boosta w prawym dolnym rogu
 
-### `src/components/ui/color-picker.tsx` (nowy plik)
-- Komponent color picker z:
-  - Paletą predefiniowanych kolorów
-  - Suwakiem odcienia
-  - Inputem HEX/RGBA
-  - Podglądem wybranego koloru
+### Template 2: "Tournament Pro" (screen 2)  
+- Szeroki scoreboard z kolorowymi tłami drużyn
+- Pasek informacyjny na górze (EXAMPLE TOP TEXT)
+- Boost bary z większą czcionką nicków
+
+### Template 3: "Minimalist Dark" (screen 3)
+- Ciemny, elegancki design
+- Boost bary po bokach z ciemnym tłem
+- Wskaźnik boosta jako neonowy okrąg
+
+### Template 4: "Modern Esport"
+- Skośne krawędzie (skewed)
+- Gradientowe tła drużyn
+- Nowoczesny, dynamiczny wygląd
+
+### Implementacja
+
+```typescript
+// src/config/overlayTemplates.ts
+export const OVERLAY_TEMPLATES: Record<string, OverlayTemplate> = {
+  rlcs_classic: {
+    name: 'RLCS Classic',
+    description: 'Klasyczny styl turniejów Rocket League',
+    thumbnail: '/templates/rlcs-classic.png',
+    config: { /* pełna konfiguracja */ }
+  },
+  tournament_pro: { /* ... */ },
+  minimalist_dark: { /* ... */ },
+  modern_esport: { /* ... */ },
+};
+```
+
+### UI wyboru szablonu
+
+Nowy komponent w Kreatorze - galeria szablonów:
+
+```text
+┌──────────────────────────────────────────────────────────────────┐
+│ Wybierz szablon startowy                                         │
+├──────────────────────────────────────────────────────────────────┤
+│ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐          │
+│ │  [img 1]  │ │  [img 2]  │ │  [img 3]  │ │  [img 4]  │          │
+│ │           │ │           │ │           │ │           │          │
+│ │ RLCS      │ │ Tournament│ │ Minimalist│ │ Modern    │          │
+│ │ Classic   │ │ Pro       │ │ Dark      │ │ Esport    │          │
+│ └───────────┘ └───────────┘ └───────────┘ └───────────┘          │
+│                                          [Zastosuj szablon]       │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Naprawa layoutu boost barów
+
+### Problem
+Obecnie nick i boost bar dzielą jedną elastyczną przestrzeń (`flex-1`), co powoduje że długi nick skraca pasek boosta.
+
+### Rozwiązanie
+Stała szerokość dla boost bara, elastyczna przestrzeń dla nicku z `text-overflow: ellipsis`.
+
+### Nowy layout boost bara
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ BUZZ______________________ [████████████ 88 ] │
+│ VERYLONGNICKNAME__________ [████████     62 ] │
+│ REX_______________________ [███          28 ] │
+└─────────────────────────────────────────────────────────────┘
+     ↑ flex (elastyczny)           ↑ fixed width (stała)
+```
+
+### Implementacja CSS
+
+```tsx
+// Aktualny (błędny) kod:
+<span className="truncate" style={{ maxWidth: '80px' }}>{player.name}</span>
+<div className="flex-1">...</div> // ← boost bar może się kurczyć
+
+// Nowy (poprawiony) kod:
+<div className="flex-1 min-w-0">
+  <span className="truncate block">{player.name}</span>
+</div>
+<div className="flex-shrink-0" style={{ width: boostBarWidth }}>
+  // boost bar - stała szerokość
+</div>
+<span className="w-8 text-center flex-shrink-0">{boost}</span>
+```
+
+### Nowe pole konfiguracji
+
+```typescript
+interface BoostBarsConfig {
+  // ... istniejące
+  boostBarWidth: number; // nowe pole - stała szerokość boost bara (px)
+  nickWidth: 'auto' | number; // 'auto' = flex, number = max-width w px
+}
+```
+
+---
 
 ## Szczegóły techniczne
 
-### Skośne krawędzie (CSS)
+### Pliki do modyfikacji
 
-```css
-/* Opcja 1: clip-path */
-.skewed-edge {
-  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
-}
+| Plik | Zmiany |
+|------|--------|
+| `src/types/broadcast.ts` | Dodanie nowych typów kształtów, rozszerzenie interfejsów o position |
+| `src/pages/Overlay.tsx` | Aktualizacja renderowania z nowymi kształtami i pozycjami, naprawa boost barów |
+| `src/components/creator/OverlayPreview.tsx` | Synchronizacja podglądu z nowymi opcjami |
+| `src/components/creator/StyleEditor.tsx` | Dodanie sliderów X/Y dla każdego elementu |
+| `src/components/ui/shape-picker.tsx` | Nowy komponent do wyboru kształtu |
+| `src/config/overlayTemplates.ts` | Nowy plik z predefiniowanymi szablonami |
+| `src/components/creator/TemplateGallery.tsx` | Nowy komponent galerii szablonów |
+| `src/pages/Creator.tsx` | Integracja galerii szablonów |
 
-/* Opcja 2: transform + overflow */
-.skewed-container {
-  transform: skewX(-10deg);
-}
-.skewed-content {
-  transform: skewX(10deg); /* przeciwne skew dla tekstu */
-}
-```
-
-### Pozycja boost barów (% ekranu)
+### Nowy typ kształtu
 
 ```typescript
-// Nowa konfiguracja
-interface BoostBarsConfig {
-  // ... istniejące pola
-  verticalPosition: number; // 0-100, domyślnie 66 (2/3 ekranu)
-  horizontalPadding: number; // padding od krawędzi w px
-  edgeStyle: EdgeStyle;
+export type ElementShape = 
+  | 'sharp'     // ostre rogi
+  | 'rounded'   // zaokrąglone
+  | 'skewed'    // skośne
+  | 'pill'      // kapsułka
+  | 'hexagon'   // sześciokąt
+  | 'parallelogram'; // równoległobok
+```
+
+### Funkcja pomocnicza dla kształtów
+
+```typescript
+function getShapeStyle(shape: ElementShape, borderRadius: number): React.CSSProperties {
+  switch (shape) {
+    case 'sharp':
+      return { borderRadius: 0 };
+    case 'rounded':
+      return { borderRadius };
+    case 'pill':
+      return { borderRadius: 9999 };
+    case 'skewed':
+      return { 
+        clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
+        borderRadius: 0 
+      };
+    case 'hexagon':
+      return { 
+        clipPath: 'polygon(5% 50%, 15% 0%, 85% 0%, 95% 50%, 85% 100%, 15% 100%)',
+        borderRadius: 0 
+      };
+    case 'parallelogram':
+      return { 
+        clipPath: 'polygon(10% 0, 100% 0, 90% 100%, 0 100%)',
+        borderRadius: 0 
+      };
+  }
 }
 ```
 
-### Paleta kolorów (preset)
-
-```typescript
-const COLOR_PRESETS = [
-  // Niebieskie
-  '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF',
-  // Pomarańczowe
-  '#F97316', '#EA580C', '#C2410C', '#9A3412',
-  // Zielone
-  '#22C55E', '#16A34A', '#15803D', '#166534',
-  // Czerwone
-  '#EF4444', '#DC2626', '#B91C1C', '#991B1B',
-  // Neutralne
-  '#FFFFFF', '#000000', '#6B7280', '#374151',
-];
-```
-
-### Przeliczanie boosta
-
-```typescript
-// Normalizacja wartości boosta do zakresu 0-100
-function normalizeBoost(value: number, max: number = 100): number {
-  return Math.min(100, Math.max(0, Math.round((value / max) * 100)));
-}
-```
+---
 
 ## Kolejność implementacji
 
-1. **Typ EdgeStyle i aktualizacja typów** - dodanie nowych opcji konfiguracji
-2. **Komponent ColorPicker** - nowy komponent UI z paletą kolorów
-3. **Aktualizacja StyleEditor** - zamiana ColorInput na ColorPicker, dodanie EdgeStyle
-4. **Nowy układ Overlay.tsx** - przebudowa struktury zgodnie z referencją
-5. **Aktualizacja OverlayPreview** - synchronizacja podglądu z nowym układem
-6. **Domyślna konfiguracja** - aktualizacja defaultOverlayConfig
+1. **Rozszerzenie typów** - nowe kształty i pozycje w `broadcast.ts`
+2. **ShapePicker component** - nowy komponent UI do wyboru kształtu
+3. **Aktualizacja StyleEditor** - dodanie sliderów X/Y i shape picker
+4. **Naprawa boost barów** - zmiana layoutu na fixed + flex
+5. **Szablony overlay** - utworzenie 4 predefiniowanych konfiguracji
+6. **TemplateGallery** - UI do wyboru szablonu
+7. **Integracja w Creator** - połączenie wszystkich elementów
+8. **Aktualizacja Overlay.tsx i Preview** - obsługa nowych opcji
+
+---
 
 ## Efekt końcowy
 
-Po wdrożeniu:
-- Profesjonalny układ zgodny z referencją
-- Timer na środku, wyniki po bokach
-- Logo i nazwa drużyny symetrycznie
-- Pasek serii pod scoreboardem
-- Boost bary na 2/3 wysokości ekranu
-- Opcja skośnych lub zaokrąglonych krawędzi
-- Intuicyjny color picker z paletą presetów
+Po wdrożeniu użytkownik będzie mógł:
+- Wybrać kształt dla każdego elementu overlay (6 opcji)
+- Precyzyjnie pozycjonować elementy za pomocą sliderów X/Y
+- Rozpocząć od jednego z 4 gotowych szablonów
+- Korzystać z poprawionych boost barów które nie kurczą się przy długich nickach
 
