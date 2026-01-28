@@ -151,6 +151,7 @@ export interface BoostBarsConfig {
   barHeight: number;
   boostBarWidth: number; // Fixed width for boost bar in px
   backgroundColor: string;
+  backgroundGradient?: GradientConfig;
   borderRadius: number;
   edgeStyle: EdgeStyle;
   shape: ElementShape;
@@ -200,10 +201,16 @@ export interface GeneralConfig {
   transitionDuration: number;
 }
 
+export interface GradientStop {
+  color: string;
+  position: number; // 0-100
+}
+
 export interface GradientConfig {
+  enabled: boolean;
   type: 'linear' | 'radial';
-  angle: number;
-  stops: { color: string; position: number }[];
+  angle: number; // 0-360
+  stops: GradientStop[];
 }
 
 // Game state from SOS Plugin

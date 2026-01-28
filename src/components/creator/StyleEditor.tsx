@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { EdgeStylePicker } from '@/components/ui/edge-style-picker';
 import { ShapePicker } from '@/components/ui/shape-picker';
-import type { EditableElement, OverlayConfig, EdgeStyle, ElementShape } from '@/types/broadcast';
+import { GradientEditor } from '@/components/ui/gradient-editor';
+import type { EditableElement, OverlayConfig, EdgeStyle, ElementShape, GradientConfig } from '@/types/broadcast';
 import { ELEMENT_LABELS } from '@/types/broadcast';
 import { Palette } from 'lucide-react';
 
@@ -94,10 +95,12 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
 
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorPicker
-          label="Kolor tła"
-          value={config.scoreboard.backgroundColor}
-          onChange={(v) => onChange('scoreboard', { backgroundColor: v })}
+        <GradientEditor
+          label="Tło"
+          backgroundColor={config.scoreboard.backgroundColor}
+          gradient={config.scoreboard.backgroundGradient}
+          onBackgroundColorChange={(v) => onChange('scoreboard', { backgroundColor: v })}
+          onGradientChange={(g) => onChange('scoreboard', { backgroundGradient: g })}
         />
         <EdgeStylePicker
           label="Styl krawędzi"
@@ -148,10 +151,12 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
     <div className="space-y-6">
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorPicker
-          label="Kolor tła"
-          value={config.scoreDisplay.backgroundColor}
-          onChange={(v) => onChange('scoreDisplay', { backgroundColor: v })}
+        <GradientEditor
+          label="Tło"
+          backgroundColor={config.scoreDisplay.backgroundColor}
+          gradient={config.scoreDisplay.backgroundGradient}
+          onBackgroundColorChange={(v) => onChange('scoreDisplay', { backgroundColor: v })}
+          onGradientChange={(g) => onChange('scoreDisplay', { backgroundGradient: g })}
         />
         <ColorPicker
           label="Kolor tekstu"
@@ -216,10 +221,12 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
     <div className="space-y-6">
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorPicker
-          label="Kolor tła"
-          value={config.timerDisplay.backgroundColor}
-          onChange={(v) => onChange('timerDisplay', { backgroundColor: v })}
+        <GradientEditor
+          label="Tło"
+          backgroundColor={config.timerDisplay.backgroundColor}
+          gradient={config.timerDisplay.backgroundGradient}
+          onBackgroundColorChange={(v) => onChange('timerDisplay', { backgroundColor: v })}
+          onGradientChange={(g) => onChange('timerDisplay', { backgroundGradient: g })}
         />
         <ColorPicker
           label="Kolor tekstu"
@@ -275,10 +282,12 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
     <div className="space-y-6">
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorPicker
-          label="Kolor tła"
-          value={config.seriesDisplay.backgroundColor}
-          onChange={(v) => onChange('seriesDisplay', { backgroundColor: v })}
+        <GradientEditor
+          label="Tło"
+          backgroundColor={config.seriesDisplay.backgroundColor}
+          gradient={config.seriesDisplay.backgroundGradient}
+          onBackgroundColorChange={(v) => onChange('seriesDisplay', { backgroundColor: v })}
+          onGradientChange={(g) => onChange('seriesDisplay', { backgroundGradient: g })}
         />
         <ColorPicker
           label="Kolor tekstu"
@@ -341,10 +350,12 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
       <div className="space-y-6">
         <div className="space-y-4">
           <h4 className="text-sm font-medium">Styl tekstu</h4>
-          <ColorPicker
-            label="Kolor tła"
-            value={teamConfig.backgroundColor}
-            onChange={(v) => onChange(team, { backgroundColor: v })}
+          <GradientEditor
+            label="Tło"
+            backgroundColor={teamConfig.backgroundColor}
+            gradient={teamConfig.backgroundGradient}
+            onBackgroundColorChange={(v) => onChange(team, { backgroundColor: v })}
+            onGradientChange={(g) => onChange(team, { backgroundGradient: g })}
           />
           <ColorPicker
             label="Kolor tekstu"
@@ -446,10 +457,12 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
       </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <ColorPicker
-          label="Kolor tła"
-          value={config.boostBars.backgroundColor}
-          onChange={(v) => onChange('boostBars', { backgroundColor: v })}
+        <GradientEditor
+          label="Tło"
+          backgroundColor={config.boostBars.backgroundColor}
+          gradient={config.boostBars.backgroundGradient}
+          onBackgroundColorChange={(v) => onChange('boostBars', { backgroundColor: v })}
+          onGradientChange={(g) => onChange('boostBars', { backgroundGradient: g })}
         />
         <EdgeStylePicker
           label="Styl krawędzi"

@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import type { OverlayConfig, EditableElement, GameState, EdgeStyle, ElementShape } from '@/types/broadcast';
+import type { OverlayConfig, EditableElement, GameState, EdgeStyle, ElementShape, GradientConfig } from '@/types/broadcast';
 import { getShapeStyle } from '@/components/ui/shape-picker';
+import { getBackgroundStyle } from '@/lib/gradient-utils';
 
 interface OverlayPreviewProps {
   config: OverlayConfig;
@@ -105,7 +106,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
           <div
             className="flex items-center justify-center"
             style={{
-              backgroundColor: config.scoreboard.backgroundColor,
+              ...getBackgroundStyle(config.scoreboard.backgroundColor, config.scoreboard.backgroundGradient),
               border: `${config.scoreboard.borderWidth}px solid ${config.scoreboard.borderColor}`,
               ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreboard.borderRadius * 0.5),
               padding: '4px 0',
@@ -314,7 +315,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 key={player.id}
                 className="flex items-center gap-1 px-1.5 py-0.5"
                 style={{
-                  backgroundColor: config.boostBars.backgroundColor,
+                  ...getBackgroundStyle(config.boostBars.backgroundColor, config.boostBars.backgroundGradient),
                   ...shapeStyles,
                   fontSize: config.boostBars.fontSize * 0.4,
                 }}
@@ -376,7 +377,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 key={player.id}
                 className="flex items-center gap-1 px-1.5 py-0.5 flex-row-reverse"
                 style={{
-                  backgroundColor: config.boostBars.backgroundColor,
+                  ...getBackgroundStyle(config.boostBars.backgroundColor, config.boostBars.backgroundGradient),
                   ...shapeStyles,
                   fontSize: config.boostBars.fontSize * 0.4,
                 }}

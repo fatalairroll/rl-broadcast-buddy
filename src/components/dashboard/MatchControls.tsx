@@ -9,12 +9,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, Send } from 'lucide-react';
+import { RefreshCw, Send, Palette } from 'lucide-react';
 import { RelayStatus } from './RelayStatus';
-import type { BroadcastSession, SeriesType } from '@/types/broadcast';
+import type { BroadcastSession, SeriesType, OverlayPreset } from '@/types/broadcast';
 
 interface MatchControlsProps {
   session: BroadcastSession | null;
+  presets: OverlayPreset[];
   onUpdate: (updates: Partial<BroadcastSession>) => void;
   onResetGameScore: () => void;
   onBroadcast: () => void;
@@ -29,6 +30,7 @@ const seriesOptions: { value: SeriesType; label: string }[] = [
 
 export function MatchControls({
   session,
+  presets,
   onUpdate,
   onResetGameScore,
   onBroadcast,
@@ -69,6 +71,36 @@ export function MatchControls({
                   {option.label}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Overlay Preset Selector */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Palette className="h-4 w-4" />
+            Preset overlay
+          </Label>
+          <Select
+            value={session?.overlay_preset_id || ''}
+            onValueChange={(value: string) => onUpdate({ overlay_preset_id: value || null })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Wybierz preset..." />
+            </SelectTrigger>
+            <SelectContent className="bg-background border border-border">
+              {presets.length === 0 ? (
+                <SelectItem value="" disabled>
+                  Brak presetów - utwórz w Kreatorze
+                </SelectItem>
+              ) : (
+                presets.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    {preset.name}
+                    {preset.is_default && ' (domyślny)'}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </div>
