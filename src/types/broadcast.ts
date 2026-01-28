@@ -4,6 +4,14 @@ export type SeriesType = 'bo1' | 'bo3' | 'bo5' | 'bo7';
 
 export type EdgeStyle = 'rounded' | 'skewed' | 'sharp';
 
+export type ElementShape = 
+  | 'sharp'
+  | 'rounded'
+  | 'skewed'
+  | 'pill'
+  | 'hexagon'
+  | 'parallelogram';
+
 export interface UserRole {
   id: string;
   user_id: string;
@@ -130,6 +138,7 @@ export interface ScoreboardConfig {
   gap: number;
   layout: 'horizontal' | 'compact';
   edgeStyle: EdgeStyle;
+  shape: ElementShape;
 }
 
 export interface BoostBarsConfig {
@@ -140,9 +149,11 @@ export interface BoostBarsConfig {
   width: number;
   height: number;
   barHeight: number;
+  boostBarWidth: number; // Fixed width for boost bar in px
   backgroundColor: string;
   borderRadius: number;
   edgeStyle: EdgeStyle;
+  shape: ElementShape;
   showPlayerNames: boolean;
   showBoostValue: boolean;
   fontFamily: string;
@@ -299,6 +310,7 @@ export const defaultOverlayConfig: OverlayConfig = {
     gap: 16,
     layout: 'horizontal',
     edgeStyle: 'rounded',
+    shape: 'rounded',
   },
   scoreDisplay: {
     ...defaultElementStyle,
@@ -363,9 +375,11 @@ export const defaultOverlayConfig: OverlayConfig = {
     width: 200,
     height: 150,
     barHeight: 8,
+    boostBarWidth: 100,
     backgroundColor: 'rgba(15, 17, 23, 0.85)',
     borderRadius: 6,
     edgeStyle: 'rounded',
+    shape: 'rounded',
     showPlayerNames: true,
     showBoostValue: true,
     fontFamily: 'Inter',

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useBroadcast } from '@/hooks/useBroadcast';
-import type { GameState, OverlayConfig, PlayerState, EdgeStyle } from '@/types/broadcast';
+import type { GameState, OverlayConfig, PlayerState, EdgeStyle, ElementShape } from '@/types/broadcast';
 import { defaultOverlayConfig } from '@/types/broadcast';
+import { getShapeStyle } from '@/components/ui/shape-picker';
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -408,34 +409,40 @@ interface BoostBarProps {
 
 function BoostBar({ player, teamColor, config, reversed }: BoostBarProps) {
   const normalizedBoost = normalizeBoost(player.boost);
-  const edgeStyles = getEdgeStyle(config.edgeStyle, config.borderRadius);
+  const shapeStyles = getShapeStyle(config.shape, config.borderRadius);
+  const barShapeStyles = getShapeStyle(config.shape, config.barHeight / 2);
   
   return (
     <div
       className={`flex items-center gap-2 px-3 py-2 ${reversed ? 'flex-row-reverse' : ''}`}
       style={{
         backgroundColor: config.backgroundColor,
-        ...edgeStyles,
+        ...shapeStyles,
       }}
     >
+      {/* Player name - flex container that can shrink */}
       {config.showPlayerNames && (
-        <span
-          className="text-sm font-semibold truncate uppercase"
-          style={{ 
-            fontSize: config.fontSize, 
-            maxWidth: '80px',
-            color: '#ffffff',
-          }}
-        >
-          {player.name}
-        </span>
+        <div className="flex-1 min-w-0">
+          <span
+            className="font-semibold truncate uppercase block"
+            style={{ 
+              fontSize: config.fontSize, 
+              color: '#ffffff',
+            }}
+          >
+            {player.name}
+          </span>
+        </div>
       )}
+      
+      {/* Boost bar - fixed width, won't shrink */}
       <div 
-        className="flex-1 overflow-hidden"
+        className="flex-shrink-0 overflow-hidden"
         style={{
+          width: config.boostBarWidth,
           height: config.barHeight,
           backgroundColor: 'rgba(255,255,255,0.1)',
-          ...getEdgeStyle(config.edgeStyle, config.barHeight / 2),
+          ...barShapeStyles,
         }}
       >
         <motion.div
@@ -446,14 +453,14 @@ function BoostBar({ player, teamColor, config, reversed }: BoostBarProps) {
             backgroundColor: teamColor,
           }}
           transition={{ duration: config.animationSpeed / 1000 }}
-          style={{
-            ...getEdgeStyle(config.edgeStyle, config.barHeight / 2),
-          }}
+          style={barShapeStyles}
         />
       </div>
+      
+      {/* Boost value - fixed width */}
       {config.showBoostValue && (
         <span 
-          className="font-mono font-bold w-8 text-center"
+          className="font-mono font-bold w-8 text-center flex-shrink-0"
           style={{ fontSize: config.fontSize, color: '#ffffff' }}
         >
           {normalizedBoost}

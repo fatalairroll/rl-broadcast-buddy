@@ -4,7 +4,8 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { EdgeStylePicker } from '@/components/ui/edge-style-picker';
-import type { EditableElement, OverlayConfig, EdgeStyle } from '@/types/broadcast';
+import { ShapePicker } from '@/components/ui/shape-picker';
+import type { EditableElement, OverlayConfig, EdgeStyle, ElementShape } from '@/types/broadcast';
 import { ELEMENT_LABELS } from '@/types/broadcast';
 import { Palette } from 'lucide-react';
 
@@ -102,6 +103,11 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           label="Styl krawędzi"
           value={config.scoreboard.edgeStyle}
           onChange={(v) => onChange('scoreboard', { edgeStyle: v })}
+        />
+        <ShapePicker
+          label="Kształt elementu"
+          value={config.scoreboard.shape}
+          onChange={(v) => onChange('scoreboard', { shape: v })}
         />
         <div className="grid grid-cols-2 gap-4">
           <SliderInput
@@ -428,6 +434,14 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             max={20}
             unit="px"
           />
+          <SliderInput
+            label="Szerokość paska boost"
+            value={config.boostBars.boostBarWidth}
+            onValueChange={(v) => onChange('boostBars', { boostBarWidth: v })}
+            min={50}
+            max={200}
+            unit="px"
+          />
         </div>
       </div>
       <div className="space-y-4">
@@ -441,6 +455,11 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           label="Styl krawędzi"
           value={config.boostBars.edgeStyle}
           onChange={(v) => onChange('boostBars', { edgeStyle: v })}
+        />
+        <ShapePicker
+          label="Kształt elementu"
+          value={config.boostBars.shape}
+          onChange={(v) => onChange('boostBars', { shape: v })}
         />
         <ColorPicker
           label="Kolor drużyny A"
