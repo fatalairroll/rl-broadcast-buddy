@@ -20,6 +20,7 @@ import { defaultOverlayConfig } from '@/types/broadcast';
 import { ElementList } from '@/components/creator/ElementList';
 import { StyleEditor } from '@/components/creator/StyleEditor';
 import { OverlayPreview } from '@/components/creator/OverlayPreview';
+import { TemplateGallery } from '@/components/creator/TemplateGallery';
 
 export default function Creator() {
   const navigate = useNavigate();
@@ -100,6 +101,13 @@ export default function Creator() {
     setPresetName('Nowy preset');
   };
 
+  const handleApplyTemplate = (templateConfig: OverlayConfig) => {
+    setConfig(templateConfig);
+    setSelectedPresetId(null);
+    setPresetName('Nowy preset');
+    toast({ title: 'Szablon zastosowany', description: 'Konfiguracja została załadowana z szablonu.' });
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -114,6 +122,7 @@ export default function Creator() {
           </div>
 
           <div className="flex items-center gap-2">
+            <TemplateGallery onSelectTemplate={handleApplyTemplate} />
             <Input
               value={presetName}
               onChange={(e) => setPresetName(e.target.value)}

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import type { OverlayConfig, EditableElement, GameState, EdgeStyle } from '@/types/broadcast';
+import type { OverlayConfig, EditableElement, GameState, EdgeStyle, ElementShape } from '@/types/broadcast';
+import { getShapeStyle } from '@/components/ui/shape-picker';
 
 interface OverlayPreviewProps {
   config: OverlayConfig;
@@ -305,45 +306,54 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
           }}
           onClick={(e) => { e.stopPropagation(); onSelectElement('boostBars'); }}
         >
-          {blueTeamPlayers.map((player) => (
-            <div
-              key={player.id}
-              className="flex items-center gap-1 px-1.5 py-0.5"
-              style={{
-                backgroundColor: config.boostBars.backgroundColor,
-                ...getEdgeStyle(config.boostBars.edgeStyle, config.boostBars.borderRadius * 0.4),
-                fontSize: config.boostBars.fontSize * 0.4,
-              }}
-            >
-              {config.boostBars.showPlayerNames && (
-                <span className="text-white truncate uppercase font-semibold" style={{ maxWidth: 35, fontSize: 5 }}>
-                  {player.name}
-                </span>
-              )}
-              <div 
-                className="flex-1 overflow-hidden"
+          {blueTeamPlayers.map((player) => {
+            const shapeStyles = getShapeStyle(config.boostBars.shape, config.boostBars.borderRadius * 0.4);
+            const barShapeStyles = getShapeStyle(config.boostBars.shape, config.boostBars.barHeight * 0.2);
+            return (
+              <div
+                key={player.id}
+                className="flex items-center gap-1 px-1.5 py-0.5"
                 style={{
-                  height: config.boostBars.barHeight * 0.4,
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                  ...getEdgeStyle(config.boostBars.edgeStyle, config.boostBars.barHeight * 0.2),
+                  backgroundColor: config.boostBars.backgroundColor,
+                  ...shapeStyles,
+                  fontSize: config.boostBars.fontSize * 0.4,
                 }}
               >
-                <div
-                  className="h-full"
-                  style={{ 
-                    width: `${normalizeBoost(player.boost)}%`, 
-                    backgroundColor: config.boostBars.teamAColor,
-                    ...getEdgeStyle(config.boostBars.edgeStyle, config.boostBars.barHeight * 0.2),
+                {/* Player name - flex container */}
+                {config.boostBars.showPlayerNames && (
+                  <div className="flex-1 min-w-0">
+                    <span className="text-white truncate uppercase font-semibold block" style={{ fontSize: 5 }}>
+                      {player.name}
+                    </span>
+                  </div>
+                )}
+                {/* Boost bar - fixed width */}
+                <div 
+                  className="flex-shrink-0 overflow-hidden"
+                  style={{
+                    width: config.boostBars.boostBarWidth * 0.35,
+                    height: config.boostBars.barHeight * 0.4,
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    ...barShapeStyles,
                   }}
-                />
+                >
+                  <div
+                    className="h-full"
+                    style={{ 
+                      width: `${normalizeBoost(player.boost)}%`, 
+                      backgroundColor: config.boostBars.teamAColor,
+                      ...barShapeStyles,
+                    }}
+                  />
+                </div>
+                {config.boostBars.showBoostValue && (
+                  <span className="font-mono text-white w-3 text-center font-bold flex-shrink-0" style={{ fontSize: 5 }}>
+                    {normalizeBoost(player.boost)}
+                  </span>
+                )}
               </div>
-              {config.boostBars.showBoostValue && (
-                <span className="font-mono text-white w-3 text-center font-bold" style={{ fontSize: 5 }}>
-                  {normalizeBoost(player.boost)}
-                </span>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -358,45 +368,54 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
             transform: 'translateY(-50%)',
           }}
         >
-          {orangeTeamPlayers.map((player) => (
-            <div
-              key={player.id}
-              className="flex items-center gap-1 px-1.5 py-0.5 flex-row-reverse"
-              style={{
-                backgroundColor: config.boostBars.backgroundColor,
-                ...getEdgeStyle(config.boostBars.edgeStyle, config.boostBars.borderRadius * 0.4),
-                fontSize: config.boostBars.fontSize * 0.4,
-              }}
-            >
-              {config.boostBars.showPlayerNames && (
-                <span className="text-white truncate uppercase font-semibold" style={{ maxWidth: 35, fontSize: 5 }}>
-                  {player.name}
-                </span>
-              )}
-              <div 
-                className="flex-1 overflow-hidden"
+          {orangeTeamPlayers.map((player) => {
+            const shapeStyles = getShapeStyle(config.boostBars.shape, config.boostBars.borderRadius * 0.4);
+            const barShapeStyles = getShapeStyle(config.boostBars.shape, config.boostBars.barHeight * 0.2);
+            return (
+              <div
+                key={player.id}
+                className="flex items-center gap-1 px-1.5 py-0.5 flex-row-reverse"
                 style={{
-                  height: config.boostBars.barHeight * 0.4,
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                  ...getEdgeStyle(config.boostBars.edgeStyle, config.boostBars.barHeight * 0.2),
+                  backgroundColor: config.boostBars.backgroundColor,
+                  ...shapeStyles,
+                  fontSize: config.boostBars.fontSize * 0.4,
                 }}
               >
-                <div
-                  className="h-full"
-                  style={{ 
-                    width: `${normalizeBoost(player.boost)}%`, 
-                    backgroundColor: config.boostBars.teamBColor,
-                    ...getEdgeStyle(config.boostBars.edgeStyle, config.boostBars.barHeight * 0.2),
+                {/* Player name - flex container */}
+                {config.boostBars.showPlayerNames && (
+                  <div className="flex-1 min-w-0">
+                    <span className="text-white truncate uppercase font-semibold block" style={{ fontSize: 5 }}>
+                      {player.name}
+                    </span>
+                  </div>
+                )}
+                {/* Boost bar - fixed width */}
+                <div 
+                  className="flex-shrink-0 overflow-hidden"
+                  style={{
+                    width: config.boostBars.boostBarWidth * 0.35,
+                    height: config.boostBars.barHeight * 0.4,
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    ...barShapeStyles,
                   }}
-                />
+                >
+                  <div
+                    className="h-full"
+                    style={{ 
+                      width: `${normalizeBoost(player.boost)}%`, 
+                      backgroundColor: config.boostBars.teamBColor,
+                      ...barShapeStyles,
+                    }}
+                  />
+                </div>
+                {config.boostBars.showBoostValue && (
+                  <span className="font-mono text-white w-3 text-center font-bold flex-shrink-0" style={{ fontSize: 5 }}>
+                    {normalizeBoost(player.boost)}
+                  </span>
+                )}
               </div>
-              {config.boostBars.showBoostValue && (
-                <span className="font-mono text-white w-3 text-center font-bold" style={{ fontSize: 5 }}>
-                  {normalizeBoost(player.boost)}
-                </span>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
