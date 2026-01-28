@@ -1,292 +1,221 @@
 
+# Plan: Naprawa synchronizacji presetów + Pełne zarządzanie gradientami
 
-# Plan: Rozszerzenie możliwości projektowania overlay
+## Zidentyfikowany problem z presetami
 
-## Przegląd
+Przeanalizowałem kod i znalazłem źródło problemu:
 
-Na podstawie przesłanych przykładów profesjonalnych overlayów oraz sugestii użytkownika, rozszerzam kreator overlay o:
+**W pliku `Overlay.tsx` linia 49:**
+```typescript
+const [config] = useState<OverlayConfig>(defaultOverlayConfig);
+```
 
-1. **Kształty elementów** - możliwość wyboru kształtu dla każdego elementu
-2. **Pozycjonowanie X/Y** - precyzyjne przesuwanie elementów według osi
-3. **Gotowe warianty overlay** - predefiniowane szablony do wyboru
-4. **Naprawa layoutu boost barów** - stała szerokość paska boost, elastyczna przestrzeń na nick
+Overlay zawsze używa domyślnej konfiguracji zamiast pobierać preset powiązany z sesją. Sesja ma pole `overlay_preset_id` w bazie danych, ale nigdzie nie jest ono wykorzystywane do załadowania odpowiedniej konfiguracji.
 
----
-
-## 1. Kształty elementów
-
-### Aktualny stan
-Obecnie istnieje `EdgeStyle` z opcjami: `'rounded'`, `'skewed'`, `'sharp'`
-
-### Nowy system kształtów
-Rozszerzam opcje kształtów o dodatkowe warianty:
-
+**Przepływ danych powinien wyglądać tak:**
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│ Kształty elementów:                                             │
-│                                                                 │
-│ ┌────────┐   ╱────────╲   ┌────────┐   (  ────  )   ╔════════╗  │
-│ │ SHARP  │   │ SKEWED │   │ROUNDED │   │ PILL   │   ║ DOUBLE ║  │
-│ └────────┘   ╲────────╱   └────────┘   (  ────  )   ╚════════╝  │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+Kreator → Zapisuje preset → broadcast_sessions.overlay_preset_id
+                                    ↓
+Dashboard → Wybiera preset → Aktualizuje overlay_preset_id
+                                    ↓
+Overlay → Pobiera preset na podstawie overlay_preset_id → Renderuje z zapisaną konfiguracją
 ```
 
-**Nowe kształty:**
-- `sharp` - ostre rogi (bez zaokrągleń)
-- `rounded` - zaokrąglone rogi
-- `skewed` - ścięte/skośne krawędzie
-- `pill` - pełne zaokrąglenie (jak kapsułka)
-- `hexagon` - sześciokąt (popularny w esportowych overlayach)
-
-### Implementacja CSS
-
-```css
-/* Pill shape */
-.shape-pill {
-  border-radius: 9999px;
-}
-
-/* Hexagon shape */
-.shape-hexagon {
-  clip-path: polygon(5% 50%, 15% 0%, 85% 0%, 95% 50%, 85% 100%, 15% 100%);
-}
-
-/* Double skew (parallelogram) */
-.shape-double-skew {
-  clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
-}
+**Aktualnie:**
+```text
+Kreator → Zapisuje preset (OK)
+Overlay → Ignoruje preset → Używa defaultOverlayConfig (BŁĄD)
 ```
 
 ---
 
-## 2. Pozycjonowanie X/Y dla każdego elementu
+## 1. Naprawa synchronizacji presetów
 
-### Aktualny stan
-Tylko niektóre elementy (scoreboard, boostCircle, playerStats) mają pozycję X/Y. 
+### Zmiany w `src/hooks/useBroadcast.tsx`
 
-### Nowe możliwości
-Każdy element overlay będzie miał własne pole `position: { x: number, y: number }` oraz opcję `offsetX` i `offsetY` dla precyzyjnego przesuwania.
-
-### Zmiany w typach
+Rozszerzenie hooka `useBroadcast` o:
+- Pobieranie presetu na podstawie `overlay_preset_id` z sesji
+- Zwracanie konfiguracji overlay wraz z sesją
 
 ```typescript
-// Rozszerzenie ElementStyle o pozycję
-interface PositionableElement {
-  position: { x: number; y: number }; // % ekranu
-  offsetX: number; // px offset
-  offsetY: number; // px offset
-}
-
-// Aktualizacja interfejsów elementów
-interface ScoreDisplayConfig extends ElementStyle, PositionableElement {
-  // ... istniejące pola
+export function useBroadcast(sessionId?: string) {
+  const [overlayConfig, setOverlayConfig] = useState<OverlayConfig>(defaultOverlayConfig);
+  
+  // Po pobraniu sesji, pobierz też powiązany preset
+  useEffect(() => {
+    if (session?.overlay_preset_id) {
+      fetchPreset(session.overlay_preset_id);
+    }
+  }, [session?.overlay_preset_id]);
+  
+  return {
+    // ... istniejące
+    overlayConfig, // NOWE - konfiguracja z presetu
+  };
 }
 ```
 
-### UI w StyleEditor
+### Zmiany w `src/pages/Overlay.tsx`
 
-Dla każdego elementu dodaję sekcję "Pozycja":
-
-```text
-┌───────────────────────────────────────┐
-│ Pozycja i przesunięcie                │
-├───────────────────────────────────────┤
-│ Pozycja X      [──●───────] 50%       │
-│ Pozycja Y      [──────●───] 5%        │
-│ Przesunięcie X [──────●───] 0px       │
-│ Przesunięcie Y [────●─────] 0px       │
-└───────────────────────────────────────┘
+Zamiast:
+```typescript
+const [config] = useState<OverlayConfig>(defaultOverlayConfig);
 ```
+
+Nowy kod:
+```typescript
+const { session, gameState, overlayConfig } = useBroadcast(sessionId);
+const config = overlayConfig; // Używa konfiguracji z presetu
+```
+
+### Dodanie wyboru presetu w Dashboard
+
+W panelu MatchControls dodanie dropdown do wyboru aktywnego presetu dla sesji:
+- Lista dostępnych presetów
+- Po wyborze: aktualizacja `overlay_preset_id` w sesji
+- Automatyczna synchronizacja z Overlay przez Realtime
 
 ---
 
-## 3. Gotowe warianty overlay (Templates)
+## 2. Pełne zarządzanie gradientami
 
-Na podstawie przesłanych przykładów tworzę 4 predefiniowane szablony:
+### Nowy interfejs gradientu
 
-### Template 1: "RLCS Classic" (screen 1)
-- Kompaktowy scoreboard z logo
-- Boost bary po bokach z wartością liczbową
-- Okrągły wskaźnik boosta w prawym dolnym rogu
-
-### Template 2: "Tournament Pro" (screen 2)  
-- Szeroki scoreboard z kolorowymi tłami drużyn
-- Pasek informacyjny na górze (EXAMPLE TOP TEXT)
-- Boost bary z większą czcionką nicków
-
-### Template 3: "Minimalist Dark" (screen 3)
-- Ciemny, elegancki design
-- Boost bary po bokach z ciemnym tłem
-- Wskaźnik boosta jako neonowy okrąg
-
-### Template 4: "Modern Esport"
-- Skośne krawędzie (skewed)
-- Gradientowe tła drużyn
-- Nowoczesny, dynamiczny wygląd
-
-### Implementacja
+Rozszerzenie typów w `src/types/broadcast.ts`:
 
 ```typescript
-// src/config/overlayTemplates.ts
-export const OVERLAY_TEMPLATES: Record<string, OverlayTemplate> = {
-  rlcs_classic: {
-    name: 'RLCS Classic',
-    description: 'Klasyczny styl turniejów Rocket League',
-    thumbnail: '/templates/rlcs-classic.png',
-    config: { /* pełna konfiguracja */ }
-  },
-  tournament_pro: { /* ... */ },
-  minimalist_dark: { /* ... */ },
-  modern_esport: { /* ... */ },
-};
+export interface GradientStop {
+  color: string;
+  position: number; // 0-100%
+}
+
+export interface GradientConfig {
+  enabled: boolean;
+  type: 'linear' | 'radial';
+  angle: number; // 0-360 dla linear
+  stops: GradientStop[];
+}
+
+// Rozszerzenie ElementStyle
+export interface ElementStyle {
+  backgroundColor: string;
+  backgroundGradient?: GradientConfig; // NOWE
+  // ... reszta
+}
 ```
 
-### UI wyboru szablonu
+### Nowy komponent `GradientEditor`
 
-Nowy komponent w Kreatorze - galeria szablonów:
+Utworzenie `src/components/ui/gradient-editor.tsx`:
 
+**Funkcje:**
+- Przełącznik: kolor jednolity / gradient
+- Wybór typu: liniowy / radialny
+- Suwak kąta gradientu (0-360 stopni)
+- Lista stopów gradientu z:
+  - ColorPicker dla każdego stopu
+  - Suwak pozycji (0-100%)
+  - Przycisk usunięcia stopu
+- Przycisk dodania nowego stopu
+- Podgląd gradientu na żywo
+
+**Wizualizacja UI:**
 ```text
-┌──────────────────────────────────────────────────────────────────┐
-│ Wybierz szablon startowy                                         │
-├──────────────────────────────────────────────────────────────────┤
-│ ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────┐          │
-│ │  [img 1]  │ │  [img 2]  │ │  [img 3]  │ │  [img 4]  │          │
-│ │           │ │           │ │           │ │           │          │
-│ │ RLCS      │ │ Tournament│ │ Minimalist│ │ Modern    │          │
-│ │ Classic   │ │ Pro       │ │ Dark      │ │ Esport    │          │
-│ └───────────┘ └───────────┘ └───────────┘ └───────────┘          │
-│                                          [Zastosuj szablon]       │
-└──────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│ Tło elementu                                            │
+├─────────────────────────────────────────────────────────┤
+│ ○ Kolor jednolity   ● Gradient                          │
+├─────────────────────────────────────────────────────────┤
+│ Typ:    ○ Liniowy  ● Radialny                           │
+│ Kąt:    [────●──────────] 45°                           │
+├─────────────────────────────────────────────────────────┤
+│ Stopy gradientu:                                        │
+│ ┌──────────────────────────────────────────────────┐   │
+│ │ [■ #3B82F6]  [────●────] 0%   [🗑]                │   │
+│ │ [■ #8B5CF6]  [──────●──] 50%  [🗑]                │   │
+│ │ [■ #EC4899]  [────────●] 100% [🗑]                │   │
+│ └──────────────────────────────────────────────────┘   │
+│                                     [+ Dodaj stop]      │
+├─────────────────────────────────────────────────────────┤
+│ Podgląd:                                                │
+│ ┌──────────────────────────────────────────────────┐   │
+│ │░░░░░▓▓▓▓▓▓████████████████████▓▓▓▓▓░░░░░│   │
+│ └──────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
 ```
 
----
+### Integracja w StyleEditor
 
-## 4. Naprawa layoutu boost barów
+Zamiana pojedynczego `ColorPicker` na `GradientEditor` dla:
+- Scoreboard (`backgroundColor`)
+- ScoreDisplay (`backgroundColor`)
+- TimerDisplay (`backgroundColor`)
+- BoostBars (`backgroundColor`)
+- PlayerStats (`backgroundColor`)
 
-### Problem
-Obecnie nick i boost bar dzielą jedną elastyczną przestrzeń (`flex-1`), co powoduje że długi nick skraca pasek boosta.
-
-### Rozwiązanie
-Stała szerokość dla boost bara, elastyczna przestrzeń dla nicku z `text-overflow: ellipsis`.
-
-### Nowy layout boost bara
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│ BUZZ______________________ [████████████ 88 ] │
-│ VERYLONGNICKNAME__________ [████████     62 ] │
-│ REX_______________________ [███          28 ] │
-└─────────────────────────────────────────────────────────────┘
-     ↑ flex (elastyczny)           ↑ fixed width (stała)
-```
-
-### Implementacja CSS
-
-```tsx
-// Aktualny (błędny) kod:
-<span className="truncate" style={{ maxWidth: '80px' }}>{player.name}</span>
-<div className="flex-1">...</div> // ← boost bar może się kurczyć
-
-// Nowy (poprawiony) kod:
-<div className="flex-1 min-w-0">
-  <span className="truncate block">{player.name}</span>
-</div>
-<div className="flex-shrink-0" style={{ width: boostBarWidth }}>
-  // boost bar - stała szerokość
-</div>
-<span className="w-8 text-center flex-shrink-0">{boost}</span>
-```
-
-### Nowe pole konfiguracji
+### Funkcja generowania CSS
 
 ```typescript
-interface BoostBarsConfig {
-  // ... istniejące
-  boostBarWidth: number; // nowe pole - stała szerokość boost bara (px)
-  nickWidth: 'auto' | number; // 'auto' = flex, number = max-width w px
+function getBackgroundStyle(
+  backgroundColor: string, 
+  gradient?: GradientConfig
+): React.CSSProperties {
+  if (!gradient?.enabled || !gradient.stops.length) {
+    return { backgroundColor };
+  }
+  
+  const stops = gradient.stops
+    .sort((a, b) => a.position - b.position)
+    .map(s => `${s.color} ${s.position}%`)
+    .join(', ');
+  
+  if (gradient.type === 'linear') {
+    return { 
+      background: `linear-gradient(${gradient.angle}deg, ${stops})` 
+    };
+  }
+  
+  return { 
+    background: `radial-gradient(circle, ${stops})` 
+  };
 }
 ```
 
 ---
 
-## Szczegóły techniczne
-
-### Pliki do modyfikacji
+## Pliki do modyfikacji
 
 | Plik | Zmiany |
 |------|--------|
-| `src/types/broadcast.ts` | Dodanie nowych typów kształtów, rozszerzenie interfejsów o position |
-| `src/pages/Overlay.tsx` | Aktualizacja renderowania z nowymi kształtami i pozycjami, naprawa boost barów |
-| `src/components/creator/OverlayPreview.tsx` | Synchronizacja podglądu z nowymi opcjami |
-| `src/components/creator/StyleEditor.tsx` | Dodanie sliderów X/Y dla każdego elementu |
-| `src/components/ui/shape-picker.tsx` | Nowy komponent do wyboru kształtu |
-| `src/config/overlayTemplates.ts` | Nowy plik z predefiniowanymi szablonami |
-| `src/components/creator/TemplateGallery.tsx` | Nowy komponent galerii szablonów |
-| `src/pages/Creator.tsx` | Integracja galerii szablonów |
-
-### Nowy typ kształtu
-
-```typescript
-export type ElementShape = 
-  | 'sharp'     // ostre rogi
-  | 'rounded'   // zaokrąglone
-  | 'skewed'    // skośne
-  | 'pill'      // kapsułka
-  | 'hexagon'   // sześciokąt
-  | 'parallelogram'; // równoległobok
-```
-
-### Funkcja pomocnicza dla kształtów
-
-```typescript
-function getShapeStyle(shape: ElementShape, borderRadius: number): React.CSSProperties {
-  switch (shape) {
-    case 'sharp':
-      return { borderRadius: 0 };
-    case 'rounded':
-      return { borderRadius };
-    case 'pill':
-      return { borderRadius: 9999 };
-    case 'skewed':
-      return { 
-        clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
-        borderRadius: 0 
-      };
-    case 'hexagon':
-      return { 
-        clipPath: 'polygon(5% 50%, 15% 0%, 85% 0%, 95% 50%, 85% 100%, 15% 100%)',
-        borderRadius: 0 
-      };
-    case 'parallelogram':
-      return { 
-        clipPath: 'polygon(10% 0, 100% 0, 90% 100%, 0 100%)',
-        borderRadius: 0 
-      };
-  }
-}
-```
+| `src/types/broadcast.ts` | Dodanie `GradientConfig`, rozszerzenie interfejsów elementów |
+| `src/hooks/useBroadcast.tsx` | Dodanie pobierania presetu i zwracania `overlayConfig` |
+| `src/pages/Overlay.tsx` | Użycie `overlayConfig` z hooka zamiast defaulta, obsługa gradientów |
+| `src/components/ui/gradient-editor.tsx` | Nowy komponent edytora gradientów |
+| `src/components/creator/StyleEditor.tsx` | Zamiana ColorPicker na GradientEditor dla tła |
+| `src/components/creator/OverlayPreview.tsx` | Obsługa renderowania gradientów |
+| `src/components/dashboard/MatchControls.tsx` | Dodanie dropdown wyboru presetu |
 
 ---
 
 ## Kolejność implementacji
 
-1. **Rozszerzenie typów** - nowe kształty i pozycje w `broadcast.ts`
-2. **ShapePicker component** - nowy komponent UI do wyboru kształtu
-3. **Aktualizacja StyleEditor** - dodanie sliderów X/Y i shape picker
-4. **Naprawa boost barów** - zmiana layoutu na fixed + flex
-5. **Szablony overlay** - utworzenie 4 predefiniowanych konfiguracji
-6. **TemplateGallery** - UI do wyboru szablonu
-7. **Integracja w Creator** - połączenie wszystkich elementów
-8. **Aktualizacja Overlay.tsx i Preview** - obsługa nowych opcji
+1. **Naprawa typów** - dodanie `GradientConfig` do broadcast.ts
+2. **Rozszerzenie useBroadcast** - pobieranie presetu i konfiguracji
+3. **Naprawa Overlay.tsx** - użycie konfiguracji z presetu
+4. **Komponent GradientEditor** - nowy UI do zarządzania gradientami
+5. **Aktualizacja StyleEditor** - integracja GradientEditor
+6. **Dodanie wyboru presetu** - dropdown w MatchControls
+7. **Aktualizacja renderowania** - obsługa gradientów w Overlay i Preview
 
 ---
 
 ## Efekt końcowy
 
-Po wdrożeniu użytkownik będzie mógł:
-- Wybrać kształt dla każdego elementu overlay (6 opcji)
-- Precyzyjnie pozycjonować elementy za pomocą sliderów X/Y
-- Rozpocząć od jednego z 4 gotowych szablonów
-- Korzystać z poprawionych boost barów które nie kurczą się przy długich nickach
-
+Po wdrożeniu:
+- Presety zapisane w kreatorze będą automatycznie odzwierciedlane w overlayu
+- Możliwość wyboru aktywnego presetu z poziomu Dashboard
+- Pełna kontrola nad gradientami:
+  - Typ (liniowy/radialny)
+  - Kąt gradientu
+  - Wiele stopów kolorów z pozycjami
+  - Podgląd w czasie rzeczywistym
