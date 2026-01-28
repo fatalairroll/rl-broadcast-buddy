@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { BroadcastSession, GameState, OverlayPreset, Team, SeriesType } from '@/types/broadcast';
+import type { BroadcastSession, GameState, OverlayPreset, Team, SeriesType, OverlayConfig } from '@/types/broadcast';
+import { defaultOverlayConfig } from '@/types/broadcast';
 
 const BROADCAST_CHANNEL = 'rl_broadcast_room';
 
 export function useBroadcast(sessionId?: string) {
   const [session, setSession] = useState<BroadcastSession | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [overlayConfig, setOverlayConfig] = useState<OverlayConfig>(defaultOverlayConfig);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +50,37 @@ export function useBroadcast(sessionId?: string) {
     }
     setLoading(false);
   }, [sessionId]);
+
+  // Fetch overlay preset when session changes
+  const fetchOverlayPreset = useCallback(async (presetId: string) => {
+    const { data, error } = await supabase
+      .from('overlay_presets')
+      .select('*')
+      .eq('id', presetId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching overlay preset:', error);
+      return;
+    }
+
+    if (data && data.config) {
+      // Merge with defaults to ensure all fields exist
+      setOverlayConfig({
+        ...defaultOverlayConfig,
+        ...(data.config as unknown as OverlayConfig),
+      });
+    }
+  }, []);
+
+  // Watch for overlay_preset_id changes
+  useEffect(() => {
+    if (session?.overlay_preset_id) {
+      fetchOverlayPreset(session.overlay_preset_id);
+    } else {
+      setOverlayConfig(defaultOverlayConfig);
+    }
+  }, [session?.overlay_preset_id, fetchOverlayPreset]);
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -144,6 +177,7 @@ export function useBroadcast(sessionId?: string) {
   return {
     session,
     gameState,
+    overlayConfig,
     loading,
     error,
     updateSession,

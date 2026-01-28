@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useBroadcast } from '@/hooks/useBroadcast';
-import type { GameState, OverlayConfig, PlayerState, EdgeStyle, ElementShape } from '@/types/broadcast';
+import type { GameState, OverlayConfig, PlayerState, EdgeStyle, ElementShape, GradientConfig } from '@/types/broadcast';
 import { defaultOverlayConfig } from '@/types/broadcast';
 import { getShapeStyle } from '@/components/ui/shape-picker';
+import { getBackgroundStyle } from '@/lib/gradient-utils';
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -45,8 +46,8 @@ function getSkewedBorderRadius(edgeStyle: EdgeStyle, borderRadius: number): numb
 export default function Overlay() {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session') || undefined;
-  const { session, gameState } = useBroadcast(sessionId);
-  const [config] = useState<OverlayConfig>(defaultOverlayConfig);
+  const { session, gameState, overlayConfig } = useBroadcast(sessionId);
+  const config = overlayConfig; // Use config from preset linked to session
 
   // Mock game state for development
   const [mockGameState] = useState<GameState>({
@@ -99,7 +100,7 @@ export default function Overlay() {
           <div
             className="flex items-center justify-center"
             style={{
-              backgroundColor: config.scoreboard.backgroundColor,
+              ...getBackgroundStyle(config.scoreboard.backgroundColor, config.scoreboard.backgroundGradient),
               border: `${config.scoreboard.borderWidth}px solid ${config.scoreboard.borderColor}`,
               ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreboard.borderRadius),
               padding: '8px 0',
@@ -416,7 +417,7 @@ function BoostBar({ player, teamColor, config, reversed }: BoostBarProps) {
     <div
       className={`flex items-center gap-2 px-3 py-2 ${reversed ? 'flex-row-reverse' : ''}`}
       style={{
-        backgroundColor: config.backgroundColor,
+        ...getBackgroundStyle(config.backgroundColor, config.backgroundGradient),
         ...shapeStyles,
       }}
     >

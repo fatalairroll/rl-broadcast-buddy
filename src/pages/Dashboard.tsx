@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useBroadcast } from '@/hooks/useBroadcast';
+import { useBroadcast, useOverlayPresets } from '@/hooks/useBroadcast';
 import { supabase } from '@/integrations/supabase/client';
 import { TeamEditor } from '@/components/dashboard/TeamEditor';
 import { MatchControls } from '@/components/dashboard/MatchControls';
@@ -39,7 +39,7 @@ export default function Dashboard() {
     resetGameScore,
   } = useBroadcast();
 
-  // Tymczasowo wyłączone - dev mode
+  const { presets } = useOverlayPresets();
   // useEffect(() => {
   //   if (!authLoading && !user) {
   //     navigate('/auth');
@@ -165,6 +165,7 @@ export default function Dashboard() {
             {/* Match Controls */}
             <MatchControls
               session={session}
+              presets={presets}
               onUpdate={updateSession}
               onResetGameScore={resetGameScore}
               onBroadcast={handleBroadcast}
