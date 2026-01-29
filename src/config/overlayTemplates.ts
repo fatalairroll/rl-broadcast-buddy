@@ -1,4 +1,4 @@
-import type { OverlayConfig, ElementShape } from '@/types/broadcast';
+import type { OverlayConfig, ElementShape, GlowConfig } from '@/types/broadcast';
 
 export interface OverlayTemplate {
   id: string;
@@ -6,6 +6,14 @@ export interface OverlayTemplate {
   description: string;
   config: OverlayConfig;
 }
+
+const defaultGlow: GlowConfig = {
+  enabled: false,
+  color: '#3B82F6',
+  blur: 10,
+  spread: 2,
+  intensity: 0.5,
+};
 
 // RLCS Classic - Kompaktowy styl turniejowy
 const rlcsClassicConfig: OverlayConfig = {
@@ -18,10 +26,10 @@ const rlcsClassicConfig: OverlayConfig = {
     borderRadius: 8,
     borderWidth: 0,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    gap: 12,
     layout: 'horizontal',
-    edgeStyle: 'rounded',
     shape: 'rounded',
+    opacity: 1,
+    glow: defaultGlow,
   },
   scoreDisplay: {
     visible: true,
@@ -37,6 +45,11 @@ const rlcsClassicConfig: OverlayConfig = {
     gap: 10,
     separatorColor: 'rgba(255, 255, 255, 0.2)',
     separatorWidth: 1,
+    width: 60,
+    height: 60,
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   timerDisplay: {
     visible: true,
@@ -51,6 +64,11 @@ const rlcsClassicConfig: OverlayConfig = {
     opacity: 1,
     showOvertimeLabel: true,
     overtimeLabelColor: '#F59E0B',
+    width: 100,
+    height: 40,
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   seriesDisplay: {
     visible: true,
@@ -68,6 +86,10 @@ const rlcsClassicConfig: OverlayConfig = {
     dotSpacing: 3,
     activeDotColor: '#22C55E',
     inactiveDotColor: 'rgba(255, 255, 255, 0.2)',
+    orientation: 'horizontal',
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   teamAName: {
     visible: true,
@@ -84,6 +106,11 @@ const rlcsClassicConfig: OverlayConfig = {
     showLogo: true,
     logoSize: 36,
     logoPosition: 'left',
+    width: 130,
+    height: 40,
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   teamBName: {
     visible: true,
@@ -100,6 +127,11 @@ const rlcsClassicConfig: OverlayConfig = {
     showLogo: true,
     logoSize: 36,
     logoPosition: 'right',
+    width: 130,
+    height: 40,
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   boostBars: {
     visible: true,
@@ -112,7 +144,6 @@ const rlcsClassicConfig: OverlayConfig = {
     boostBarWidth: 80,
     backgroundColor: 'rgba(10, 12, 18, 0.9)',
     borderRadius: 4,
-    edgeStyle: 'rounded',
     shape: 'rounded',
     showPlayerNames: true,
     showBoostValue: true,
@@ -121,6 +152,8 @@ const rlcsClassicConfig: OverlayConfig = {
     teamAColor: '#3B82F6',
     teamBColor: '#F97316',
     animationSpeed: 120,
+    opacity: 1,
+    glow: defaultGlow,
   },
   boostCircle: {
     visible: true,
@@ -134,6 +167,8 @@ const rlcsClassicConfig: OverlayConfig = {
     fontSize: 24,
     textColor: '#ffffff',
     animationSpeed: 100,
+    opacity: 1,
+    glow: defaultGlow,
   },
   playerStats: {
     visible: true,
@@ -147,9 +182,12 @@ const rlcsClassicConfig: OverlayConfig = {
     showAssists: true,
     showSaves: true,
     showScore: true,
+    showDemos: true,
     fontFamily: 'Inter',
     fontSize: 11,
     textColor: '#ffffff',
+    opacity: 1,
+    glow: defaultGlow,
   },
   general: {
     backgroundColor: 'transparent',
@@ -167,7 +205,6 @@ const tournamentProConfig: OverlayConfig = {
     height: 80,
     backgroundColor: 'rgba(15, 17, 23, 0.98)',
     borderRadius: 0,
-    edgeStyle: 'sharp',
     shape: 'sharp',
   },
   scoreDisplay: {
@@ -200,7 +237,6 @@ const tournamentProConfig: OverlayConfig = {
     boostBarWidth: 100,
     fontSize: 14,
     borderRadius: 0,
-    edgeStyle: 'sharp',
     shape: 'sharp',
     backgroundColor: 'rgba(15, 17, 23, 0.95)',
   },
@@ -215,7 +251,6 @@ const minimalistDarkConfig: OverlayConfig = {
     height: 60,
     backgroundColor: 'rgba(5, 7, 12, 0.92)',
     borderRadius: 16,
-    edgeStyle: 'rounded',
     shape: 'pill',
   },
   scoreDisplay: {
@@ -253,7 +288,6 @@ const minimalistDarkConfig: OverlayConfig = {
     boostBarWidth: 70,
     fontSize: 11,
     borderRadius: 12,
-    edgeStyle: 'rounded',
     shape: 'pill',
     backgroundColor: 'rgba(5, 7, 12, 0.88)',
   },
@@ -275,7 +309,6 @@ const modernEsportConfig: OverlayConfig = {
     height: 75,
     backgroundColor: 'rgba(12, 14, 20, 0.96)',
     borderRadius: 0,
-    edgeStyle: 'skewed',
     shape: 'skewed',
   },
   scoreDisplay: {
@@ -308,7 +341,6 @@ const modernEsportConfig: OverlayConfig = {
     boostBarWidth: 90,
     fontSize: 13,
     borderRadius: 0,
-    edgeStyle: 'skewed',
     shape: 'skewed',
     backgroundColor: 'rgba(12, 14, 20, 0.92)',
   },

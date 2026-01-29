@@ -2,8 +2,6 @@ export type AppRole = 'admin' | 'moderator';
 
 export type SeriesType = 'bo1' | 'bo3' | 'bo5' | 'bo7';
 
-export type EdgeStyle = 'rounded' | 'skewed' | 'sharp';
-
 export type ElementShape = 
   | 'sharp'
   | 'rounded'
@@ -66,6 +64,28 @@ export interface BroadcastSession {
   updated_at: string;
 }
 
+// Glow effect configuration
+export interface GlowConfig {
+  enabled: boolean;
+  color: string;
+  blur: number; // 0-50px
+  spread: number; // 0-20px
+  intensity: number; // 0-1
+}
+
+// Gradient configuration
+export interface GradientStop {
+  color: string;
+  position: number; // 0-100
+}
+
+export interface GradientConfig {
+  enabled: boolean;
+  type: 'linear' | 'radial';
+  angle: number; // 0-360
+  stops: GradientStop[];
+}
+
 // Element style configuration - shared by all editable elements
 export interface ElementStyle {
   backgroundColor: string;
@@ -78,6 +98,7 @@ export interface ElementStyle {
   fontSize: number;
   textColor: string;
   opacity: number;
+  glow?: GlowConfig;
 }
 
 // Scoreboard sub-elements
@@ -86,12 +107,20 @@ export interface ScoreDisplayConfig extends ElementStyle {
   gap: number; // gap between scores
   separatorColor: string;
   separatorWidth: number;
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 export interface TimerDisplayConfig extends ElementStyle {
   visible: boolean;
   showOvertimeLabel: boolean;
   overtimeLabelColor: string;
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 export interface SeriesDisplayConfig extends ElementStyle {
@@ -101,6 +130,9 @@ export interface SeriesDisplayConfig extends ElementStyle {
   dotSpacing: number;
   activeDotColor: string;
   inactiveDotColor: string;
+  orientation: 'horizontal' | 'vertical';
+  offsetX: number;
+  offsetY: number;
 }
 
 export interface TeamNameConfig extends ElementStyle {
@@ -109,6 +141,10 @@ export interface TeamNameConfig extends ElementStyle {
   showLogo: boolean;
   logoSize: number;
   logoPosition: 'left' | 'right';
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 // Overlay configuration types
@@ -135,10 +171,10 @@ export interface ScoreboardConfig {
   borderRadius: number;
   borderWidth: number;
   borderColor: string;
-  gap: number;
   layout: 'horizontal' | 'compact';
-  edgeStyle: EdgeStyle;
   shape: ElementShape;
+  opacity: number;
+  glow?: GlowConfig;
 }
 
 export interface BoostBarsConfig {
@@ -153,7 +189,6 @@ export interface BoostBarsConfig {
   backgroundColor: string;
   backgroundGradient?: GradientConfig;
   borderRadius: number;
-  edgeStyle: EdgeStyle;
   shape: ElementShape;
   showPlayerNames: boolean;
   showBoostValue: boolean;
@@ -162,6 +197,8 @@ export interface BoostBarsConfig {
   teamAColor: string;
   teamBColor: string;
   animationSpeed: number;
+  opacity: number;
+  glow?: GlowConfig;
 }
 
 export interface BoostCircleConfig {
@@ -176,6 +213,8 @@ export interface BoostCircleConfig {
   fontSize: number;
   textColor: string;
   animationSpeed: number;
+  opacity: number;
+  glow?: GlowConfig;
 }
 
 export interface PlayerStatsConfig {
@@ -190,27 +229,18 @@ export interface PlayerStatsConfig {
   showAssists: boolean;
   showSaves: boolean;
   showScore: boolean;
+  showDemos: boolean;
   fontFamily: string;
   fontSize: number;
   textColor: string;
+  opacity: number;
+  glow?: GlowConfig;
 }
 
 export interface GeneralConfig {
   backgroundColor: string;
   animationsEnabled: boolean;
   transitionDuration: number;
-}
-
-export interface GradientStop {
-  color: string;
-  position: number; // 0-100
-}
-
-export interface GradientConfig {
-  enabled: boolean;
-  type: 'linear' | 'radial';
-  angle: number; // 0-360
-  stops: GradientStop[];
 }
 
 // Game state from SOS Plugin
@@ -231,6 +261,7 @@ export interface PlayerState {
   shots: number;
   assists: number;
   saves: number;
+  demos: number;
   score: number;
   isPrimary: boolean;
 }
@@ -303,6 +334,15 @@ const defaultElementStyle: ElementStyle = {
   opacity: 1,
 };
 
+// Default glow config
+const defaultGlow: GlowConfig = {
+  enabled: false,
+  color: '#3B82F6',
+  blur: 10,
+  spread: 2,
+  intensity: 0.5,
+};
+
 // Default overlay config
 export const defaultOverlayConfig: OverlayConfig = {
   scoreboard: {
@@ -314,10 +354,10 @@ export const defaultOverlayConfig: OverlayConfig = {
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    gap: 16,
     layout: 'horizontal',
-    edgeStyle: 'rounded',
     shape: 'rounded',
+    opacity: 1,
+    glow: defaultGlow,
   },
   scoreDisplay: {
     ...defaultElementStyle,
@@ -329,6 +369,11 @@ export const defaultOverlayConfig: OverlayConfig = {
     gap: 12,
     separatorColor: 'rgba(255, 255, 255, 0.3)',
     separatorWidth: 2,
+    width: 60,
+    height: 60,
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   timerDisplay: {
     ...defaultElementStyle,
@@ -340,6 +385,11 @@ export const defaultOverlayConfig: OverlayConfig = {
     fontFamily: 'JetBrains Mono',
     showOvertimeLabel: true,
     overtimeLabelColor: '#F59E0B',
+    width: 100,
+    height: 40,
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   seriesDisplay: {
     ...defaultElementStyle,
@@ -353,6 +403,10 @@ export const defaultOverlayConfig: OverlayConfig = {
     dotSpacing: 4,
     activeDotColor: '#22C55E',
     inactiveDotColor: 'rgba(255, 255, 255, 0.2)',
+    orientation: 'horizontal',
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   teamAName: {
     ...defaultElementStyle,
@@ -363,6 +417,11 @@ export const defaultOverlayConfig: OverlayConfig = {
     showLogo: true,
     logoSize: 40,
     logoPosition: 'left',
+    width: 150,
+    height: 40,
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   teamBName: {
     ...defaultElementStyle,
@@ -373,6 +432,11 @@ export const defaultOverlayConfig: OverlayConfig = {
     showLogo: true,
     logoSize: 40,
     logoPosition: 'right',
+    width: 150,
+    height: 40,
+    offsetX: 0,
+    offsetY: 0,
+    glow: defaultGlow,
   },
   boostBars: {
     visible: true,
@@ -385,7 +449,6 @@ export const defaultOverlayConfig: OverlayConfig = {
     boostBarWidth: 100,
     backgroundColor: 'rgba(15, 17, 23, 0.85)',
     borderRadius: 6,
-    edgeStyle: 'rounded',
     shape: 'rounded',
     showPlayerNames: true,
     showBoostValue: true,
@@ -394,6 +457,8 @@ export const defaultOverlayConfig: OverlayConfig = {
     teamAColor: '#3B82F6',
     teamBColor: '#F97316',
     animationSpeed: 150,
+    opacity: 1,
+    glow: defaultGlow,
   },
   boostCircle: {
     visible: true,
@@ -407,6 +472,8 @@ export const defaultOverlayConfig: OverlayConfig = {
     fontSize: 28,
     textColor: '#ffffff',
     animationSpeed: 100,
+    opacity: 1,
+    glow: defaultGlow,
   },
   playerStats: {
     visible: true,
@@ -420,9 +487,12 @@ export const defaultOverlayConfig: OverlayConfig = {
     showAssists: true,
     showSaves: true,
     showScore: true,
+    showDemos: true,
     fontFamily: 'Inter',
     fontSize: 12,
     textColor: '#ffffff',
+    opacity: 1,
+    glow: defaultGlow,
   },
   general: {
     backgroundColor: 'transparent',
