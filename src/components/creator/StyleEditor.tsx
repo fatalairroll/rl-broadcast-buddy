@@ -1,12 +1,13 @@
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { ColorPicker } from '@/components/ui/color-picker';
-import { EdgeStylePicker } from '@/components/ui/edge-style-picker';
 import { ShapePicker } from '@/components/ui/shape-picker';
 import { GradientEditor } from '@/components/ui/gradient-editor';
-import type { EditableElement, OverlayConfig, EdgeStyle, ElementShape, GradientConfig } from '@/types/broadcast';
+import { GlowEditor } from '@/components/ui/glow-editor';
+import { SliderInput } from '@/components/ui/slider-input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import type { EditableElement, OverlayConfig, ElementShape, GradientConfig } from '@/types/broadcast';
 import { ELEMENT_LABELS } from '@/types/broadcast';
 import { Palette } from 'lucide-react';
 
@@ -17,42 +18,6 @@ interface StyleEditorProps {
 }
 
 export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
-  // Slider with label and value
-  const SliderInput = ({
-    label,
-    value,
-    onValueChange,
-    min,
-    max,
-    step = 1,
-    unit = '',
-  }: {
-    label: string;
-    value: number;
-    onValueChange: (v: number) => void;
-    min: number;
-    max: number;
-    step?: number;
-    unit?: string;
-  }) => (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label className="text-xs">{label}</Label>
-        <span className="text-xs text-muted-foreground font-mono">
-          {value}{unit}
-        </span>
-      </div>
-      <Slider
-        value={[value]}
-        onValueChange={([v]) => onValueChange(v)}
-        min={min}
-        max={max}
-        step={step}
-        className="py-1"
-      />
-    </div>
-  );
-
   const renderScoreboardEditor = () => (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -102,11 +67,6 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           onBackgroundColorChange={(v) => onChange('scoreboard', { backgroundColor: v })}
           onGradientChange={(g) => onChange('scoreboard', { backgroundGradient: g })}
         />
-        <EdgeStylePicker
-          label="Styl krawędzi"
-          value={config.scoreboard.edgeStyle}
-          onChange={(v) => onChange('scoreboard', { edgeStyle: v })}
-        />
         <ShapePicker
           label="Kształt elementu"
           value={config.scoreboard.shape}
@@ -136,12 +96,17 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           onChange={(v) => onChange('scoreboard', { borderColor: v })}
         />
         <SliderInput
-          label="Odstęp między elementami"
-          value={config.scoreboard.gap}
-          onValueChange={(v) => onChange('scoreboard', { gap: v })}
-          min={4}
-          max={40}
-          unit="px"
+          label="Przezroczystość"
+          value={config.scoreboard.opacity ?? 1}
+          onValueChange={(v) => onChange('scoreboard', { opacity: v })}
+          min={0}
+          max={1}
+          step={0.05}
+        />
+        <GlowEditor
+          label="Efekt świecenia"
+          glow={config.scoreboard.glow}
+          onChange={(g) => onChange('scoreboard', { glow: g })}
         />
       </div>
     </div>
@@ -149,6 +114,27 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
 
   const renderScoreDisplayEditor = () => (
     <div className="space-y-6">
+      <div className="space-y-4">
+        <h4 className="text-sm font-medium">Rozmiar i przesunięcie</h4>
+        <div className="grid grid-cols-2 gap-4">
+          <SliderInput
+            label="Przesunięcie X"
+            value={config.scoreDisplay.offsetX}
+            onValueChange={(v) => onChange('scoreDisplay', { offsetX: v })}
+            min={-50}
+            max={50}
+            unit="px"
+          />
+          <SliderInput
+            label="Przesunięcie Y"
+            value={config.scoreDisplay.offsetY}
+            onValueChange={(v) => onChange('scoreDisplay', { offsetY: v })}
+            min={-50}
+            max={50}
+            unit="px"
+          />
+        </div>
+      </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
         <GradientEditor
@@ -189,14 +175,19 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             unit="px"
           />
           <SliderInput
-            label="Odstęp"
-            value={config.scoreDisplay.gap}
-            onValueChange={(v) => onChange('scoreDisplay', { gap: v })}
-            min={4}
-            max={30}
-            unit="px"
+            label="Przezroczystość"
+            value={config.scoreDisplay.opacity ?? 1}
+            onValueChange={(v) => onChange('scoreDisplay', { opacity: v })}
+            min={0}
+            max={1}
+            step={0.05}
           />
         </div>
+        <GlowEditor
+          label="Efekt świecenia"
+          glow={config.scoreDisplay.glow}
+          onChange={(g) => onChange('scoreDisplay', { glow: g })}
+        />
       </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Separator</h4>
@@ -219,6 +210,27 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
 
   const renderTimerDisplayEditor = () => (
     <div className="space-y-6">
+      <div className="space-y-4">
+        <h4 className="text-sm font-medium">Rozmiar i przesunięcie</h4>
+        <div className="grid grid-cols-2 gap-4">
+          <SliderInput
+            label="Przesunięcie X"
+            value={config.timerDisplay.offsetX}
+            onValueChange={(v) => onChange('timerDisplay', { offsetX: v })}
+            min={-50}
+            max={50}
+            unit="px"
+          />
+          <SliderInput
+            label="Przesunięcie Y"
+            value={config.timerDisplay.offsetY}
+            onValueChange={(v) => onChange('timerDisplay', { offsetY: v })}
+            min={-50}
+            max={50}
+            unit="px"
+          />
+        </div>
+      </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
         <GradientEditor
@@ -258,7 +270,20 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             max={20}
             unit="px"
           />
+          <SliderInput
+            label="Przezroczystość"
+            value={config.timerDisplay.opacity ?? 1}
+            onValueChange={(v) => onChange('timerDisplay', { opacity: v })}
+            min={0}
+            max={1}
+            step={0.05}
+          />
         </div>
+        <GlowEditor
+          label="Efekt świecenia"
+          glow={config.timerDisplay.glow}
+          onChange={(g) => onChange('timerDisplay', { glow: g })}
+        />
       </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Dogrywka</h4>
@@ -281,6 +306,44 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
   const renderSeriesDisplayEditor = () => (
     <div className="space-y-6">
       <div className="space-y-4">
+        <h4 className="text-sm font-medium">Orientacja i pozycja</h4>
+        <div className="space-y-2">
+          <Label className="text-xs">Orientacja</Label>
+          <RadioGroup
+            value={config.seriesDisplay.orientation}
+            onValueChange={(v: 'horizontal' | 'vertical') => onChange('seriesDisplay', { orientation: v })}
+            className="flex gap-4"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="horizontal" id="horizontal" />
+              <Label htmlFor="horizontal" className="text-xs">Poziomo</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="vertical" id="vertical" />
+              <Label htmlFor="vertical" className="text-xs">Pionowo</Label>
+            </div>
+          </RadioGroup>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <SliderInput
+            label="Przesunięcie X"
+            value={config.seriesDisplay.offsetX}
+            onValueChange={(v) => onChange('seriesDisplay', { offsetX: v })}
+            min={-50}
+            max={50}
+            unit="px"
+          />
+          <SliderInput
+            label="Przesunięcie Y"
+            value={config.seriesDisplay.offsetY}
+            onValueChange={(v) => onChange('seriesDisplay', { offsetY: v })}
+            min={-50}
+            max={50}
+            unit="px"
+          />
+        </div>
+      </div>
+      <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
         <GradientEditor
           label="Tło"
@@ -301,6 +364,19 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           min={8}
           max={20}
           unit="px"
+        />
+        <SliderInput
+          label="Przezroczystość"
+          value={config.seriesDisplay.opacity ?? 1}
+          onValueChange={(v) => onChange('seriesDisplay', { opacity: v })}
+          min={0}
+          max={1}
+          step={0.05}
+        />
+        <GlowEditor
+          label="Efekt świecenia"
+          glow={config.seriesDisplay.glow}
+          onChange={(g) => onChange('seriesDisplay', { glow: g })}
         />
       </div>
       <div className="space-y-4">
@@ -349,6 +425,27 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
     return (
       <div className="space-y-6">
         <div className="space-y-4">
+          <h4 className="text-sm font-medium">Rozmiar i przesunięcie</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <SliderInput
+              label="Przesunięcie X"
+              value={teamConfig.offsetX}
+              onValueChange={(v) => onChange(team, { offsetX: v })}
+              min={-100}
+              max={100}
+              unit="px"
+            />
+            <SliderInput
+              label="Przesunięcie Y"
+              value={teamConfig.offsetY}
+              onValueChange={(v) => onChange(team, { offsetY: v })}
+              min={-50}
+              max={50}
+              unit="px"
+            />
+          </div>
+        </div>
+        <div className="space-y-4">
           <h4 className="text-sm font-medium">Styl tekstu</h4>
           <GradientEditor
             label="Tło"
@@ -380,6 +477,19 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
               unit="px"
             />
           </div>
+          <SliderInput
+            label="Przezroczystość"
+            value={teamConfig.opacity ?? 1}
+            onValueChange={(v) => onChange(team, { opacity: v })}
+            min={0}
+            max={1}
+            step={0.05}
+          />
+          <GlowEditor
+            label="Efekt świecenia"
+            glow={teamConfig.glow}
+            onChange={(g) => onChange(team, { glow: g })}
+          />
         </div>
         <div className="space-y-4">
           <h4 className="text-sm font-medium">Logo</h4>
@@ -464,11 +574,6 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           onBackgroundColorChange={(v) => onChange('boostBars', { backgroundColor: v })}
           onGradientChange={(g) => onChange('boostBars', { backgroundGradient: g })}
         />
-        <EdgeStylePicker
-          label="Styl krawędzi"
-          value={config.boostBars.edgeStyle}
-          onChange={(v) => onChange('boostBars', { edgeStyle: v })}
-        />
         <ShapePicker
           label="Kształt elementu"
           value={config.boostBars.shape}
@@ -491,6 +596,19 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           min={0}
           max={20}
           unit="px"
+        />
+        <SliderInput
+          label="Przezroczystość"
+          value={config.boostBars.opacity ?? 1}
+          onValueChange={(v) => onChange('boostBars', { opacity: v })}
+          min={0}
+          max={1}
+          step={0.05}
+        />
+        <GlowEditor
+          label="Efekt świecenia"
+          glow={config.boostBars.glow}
+          onChange={(g) => onChange('boostBars', { glow: g })}
         />
       </div>
       <div className="space-y-4">
@@ -580,6 +698,19 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           max={48}
           unit="px"
         />
+        <SliderInput
+          label="Przezroczystość"
+          value={config.boostCircle.opacity ?? 1}
+          onValueChange={(v) => onChange('boostCircle', { opacity: v })}
+          min={0}
+          max={1}
+          step={0.05}
+        />
+        <GlowEditor
+          label="Efekt świecenia"
+          glow={config.boostCircle.glow}
+          onChange={(g) => onChange('boostCircle', { glow: g })}
+        />
       </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Opcje</h4>
@@ -663,6 +794,19 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             unit="px"
           />
         </div>
+        <SliderInput
+          label="Przezroczystość"
+          value={config.playerStats.opacity ?? 1}
+          onValueChange={(v) => onChange('playerStats', { opacity: v })}
+          min={0}
+          max={1}
+          step={0.05}
+        />
+        <GlowEditor
+          label="Efekt świecenia"
+          glow={config.playerStats.glow}
+          onChange={(g) => onChange('playerStats', { glow: g })}
+        />
       </div>
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Widoczne statystyki</h4>
@@ -704,6 +848,14 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             <Switch
               checked={config.playerStats.showScore}
               onCheckedChange={(v) => onChange('playerStats', { showScore: v })}
+              className="scale-75"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Kasacje</Label>
+            <Switch
+              checked={config.playerStats.showDemos}
+              onCheckedChange={(v) => onChange('playerStats', { showDemos: v })}
               className="scale-75"
             />
           </div>

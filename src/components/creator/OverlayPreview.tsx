@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import type { OverlayConfig, EditableElement, GameState, EdgeStyle, ElementShape, GradientConfig } from '@/types/broadcast';
+import type { OverlayConfig, EditableElement, GameState, ElementShape, GradientConfig } from '@/types/broadcast';
 import { getShapeStyle } from '@/components/ui/shape-picker';
 import { getBackgroundStyle } from '@/lib/gradient-utils';
+import { getGlowStyle } from '@/lib/glow-utils';
 
 interface OverlayPreviewProps {
   config: OverlayConfig;
@@ -20,8 +21,8 @@ function normalizeBoost(value: number, max: number = 100): number {
   return Math.min(100, Math.max(0, Math.round((value / max) * 100)));
 }
 
-function getEdgeStyle(edgeStyle: EdgeStyle, borderRadius: number): React.CSSProperties {
-  switch (edgeStyle) {
+function getShapeStyleForScoreboard(shape: ElementShape, borderRadius: number): React.CSSProperties {
+  switch (shape) {
     case 'skewed':
       return { 
         clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
@@ -29,6 +30,18 @@ function getEdgeStyle(edgeStyle: EdgeStyle, borderRadius: number): React.CSSProp
       };
     case 'sharp':
       return { borderRadius: 0 };
+    case 'pill':
+      return { borderRadius: 9999 };
+    case 'hexagon':
+      return { 
+        clipPath: 'polygon(5% 0%, 95% 0%, 100% 50%, 95% 100%, 5% 100%, 0% 50%)',
+        borderRadius: 0,
+      };
+    case 'parallelogram':
+      return { 
+        clipPath: 'polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%)',
+        borderRadius: 0,
+      };
     case 'rounded':
     default:
       return { borderRadius };
@@ -38,12 +51,12 @@ function getEdgeStyle(edgeStyle: EdgeStyle, borderRadius: number): React.CSSProp
 // Mock data for preview
 const mockGameState: GameState = {
   players: [
-    { id: '1', name: 'BUZZ', team: 0, boost: 33, goals: 2, shots: 5, assists: 1, saves: 0, score: 450, isPrimary: true },
-    { id: '2', name: 'FURY', team: 0, boost: 0, goals: 0, shots: 2, assists: 1, saves: 2, score: 180, isPrimary: false },
-    { id: '3', name: 'HOLLYWOOD', team: 0, boost: 4, goals: 1, shots: 3, assists: 0, saves: 1, score: 290, isPrimary: false },
-    { id: '4', name: 'BANDIT', team: 1, boost: 8, goals: 1, shots: 4, assists: 0, saves: 0, score: 220, isPrimary: false },
-    { id: '5', name: 'CHIPPER', team: 1, boost: 33, goals: 0, shots: 1, assists: 1, saves: 3, score: 200, isPrimary: false },
-    { id: '6', name: 'REX', team: 1, boost: 100, goals: 0, shots: 2, assists: 0, saves: 1, score: 130, isPrimary: false },
+    { id: '1', name: 'BUZZ', team: 0, boost: 33, goals: 2, shots: 5, assists: 1, saves: 0, demos: 1, score: 450, isPrimary: true },
+    { id: '2', name: 'FURY', team: 0, boost: 0, goals: 0, shots: 2, assists: 1, saves: 2, demos: 0, score: 180, isPrimary: false },
+    { id: '3', name: 'HOLLYWOOD', team: 0, boost: 4, goals: 1, shots: 3, assists: 0, saves: 1, demos: 2, score: 290, isPrimary: false },
+    { id: '4', name: 'BANDIT', team: 1, boost: 8, goals: 1, shots: 4, assists: 0, saves: 0, demos: 1, score: 220, isPrimary: false },
+    { id: '5', name: 'CHIPPER', team: 1, boost: 33, goals: 0, shots: 1, assists: 1, saves: 3, demos: 0, score: 200, isPrimary: false },
+    { id: '6', name: 'REX', team: 1, boost: 100, goals: 0, shots: 2, assists: 0, saves: 1, demos: 3, score: 130, isPrimary: false },
   ],
   teams: { blue: { score: 1 }, orange: { score: 5 } },
   ball: { speed: 87, location: { x: 0, y: 0, z: 100 } },
@@ -106,9 +119,13 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
           <div
             className="flex items-center justify-center"
             style={{
+              width: config.scoreboard.width * 0.4,
+              minWidth: config.scoreboard.width * 0.4,
               ...getBackgroundStyle(config.scoreboard.backgroundColor, config.scoreboard.backgroundGradient),
               border: `${config.scoreboard.borderWidth}px solid ${config.scoreboard.borderColor}`,
-              ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreboard.borderRadius * 0.5),
+              ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreboard.borderRadius * 0.5),
+              ...getGlowStyle(config.scoreboard.glow),
+              opacity: config.scoreboard.opacity,
               padding: '4px 0',
             }}
           >
@@ -128,7 +145,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                       backgroundColor: `${mockSession.team_a_color}33`,
                       color: mockSession.team_a_color,
                       fontSize: 6,
-                      borderRadius: config.scoreboard.edgeStyle === 'rounded' ? 4 : 0,
+                      ...getShapeStyleForScoreboard(config.scoreboard.shape, 4),
                     }}
                   >
                     BD
@@ -154,6 +171,9 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                     <div 
                       className={cn('flex items-center gap-0.5 mt-0.5', getHighlightClass('seriesDisplay'))}
                       onClick={(e) => { e.stopPropagation(); onSelectElement('seriesDisplay'); }}
+                      style={{
+                        flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+                      }}
                     >
                       {Array.from({ length: seriesDotsCount }).map((_, i) => (
                         <div
@@ -184,7 +204,9 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                     fontSize: config.scoreDisplay.fontSize * 0.4,
                     minWidth: config.scoreDisplay.fontSize * 0.7,
                     height: config.scoreDisplay.fontSize * 0.65,
-                    ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreDisplay.borderRadius * 0.5),
+                    opacity: config.scoreDisplay.opacity,
+                    ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius * 0.5),
+                    ...getGlowStyle(config.scoreDisplay.glow),
                   }}
                 >
                   {mockGameState.teams.blue.score}
@@ -200,7 +222,9 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 style={{
                   backgroundColor: config.timerDisplay.backgroundColor,
                   padding: `${config.timerDisplay.padding * 0.3}px ${config.timerDisplay.padding * 0.6}px`,
-                  ...getEdgeStyle(config.scoreboard.edgeStyle, config.timerDisplay.borderRadius * 0.5),
+                  ...getShapeStyleForScoreboard(config.scoreboard.shape, config.timerDisplay.borderRadius * 0.5),
+                  ...getGlowStyle(config.timerDisplay.glow),
+                  opacity: config.timerDisplay.opacity,
                   minWidth: 35,
                 }}
               >
@@ -228,7 +252,9 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                     fontSize: config.scoreDisplay.fontSize * 0.4,
                     minWidth: config.scoreDisplay.fontSize * 0.7,
                     height: config.scoreDisplay.fontSize * 0.65,
-                    ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreDisplay.borderRadius * 0.5),
+                    opacity: config.scoreDisplay.opacity,
+                    ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius * 0.5),
+                    ...getGlowStyle(config.scoreDisplay.glow),
                   }}
                 >
                   {mockGameState.teams.orange.score}
@@ -253,7 +279,12 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                   </span>
                   {/* Team B Series dots */}
                   {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                    <div className="flex items-center gap-0.5 mt-0.5">
+                    <div 
+                      className="flex items-center gap-0.5 mt-0.5"
+                      style={{
+                        flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+                      }}
+                    >
                       {Array.from({ length: seriesDotsCount }).map((_, i) => (
                         <div
                           key={`b-${i}`}
@@ -283,7 +314,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                       backgroundColor: `${mockSession.team_b_color}33`,
                       color: mockSession.team_b_color,
                       fontSize: 6,
-                      borderRadius: config.scoreboard.edgeStyle === 'rounded' ? 4 : 0,
+                      ...getShapeStyleForScoreboard(config.scoreboard.shape, 4),
                     }}
                   >
                     OP
@@ -317,6 +348,8 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 style={{
                   ...getBackgroundStyle(config.boostBars.backgroundColor, config.boostBars.backgroundGradient),
                   ...shapeStyles,
+                  ...getGlowStyle(config.boostBars.glow),
+                  opacity: config.boostBars.opacity,
                   fontSize: config.boostBars.fontSize * 0.4,
                 }}
               >
@@ -379,6 +412,8 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 style={{
                   ...getBackgroundStyle(config.boostBars.backgroundColor, config.boostBars.backgroundGradient),
                   ...shapeStyles,
+                  ...getGlowStyle(config.boostBars.glow),
+                  opacity: config.boostBars.opacity,
                   fontSize: config.boostBars.fontSize * 0.4,
                 }}
               >
@@ -438,6 +473,8 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
               height: config.boostCircle.size * 0.4,
               backgroundColor: config.boostCircle.backgroundColor,
               borderRadius: '50%',
+              opacity: config.boostCircle.opacity,
+              ...getGlowStyle(config.boostCircle.glow),
             }}
           >
             <svg 
@@ -495,6 +532,8 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
               backgroundColor: config.playerStats.backgroundColor,
               borderRadius: config.playerStats.borderRadius * 0.5,
               width: config.playerStats.width * 0.4,
+              opacity: config.playerStats.opacity,
+              ...getGlowStyle(config.playerStats.glow),
             }}
           >
             <span 
@@ -523,6 +562,24 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 <div className="flex items-center gap-0.5">
                   <span className="text-muted-foreground" style={{ fontSize: 5 }}>A</span>
                   <span className="font-mono font-medium" style={{ fontSize: 5 }}>{targetPlayer.assists}</span>
+                </div>
+              )}
+              {config.playerStats.showSaves && (
+                <div className="flex items-center gap-0.5">
+                  <span className="text-muted-foreground" style={{ fontSize: 5 }}>SV</span>
+                  <span className="font-mono font-medium" style={{ fontSize: 5 }}>{targetPlayer.saves}</span>
+                </div>
+              )}
+              {config.playerStats.showShots && (
+                <div className="flex items-center gap-0.5">
+                  <span className="text-muted-foreground" style={{ fontSize: 5 }}>SH</span>
+                  <span className="font-mono font-medium" style={{ fontSize: 5 }}>{targetPlayer.shots}</span>
+                </div>
+              )}
+              {config.playerStats.showDemos && (
+                <div className="flex items-center gap-0.5">
+                  <span className="text-muted-foreground" style={{ fontSize: 5 }}>DEM</span>
+                  <span className="font-mono font-medium" style={{ fontSize: 5 }}>{targetPlayer.demos}</span>
                 </div>
               )}
             </div>

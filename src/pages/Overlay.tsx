@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useBroadcast } from '@/hooks/useBroadcast';
-import type { GameState, OverlayConfig, PlayerState, EdgeStyle, ElementShape, GradientConfig } from '@/types/broadcast';
+import type { GameState, OverlayConfig, PlayerState, ElementShape, GradientConfig } from '@/types/broadcast';
 import { defaultOverlayConfig } from '@/types/broadcast';
 import { getShapeStyle } from '@/components/ui/shape-picker';
 import { getBackgroundStyle } from '@/lib/gradient-utils';
+import { getGlowStyle } from '@/lib/glow-utils';
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -24,8 +25,8 @@ function getBoostColor(boost: number): string {
   return 'hsl(0, 84%, 60%)';
 }
 
-function getEdgeStyle(edgeStyle: EdgeStyle, borderRadius: number): React.CSSProperties {
-  switch (edgeStyle) {
+function getShapeStyleForScoreboard(shape: ElementShape, borderRadius: number): React.CSSProperties {
+  switch (shape) {
     case 'skewed':
       return { 
         clipPath: 'polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%)',
@@ -33,14 +34,22 @@ function getEdgeStyle(edgeStyle: EdgeStyle, borderRadius: number): React.CSSProp
       };
     case 'sharp':
       return { borderRadius: 0 };
+    case 'pill':
+      return { borderRadius: 9999 };
+    case 'hexagon':
+      return { 
+        clipPath: 'polygon(5% 0%, 95% 0%, 100% 50%, 95% 100%, 5% 100%, 0% 50%)',
+        borderRadius: 0,
+      };
+    case 'parallelogram':
+      return { 
+        clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
+        borderRadius: 0,
+      };
     case 'rounded':
     default:
       return { borderRadius };
   }
-}
-
-function getSkewedBorderRadius(edgeStyle: EdgeStyle, borderRadius: number): number {
-  return edgeStyle === 'rounded' ? borderRadius : 0;
 }
 
 export default function Overlay() {
@@ -52,12 +61,12 @@ export default function Overlay() {
   // Mock game state for development
   const [mockGameState] = useState<GameState>({
     players: [
-      { id: '1', name: 'BUZZ', team: 0, boost: 33, goals: 2, shots: 5, assists: 1, saves: 0, score: 450, isPrimary: true },
-      { id: '2', name: 'FURY', team: 0, boost: 0, goals: 0, shots: 2, assists: 1, saves: 2, score: 180, isPrimary: false },
-      { id: '3', name: 'HOLLYWOOD', team: 0, boost: 4, goals: 1, shots: 3, assists: 0, saves: 1, score: 290, isPrimary: false },
-      { id: '4', name: 'BANDIT', team: 1, boost: 8, goals: 1, shots: 4, assists: 0, saves: 0, score: 220, isPrimary: false },
-      { id: '5', name: 'CHIPPER', team: 1, boost: 33, goals: 0, shots: 1, assists: 1, saves: 3, score: 200, isPrimary: false },
-      { id: '6', name: 'REX', team: 1, boost: 100, goals: 0, shots: 2, assists: 0, saves: 1, score: 130, isPrimary: false },
+      { id: '1', name: 'BUZZ', team: 0, boost: 33, goals: 2, shots: 5, assists: 1, saves: 0, demos: 1, score: 450, isPrimary: true },
+      { id: '2', name: 'FURY', team: 0, boost: 0, goals: 0, shots: 2, assists: 1, saves: 2, demos: 0, score: 180, isPrimary: false },
+      { id: '3', name: 'HOLLYWOOD', team: 0, boost: 4, goals: 1, shots: 3, assists: 0, saves: 1, demos: 2, score: 290, isPrimary: false },
+      { id: '4', name: 'BANDIT', team: 1, boost: 8, goals: 1, shots: 4, assists: 0, saves: 0, demos: 1, score: 220, isPrimary: false },
+      { id: '5', name: 'CHIPPER', team: 1, boost: 33, goals: 0, shots: 1, assists: 1, saves: 3, demos: 0, score: 200, isPrimary: false },
+      { id: '6', name: 'REX', team: 1, boost: 100, goals: 0, shots: 2, assists: 0, saves: 1, demos: 3, score: 130, isPrimary: false },
     ],
     teams: { blue: { score: 1 }, orange: { score: 5 } },
     ball: { speed: 87, location: { x: 0, y: 0, z: 100 } },
@@ -100,9 +109,13 @@ export default function Overlay() {
           <div
             className="flex items-center justify-center"
             style={{
+              width: config.scoreboard.width,
+              minWidth: config.scoreboard.width,
               ...getBackgroundStyle(config.scoreboard.backgroundColor, config.scoreboard.backgroundGradient),
               border: `${config.scoreboard.borderWidth}px solid ${config.scoreboard.borderColor}`,
-              ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreboard.borderRadius),
+              ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreboard.borderRadius),
+              ...getGlowStyle(config.scoreboard.glow),
+              opacity: config.scoreboard.opacity,
               padding: '8px 0',
             }}
           >
@@ -114,6 +127,8 @@ export default function Overlay() {
                   className="flex items-center justify-center px-4"
                   style={{
                     height: config.scoreboard.height * 0.7,
+                    opacity: config.teamAName.opacity,
+                    ...getGlowStyle(config.teamAName.glow),
                   }}
                 >
                   {session?.team_a_logo ? (
@@ -131,7 +146,7 @@ export default function Overlay() {
                         height: config.teamAName.logoSize,
                         backgroundColor: `${session?.team_a_color || '#3B82F6'}33`,
                         color: session?.team_a_color || '#3B82F6',
-                        borderRadius: getSkewedBorderRadius(config.scoreboard.edgeStyle, 8),
+                        ...getShapeStyleForScoreboard(config.scoreboard.shape, 8),
                       }}
                     >
                       BD
@@ -142,7 +157,12 @@ export default function Overlay() {
 
               {/* Team A Name */}
               {config.teamAName.visible && (
-                <div className="flex flex-col items-end pr-3">
+                <div 
+                  className="flex flex-col items-end pr-3"
+                  style={{
+                    transform: `translate(${config.teamAName.offsetX}px, ${config.teamAName.offsetY}px)`,
+                  }}
+                >
                   <span
                     className="font-bold uppercase tracking-wide"
                     style={{ 
@@ -155,7 +175,15 @@ export default function Overlay() {
                   </span>
                   {/* Team A Series dots - under team name */}
                   {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                    <div className="flex items-center gap-1 mt-1">
+                    <div 
+                      className="flex items-center gap-1 mt-1"
+                      style={{
+                        flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+                        transform: `translate(${config.seriesDisplay.offsetX}px, ${config.seriesDisplay.offsetY}px)`,
+                        opacity: config.seriesDisplay.opacity,
+                        ...getGlowStyle(config.seriesDisplay.glow),
+                      }}
+                    >
                       {Array.from({ length: seriesDotsCount }).map((_, i) => (
                         <div
                           key={`a-${i}`}
@@ -184,7 +212,10 @@ export default function Overlay() {
                     fontSize: config.scoreDisplay.fontSize,
                     minWidth: config.scoreDisplay.fontSize * 1.8,
                     height: config.scoreDisplay.fontSize * 1.6,
-                    ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreDisplay.borderRadius),
+                    opacity: config.scoreDisplay.opacity,
+                    ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius),
+                    ...getGlowStyle(config.scoreDisplay.glow),
+                    transform: `translate(${config.scoreDisplay.offsetX}px, ${config.scoreDisplay.offsetY}px)`,
                   }}
                   key={`a-${currentGameState.teams.blue.score}`}
                   initial={{ scale: 1.1 }}
@@ -202,8 +233,11 @@ export default function Overlay() {
                 style={{
                   backgroundColor: config.timerDisplay.backgroundColor,
                   padding: `${config.timerDisplay.padding}px ${config.timerDisplay.padding * 2}px`,
-                  ...getEdgeStyle(config.scoreboard.edgeStyle, config.timerDisplay.borderRadius),
+                  ...getShapeStyleForScoreboard(config.scoreboard.shape, config.timerDisplay.borderRadius),
+                  ...getGlowStyle(config.timerDisplay.glow),
+                  opacity: config.timerDisplay.opacity,
                   minWidth: 80,
+                  transform: `translate(${config.timerDisplay.offsetX}px, ${config.timerDisplay.offsetY}px)`,
                 }}
               >
                 <span 
@@ -238,7 +272,10 @@ export default function Overlay() {
                     fontSize: config.scoreDisplay.fontSize,
                     minWidth: config.scoreDisplay.fontSize * 1.8,
                     height: config.scoreDisplay.fontSize * 1.6,
-                    ...getEdgeStyle(config.scoreboard.edgeStyle, config.scoreDisplay.borderRadius),
+                    opacity: config.scoreDisplay.opacity,
+                    ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius),
+                    ...getGlowStyle(config.scoreDisplay.glow),
+                    transform: `translate(${config.scoreDisplay.offsetX}px, ${config.scoreDisplay.offsetY}px)`,
                   }}
                   key={`b-${currentGameState.teams.orange.score}`}
                   initial={{ scale: 1.1 }}
@@ -250,7 +287,12 @@ export default function Overlay() {
 
               {/* Team B Name */}
               {config.teamBName.visible && (
-                <div className="flex flex-col items-start pl-3">
+                <div 
+                  className="flex flex-col items-start pl-3"
+                  style={{
+                    transform: `translate(${config.teamBName.offsetX}px, ${config.teamBName.offsetY}px)`,
+                  }}
+                >
                   <span
                     className="font-bold uppercase tracking-wide"
                     style={{ 
@@ -263,7 +305,15 @@ export default function Overlay() {
                   </span>
                   {/* Team B Series dots - under team name */}
                   {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                    <div className="flex items-center gap-1 mt-1">
+                    <div 
+                      className="flex items-center gap-1 mt-1"
+                      style={{
+                        flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+                        transform: `translate(${config.seriesDisplay.offsetX}px, ${config.seriesDisplay.offsetY}px)`,
+                        opacity: config.seriesDisplay.opacity,
+                        ...getGlowStyle(config.seriesDisplay.glow),
+                      }}
+                    >
                       {Array.from({ length: seriesDotsCount }).map((_, i) => (
                         <div
                           key={`b-${i}`}
@@ -288,6 +338,8 @@ export default function Overlay() {
                   className="flex items-center justify-center px-4"
                   style={{
                     height: config.scoreboard.height * 0.7,
+                    opacity: config.teamBName.opacity,
+                    ...getGlowStyle(config.teamBName.glow),
                   }}
                 >
                   {session?.team_b_logo ? (
@@ -305,7 +357,7 @@ export default function Overlay() {
                         height: config.teamBName.logoSize,
                         backgroundColor: `${session?.team_b_color || '#F97316'}33`,
                         color: session?.team_b_color || '#F97316',
-                        borderRadius: getSkewedBorderRadius(config.scoreboard.edgeStyle, 8),
+                        ...getShapeStyleForScoreboard(config.scoreboard.shape, 8),
                       }}
                     >
                       OP
@@ -419,6 +471,8 @@ function BoostBar({ player, teamColor, config, reversed }: BoostBarProps) {
       style={{
         ...getBackgroundStyle(config.backgroundColor, config.backgroundGradient),
         ...shapeStyles,
+        ...getGlowStyle(config.glow),
+        opacity: config.opacity,
       }}
     >
       {/* Player name - flex container that can shrink */}
@@ -485,7 +539,12 @@ function BoostCircle({ boost, config, teamColor }: BoostCircleProps) {
   return (
     <div
       className="relative flex items-center justify-center"
-      style={{ width: config.size, height: config.size }}
+      style={{ 
+        width: config.size, 
+        height: config.size,
+        opacity: config.opacity,
+        ...getGlowStyle(config.glow),
+      }}
     >
       <svg className="absolute inset-0 -rotate-90" viewBox={`0 0 ${config.size} ${config.size}`}>
         {/* Background circle */}
@@ -542,6 +601,7 @@ function PlayerStats({ player, config }: PlayerStatsProps) {
     { label: 'A', value: player.assists, show: config.showAssists },
     { label: 'SV', value: player.saves, show: config.showSaves },
     { label: 'SH', value: player.shots, show: config.showShots },
+    { label: 'DEM', value: player.demos, show: config.showDemos },
   ].filter((s) => s.show);
 
   return (
@@ -551,6 +611,8 @@ function PlayerStats({ player, config }: PlayerStatsProps) {
         backgroundColor: config.backgroundColor,
         borderRadius: config.borderRadius,
         width: config.width,
+        opacity: config.opacity,
+        ...getGlowStyle(config.glow),
       }}
     >
       <span className="font-semibold truncate max-w-[100px]">{player.name}</span>
