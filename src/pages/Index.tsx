@@ -41,7 +41,7 @@ export default function Index() {
           </div>
         </div>
 
-        <Button size="lg" onClick={() => navigate('/auth')}>
+        <Button size="lg" onClick={() => navigate('/dashboard')}>
           Rozpocznij
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
