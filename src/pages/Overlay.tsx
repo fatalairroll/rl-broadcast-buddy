@@ -204,25 +204,26 @@ export default function Overlay() {
 
               {/* Team A Score */}
               {config.scoreDisplay.visible && (
-                <motion.div
-                  className="flex items-center justify-center font-bold"
-                  style={{
-                    backgroundColor: session?.team_a_color || '#3B82F6',
-                    color: '#ffffff',
-                    fontSize: config.scoreDisplay.fontSize,
-                    minWidth: config.scoreDisplay.fontSize * 1.8,
-                    height: config.scoreDisplay.fontSize * 1.6,
-                    opacity: config.scoreDisplay.opacity,
-                    ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius),
-                    ...getGlowStyle(config.scoreDisplay.glow),
-                    transform: `translate(${config.scoreDisplay.offsetX}px, ${config.scoreDisplay.offsetY}px)`,
-                  }}
-                  key={`a-${currentGameState.teams.blue.score}`}
-                  initial={{ scale: 1.1 }}
-                  animate={{ scale: 1 }}
-                >
-                  {currentGameState.teams.blue.score}
-                </motion.div>
+                <div style={{ transform: `translate(${config.scoreDisplay.offsetX}px, ${config.scoreDisplay.offsetY}px)` }}>
+                  <motion.div
+                    className="flex items-center justify-center font-bold"
+                    style={{
+                      backgroundColor: session?.team_a_color || '#3B82F6',
+                      color: '#ffffff',
+                      fontSize: config.scoreDisplay.fontSize,
+                      minWidth: config.scoreDisplay.fontSize * 1.8,
+                      height: config.scoreDisplay.fontSize * 1.6,
+                      opacity: config.scoreDisplay.opacity,
+                      ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius),
+                      ...getGlowStyle(config.scoreDisplay.glow),
+                    }}
+                    key={`a-${currentGameState.teams.blue.score}`}
+                    initial={{ scale: 1.1 }}
+                    animate={{ scale: 1 }}
+                  >
+                    {currentGameState.teams.blue.score}
+                  </motion.div>
+                </div>
               )}
             </div>
 
@@ -264,25 +265,26 @@ export default function Overlay() {
             <div className="flex items-center">
               {/* Team B Score */}
               {config.scoreDisplay.visible && (
-                <motion.div
-                  className="flex items-center justify-center font-bold"
-                  style={{
-                    backgroundColor: session?.team_b_color || '#F97316',
-                    color: '#ffffff',
-                    fontSize: config.scoreDisplay.fontSize,
-                    minWidth: config.scoreDisplay.fontSize * 1.8,
-                    height: config.scoreDisplay.fontSize * 1.6,
-                    opacity: config.scoreDisplay.opacity,
-                    ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius),
-                    ...getGlowStyle(config.scoreDisplay.glow),
-                    transform: `translate(${config.scoreDisplay.offsetX}px, ${config.scoreDisplay.offsetY}px)`,
-                  }}
-                  key={`b-${currentGameState.teams.orange.score}`}
-                  initial={{ scale: 1.1 }}
-                  animate={{ scale: 1 }}
-                >
-                  {currentGameState.teams.orange.score}
-                </motion.div>
+                <div style={{ transform: `translate(${config.scoreDisplay.offsetX}px, ${config.scoreDisplay.offsetY}px)` }}>
+                  <motion.div
+                    className="flex items-center justify-center font-bold"
+                    style={{
+                      backgroundColor: session?.team_b_color || '#F97316',
+                      color: '#ffffff',
+                      fontSize: config.scoreDisplay.fontSize,
+                      minWidth: config.scoreDisplay.fontSize * 1.8,
+                      height: config.scoreDisplay.fontSize * 1.6,
+                      opacity: config.scoreDisplay.opacity,
+                      ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius),
+                      ...getGlowStyle(config.scoreDisplay.glow),
+                    }}
+                    key={`b-${currentGameState.teams.orange.score}`}
+                    initial={{ scale: 1.1 }}
+                    animate={{ scale: 1 }}
+                  >
+                    {currentGameState.teams.orange.score}
+                  </motion.div>
+                </div>
               )}
 
               {/* Team B Name */}
@@ -483,6 +485,7 @@ function BoostBar({ player, teamColor, config, reversed }: BoostBarProps) {
             style={{ 
               fontSize: config.fontSize, 
               color: '#ffffff',
+              textAlign: reversed ? 'right' : 'left',
             }}
           >
             {player.name}

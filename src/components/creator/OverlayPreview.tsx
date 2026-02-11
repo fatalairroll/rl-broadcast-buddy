@@ -155,7 +155,9 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
 
               {/* Team A Name */}
               {config.teamAName.visible && (
-                <div className="flex flex-col items-end pr-1">
+                <div className="flex flex-col items-end pr-1"
+                  style={{ transform: `translate(${config.teamAName.offsetX * 0.4}px, ${config.teamAName.offsetY * 0.4}px)` }}
+                >
                   <span
                     className="font-bold uppercase tracking-wide"
                     style={{ 
@@ -173,6 +175,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                       onClick={(e) => { e.stopPropagation(); onSelectElement('seriesDisplay'); }}
                       style={{
                         flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+                        transform: `translate(${config.seriesDisplay.offsetX * 0.4}px, ${config.seriesDisplay.offsetY * 0.4}px)`,
                       }}
                     >
                       {Array.from({ length: seriesDotsCount }).map((_, i) => (
@@ -207,6 +210,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                     opacity: config.scoreDisplay.opacity,
                     ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius * 0.5),
                     ...getGlowStyle(config.scoreDisplay.glow),
+                    transform: `translate(${config.scoreDisplay.offsetX * 0.4}px, ${config.scoreDisplay.offsetY * 0.4}px)`,
                   }}
                 >
                   {mockGameState.teams.blue.score}
@@ -225,8 +229,9 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                   ...getShapeStyleForScoreboard(config.scoreboard.shape, config.timerDisplay.borderRadius * 0.5),
                   ...getGlowStyle(config.timerDisplay.glow),
                   opacity: config.timerDisplay.opacity,
-                  minWidth: 35,
-                }}
+                   minWidth: 35,
+                   transform: `translate(${config.timerDisplay.offsetX * 0.4}px, ${config.timerDisplay.offsetY * 0.4}px)`,
+                 }}
               >
                 <span 
                   className="font-mono font-bold"
@@ -255,6 +260,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                     opacity: config.scoreDisplay.opacity,
                     ...getShapeStyleForScoreboard(config.scoreboard.shape, config.scoreDisplay.borderRadius * 0.5),
                     ...getGlowStyle(config.scoreDisplay.glow),
+                    transform: `translate(${config.scoreDisplay.offsetX * 0.4}px, ${config.scoreDisplay.offsetY * 0.4}px)`,
                   }}
                 >
                   {mockGameState.teams.orange.score}
@@ -266,6 +272,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 <div
                   className={cn('flex flex-col items-start pl-1', getHighlightClass('teamBName'))}
                   onClick={(e) => { e.stopPropagation(); onSelectElement('teamBName'); }}
+                  style={{ transform: `translate(${config.teamBName.offsetX * 0.4}px, ${config.teamBName.offsetY * 0.4}px)` }}
                 >
                   <span
                     className="font-bold uppercase tracking-wide"
@@ -283,6 +290,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                       className="flex items-center gap-0.5 mt-0.5"
                       style={{
                         flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+                        transform: `translate(${config.seriesDisplay.offsetX * 0.4}px, ${config.seriesDisplay.offsetY * 0.4}px)`,
                       }}
                     >
                       {Array.from({ length: seriesDotsCount }).map((_, i) => (
@@ -420,7 +428,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 {/* Player name - flex container */}
                 {config.boostBars.showPlayerNames && (
                   <div className="flex-1 min-w-0">
-                    <span className="text-white truncate uppercase font-semibold block" style={{ fontSize: 5 }}>
+                    <span className="text-white truncate uppercase font-semibold block" style={{ fontSize: 5, textAlign: 'right' }}>
                       {player.name}
                     </span>
                   </div>
