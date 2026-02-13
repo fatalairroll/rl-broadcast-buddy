@@ -90,7 +90,7 @@ export function MatchControls({
             </SelectTrigger>
             <SelectContent className="bg-background border border-border">
               {presets.length === 0 ? (
-                <SelectItem value="" disabled>
+                <SelectItem value="__empty__" disabled>
                   Brak presetów - utwórz w Kreatorze
                 </SelectItem>
               ) : (
