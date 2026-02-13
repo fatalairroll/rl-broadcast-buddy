@@ -118,7 +118,7 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
         <h4 className="text-sm font-medium">Rozmiar i przesunięcie</h4>
         <div className="grid grid-cols-2 gap-4">
           <SliderInput
-            label="Przesunięcie X"
+            label="Rozsuwanie X"
             value={config.scoreDisplay.offsetX}
             onValueChange={(v) => onChange('scoreDisplay', { offsetX: v })}
             min={-50}
@@ -326,7 +326,7 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <SliderInput
-            label="Przesunięcie X"
+            label="Rozsuwanie X"
             value={config.seriesDisplay.offsetX}
             onValueChange={(v) => onChange('seriesDisplay', { offsetX: v })}
             min={-50}
@@ -428,7 +428,7 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           <h4 className="text-sm font-medium">Rozmiar i przesunięcie</h4>
           <div className="grid grid-cols-2 gap-4">
             <SliderInput
-              label="Przesunięcie X"
+              label="Rozsuwanie X"
               value={teamConfig.offsetX}
               onValueChange={(v) => onChange(team, { offsetX: v })}
               min={-100}
@@ -508,6 +508,17 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             max={80}
             unit="px"
           />
+        </div>
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium">Łamanie tekstu</h4>
+          <SliderInput
+            label="Znaki na linię"
+            value={teamConfig.maxCharsPerLine ?? 0}
+            onValueChange={(v) => onChange(team, { maxCharsPerLine: v })}
+            min={0}
+            max={30}
+          />
+          <p className="text-xs text-muted-foreground">0 = bez łamania</p>
         </div>
       </div>
     );
