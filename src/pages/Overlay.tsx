@@ -14,6 +14,23 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+function splitTeamName(name: string, maxChars: number): string[] {
+  if (maxChars <= 0 || name.length <= maxChars) return [name];
+  const words = name.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+  for (const word of words) {
+    if (currentLine && (currentLine.length + 1 + word.length) > maxChars) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = currentLine ? `${currentLine} ${word}` : word;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
 function normalizeBoost(value: number, max: number = 100): number {
   return Math.min(100, Math.max(0, Math.round((value / max) * 100)));
 }
@@ -160,18 +177,20 @@ export default function Overlay() {
                 <div 
                   className="flex flex-col items-end pr-3"
                   style={{
-                    transform: `translate(${config.teamAName.offsetX}px, ${config.teamAName.offsetY}px)`,
+                    transform: `translate(${-config.teamAName.offsetX}px, ${config.teamAName.offsetY}px)`,
                   }}
                 >
                   <span
-                    className="font-bold uppercase tracking-wide"
+                    className="font-bold uppercase tracking-wide flex flex-col items-end"
                     style={{ 
                       color: config.teamAName.textColor,
                       fontSize: config.teamAName.fontSize,
                       maxWidth: config.teamAName.maxWidth,
                     }}
                   >
-                    {session?.team_a_name || 'Blue Team'}
+                    {splitTeamName(session?.team_a_name || 'Blue Team', config.teamAName.maxCharsPerLine).map((line, i) => (
+                      <span key={i}>{line}</span>
+                    ))}
                   </span>
                   {/* Team A Series dots - under team name */}
                   {config.seriesDisplay.visible && seriesDotsCount > 0 && (
@@ -179,7 +198,7 @@ export default function Overlay() {
                       className="flex items-center gap-1 mt-1"
                       style={{
                         flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-                        transform: `translate(${config.seriesDisplay.offsetX}px, ${config.seriesDisplay.offsetY}px)`,
+                        transform: `translate(${-config.seriesDisplay.offsetX}px, ${config.seriesDisplay.offsetY}px)`,
                         opacity: config.seriesDisplay.opacity,
                         ...getGlowStyle(config.seriesDisplay.glow),
                       }}
@@ -204,7 +223,7 @@ export default function Overlay() {
 
               {/* Team A Score */}
               {config.scoreDisplay.visible && (
-                <div style={{ transform: `translate(${config.scoreDisplay.offsetX}px, ${config.scoreDisplay.offsetY}px)` }}>
+                <div style={{ transform: `translate(${-config.scoreDisplay.offsetX}px, ${config.scoreDisplay.offsetY}px)` }}>
                   <motion.div
                     className="flex items-center justify-center font-bold"
                     style={{
@@ -303,7 +322,9 @@ export default function Overlay() {
                       maxWidth: config.teamBName.maxWidth,
                     }}
                   >
-                    {session?.team_b_name || 'Orange Team'}
+                    {splitTeamName(session?.team_b_name || 'Orange Team', config.teamBName.maxCharsPerLine).map((line, i) => (
+                      <span key={i}>{line}</span>
+                    ))}
                   </span>
                   {/* Team B Series dots - under team name */}
                   {config.seriesDisplay.visible && seriesDotsCount > 0 && (

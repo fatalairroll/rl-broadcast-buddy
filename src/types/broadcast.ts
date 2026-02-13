@@ -141,6 +141,7 @@ export interface TeamNameConfig extends ElementStyle {
   showLogo: boolean;
   logoSize: number;
   logoPosition: 'left' | 'right';
+  maxCharsPerLine: number;
   width: number;
   height: number;
   offsetX: number;
@@ -417,6 +418,7 @@ export const defaultOverlayConfig: OverlayConfig = {
     showLogo: true,
     logoSize: 40,
     logoPosition: 'left',
+    maxCharsPerLine: 0,
     width: 150,
     height: 40,
     offsetX: 0,
@@ -432,6 +434,7 @@ export const defaultOverlayConfig: OverlayConfig = {
     showLogo: true,
     logoSize: 40,
     logoPosition: 'right',
+    maxCharsPerLine: 0,
     width: 150,
     height: 40,
     offsetX: 0,
