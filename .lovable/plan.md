@@ -1,45 +1,24 @@
 
-
-# Plan: Zmiana offsetX na rozsuwanie symetryczne
+# Plan: Naprawa błędu SelectItem z pustą wartością
 
 ## Problem
-Obecnie offsetX przesuwa wszystkie elementy (wynik, nazwy drużyn, serie) w tym samym kierunku. Użytkownik chce, żeby offsetX działał jako **rozsuwanie** - zwiększenie wartości oddala elementy od siebie (od środka scoreboardu), zmniejszenie zbliża.
+Aplikacja crashuje z błędem: `A <Select.Item /> must have a value prop that is not an empty string`. Radix UI Select nie pozwala na `value=""` w SelectItem.
+
+## Przyczyna
+W pliku `src/components/dashboard/MatchControls.tsx` (linia 93) jest:
+```tsx
+<SelectItem value="" disabled>
+  Brak presetów - utwórz w Kreatorze
+</SelectItem>
+```
+
+Pusta wartość `value=""` jest niedozwolona przez Radix Select.
 
 ## Rozwiązanie
+Zmiana `value=""` na `value="__empty__"` (lub dowolny niepusty placeholder string). Element i tak jest `disabled`, więc nie zostanie wybrany.
 
-Zmiana znaku offsetX dla elementów drużyny A (lewa strona) - użycie `-offsetX` zamiast `+offsetX`. Elementy drużyny B (prawa strona) zachowują `+offsetX`. Dzięki temu zwiększanie wartości rozsuwa elementy symetrycznie.
-
-## Szczegóły techniczne
-
-### Plik: `src/pages/Overlay.tsx`
-
-Zmiana transformów dla elementów po lewej stronie (Team A):
-
-- **Team A Name** (linia 163): `translate(${config.teamAName.offsetX}px,...)` na `translate(${-config.teamAName.offsetX}px,...)`
-- **Team A Series** (linia 182): `translate(${config.seriesDisplay.offsetX}px,...)` na `translate(${-config.seriesDisplay.offsetX}px,...)`
-- **Team A Score** (linia 207): `translate(${config.scoreDisplay.offsetX}px,...)` na `translate(${-config.scoreDisplay.offsetX}px,...)`
-
-Team B elementy (prawe) zostają bez zmian - już mają `+offsetX`.
-
-### Plik: `src/components/creator/OverlayPreview.tsx`
-
-Ta sama logika w podglądzie:
-
-- **Team A Name** (linia 159): zmiana na `-offsetX`
-- **Team A Series** (linia 178): zmiana na `-offsetX`
-- **Team A Score** (linia 213): zmiana na `-offsetX`
-
-Team B elementy zostają bez zmian.
-
-### Zmiana etykiety w StyleEditor
-
-Zmiana labela suwaka z "Przesunięcie X" na "Rozsuwanie X" dla score, series i team names, aby jasno komunikować, że wartość rozsuwa elementy symetrycznie od środka.
-
-## Pliki do modyfikacji
+## Plik do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/pages/Overlay.tsx` | Negacja offsetX dla Team A (name, series, score) |
-| `src/components/creator/OverlayPreview.tsx` | Negacja offsetX dla Team A (name, series, score) |
-| `src/components/creator/StyleEditor.tsx` | Zmiana etykiety "Przesunięcie X" na "Rozsuwanie X" |
-
+| `src/components/dashboard/MatchControls.tsx` | Linia 93: `value=""` na `value="__empty__"` |
