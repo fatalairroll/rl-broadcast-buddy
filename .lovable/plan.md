@@ -1,65 +1,40 @@
 
 
-# Plan: Rozsuwanie X dla wyników/serii/nazw + limit znaków w nazwie drużyny
+# Plan: Naprawienie kontroli łamania nazw drużyn
 
-## Problem 1: OffsetX nie rozsuwa elementów symetrycznie
+## Problem
+Nazwy dwuwyrazowe (np. "BLUE DRAGONS") są automatycznie łamane na dwie linie, nawet gdy suwak "Znaki na linię" jest na 0 (brak łamania). Przyczyną jest:
+1. Kontener `<span>` ma `maxWidth: 150px` (domyślna wartość), który wymusza zawijanie CSS niezależnie od ustawień `maxCharsPerLine`
+2. Klasa `flex flex-col` powoduje, że nawet naturalny CSS wrap dzieli tekst na linie
 
-Obecnie offsetX przesuwa elementy Team A i Team B w tym samym kierunku (oba w prawo lub oba w lewo). Użytkownik chce, żeby zwiększanie offsetX **rozsuwało** elementy od środka scoreboardu, a zmniejszanie zbliżało.
+## Rozwiazanie
 
-### Rozwiązanie
+Dodanie `white-space: nowrap` gdy `maxCharsPerLine` jest 0 (tryb "bez łamania"), oraz usunięcie `maxWidth` z kontenera tekstu, żeby nie ograniczał szerokości sztucznie. Szerokość nazwy powinna być kontrolowana przez `width` elementu (kontener nadrzędny), a nie przez `maxWidth` wewnątrz spana.
 
-Negacja offsetX dla elementów po lewej stronie (Team A). Elementy Team B zachowują dodatni offsetX.
+## Zmiany w plikach
 
-**Dotyczy 3 par elementów:**
-- Score display: Team A score dostaje `-offsetX`, Team B score zostaje `+offsetX`
-- Team A Name dostaje `-offsetX`, Team B Name zostaje `+offsetX`
-- Series dots pod Team A dostają `-offsetX`, series dots pod Team B zostają `+offsetX`
+### `src/pages/Overlay.tsx`
 
-### Zmiany w plikach
+**Team A Name (linia ~183-194):**
+- Dodanie `whiteSpace: config.teamAName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal'` do stylu spana
+- Usunięcie `maxWidth` ze spana (szerokość kontroluje kontener nadrzędny)
 
-**`src/pages/Overlay.tsx`:**
-- Linia 163: Team A Name - zmiana `config.teamAName.offsetX` na `-config.teamAName.offsetX`
-- Linia 182: Team A Series - zmiana `config.seriesDisplay.offsetX` na `-config.seriesDisplay.offsetX`
-- Linia 207: Team A Score - zmiana `config.scoreDisplay.offsetX` na `-config.scoreDisplay.offsetX`
+**Team B Name (analogiczna zmiana):**
+- Ta sama logika dla drugiej drużyny
 
-**`src/components/creator/OverlayPreview.tsx`:**
-- Linia 159: Team A Name - zmiana `config.teamAName.offsetX * 0.4` na `-config.teamAName.offsetX * 0.4`
-- Linia 178: Team A Series - zmiana `config.seriesDisplay.offsetX * 0.4` na `-config.seriesDisplay.offsetX * 0.4`
-- Linia 213: Team A Score - zmiana `config.scoreDisplay.offsetX * 0.4` na `-config.scoreDisplay.offsetX * 0.4`
+### `src/components/creator/OverlayPreview.tsx`
 
-**`src/components/creator/StyleEditor.tsx`:**
-- Zmiana etykiet "Przesunięcie X" na "Rozsuwanie X" dla: scoreDisplay (linia 121), seriesDisplay (linia 329), teamAName/teamBName (linia 431)
+**Team A Name (linia ~178-189):**
+- Dodanie `whiteSpace: config.teamAName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal'`
+- Usunięcie `maxWidth` ze spana
 
----
+**Team B Name (analogiczna zmiana)**
 
-## Problem 2: Kontrola łamania nazwy drużyny na linie
+### `src/components/creator/StyleEditor.tsx`
 
-Użytkownik chce ustawić ile znaków mieści się w jednej linijce, zanim nazwa się "złamie" na drugą linię (widoczne na screenshocie: "BLUE DRAGONS" i "ORANGE PHOENIX" są w dwóch liniach).
+- Zmiana opisu suwaka "Znaki na linię": wartość 0 oznacza "bez łamania (jedna linia)", wartości >0 określają po ilu znakach łamać
 
-### Rozwiązanie
-
-Dodanie pola `maxCharsPerLine` do `TeamNameConfig`. Renderowanie nazwy drużyny z podziałem na linie w obu plikach (Overlay.tsx i OverlayPreview.tsx).
-
-### Zmiany w plikach
-
-**`src/types/broadcast.ts`:**
-- Dodanie `maxCharsPerLine: number` do `TeamNameConfig` (domyślnie 0 = bez łamania)
-- Ustawienie domyślnej wartości na 0 w `defaultOverlayConfig` dla obu drużyn
-
-**`src/pages/Overlay.tsx`:**
-- Zamiana prostego `{session?.team_a_name || 'Blue Team'}` na funkcję dzielącą tekst na linie po N znakach
-- To samo dla Team B
-
-**`src/components/creator/OverlayPreview.tsx`:**
-- Ta sama logika podziału tekstu w podglądzie
-
-**`src/components/creator/StyleEditor.tsx`:**
-- Dodanie suwaka "Znaki na linię" (0-30) w edytorze nazwy drużyny (0 = bez łamania)
-
-### Logika podziału tekstu
-
-Funkcja pomocnicza `splitTeamName(name: string, maxChars: number)`:
-- Jeśli `maxChars <= 0` lub nazwa jest krótsza - zwraca nazwę bez zmian
-- Dzieli nazwę po słowach, kumulując znaki, i łamie linię gdy przekroczy limit
-- Wynik renderowany jako `<span>` z oddzielnymi liniami (`<br />` lub flex column)
-
+## Efekt
+- Suwak na 0: nazwa zawsze w jednej linii, bez względu na długość
+- Suwak na np. 6: nazwa łamie się po ~6 znakach (po całych słowach)
+- Użytkownik ma pełną kontrolę nad tym, kiedy nazwa się łamie
