@@ -180,7 +180,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                     style={{ 
                       color: config.teamAName.textColor,
                       fontSize: config.teamAName.fontSize * 0.4,
-                      maxWidth: config.teamAName.maxWidth * 0.4,
+                      whiteSpace: config.teamAName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal',
                     }}
                   >
                     {splitTeamName(mockSession.team_a_name, config.teamAName.maxCharsPerLine).map((line, i) => (
@@ -298,7 +298,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                     style={{ 
                       color: config.teamBName.textColor,
                       fontSize: config.teamBName.fontSize * 0.4,
-                      maxWidth: config.teamBName.maxWidth * 0.4,
+                      whiteSpace: config.teamBName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal',
                     }}
                   >
                     {splitTeamName(mockSession.team_b_name, config.teamBName.maxCharsPerLine).map((line, i) => (

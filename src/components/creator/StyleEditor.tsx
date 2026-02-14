@@ -518,7 +518,7 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             min={0}
             max={30}
           />
-          <p className="text-xs text-muted-foreground">0 = bez łamania</p>
+          <p className="text-xs text-muted-foreground">0 = bez łamania (jedna linia), &gt;0 = łamie po tylu znakach</p>
         </div>
       </div>
     );
