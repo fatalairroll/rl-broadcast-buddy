@@ -136,6 +136,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
           <div
             className="flex items-center justify-center"
             style={{
+              position: 'relative',
               width: config.scoreboard.width * 0.4,
               minWidth: config.scoreboard.width * 0.4,
               ...getBackgroundStyle(config.scoreboard.backgroundColor, config.scoreboard.backgroundGradient),
@@ -146,10 +147,70 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
               padding: '4px 0',
             }}
           >
+            {/* Team A Detached Box */}
+            {config.teamAName.visible && config.teamAName.detached && (
+              <div
+                className={getHighlightClass('teamAName')}
+                onClick={(e) => { e.stopPropagation(); onSelectElement('teamAName'); }}
+                style={{
+                  position: 'absolute',
+                  right: '100%',
+                  top: '50%',
+                  transform: `translateY(-50%) translate(${-(config.teamAName.boxOffsetX ?? 0) * 0.4}px, ${(config.teamAName.boxOffsetY ?? 0) * 0.4}px)`,
+                  width: (config.teamAName.boxWidth ?? 200) * 0.4,
+                  height: (config.teamAName.boxHeight ?? 40) * 0.4,
+                  backgroundColor: config.teamAName.boxBackgroundColor ?? mockSession.team_a_color,
+                  borderRadius: (config.teamAName.boxBorderRadius ?? 4) * 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 3,
+                  padding: '0 4px',
+                }}
+              >
+                {config.teamAName.showLogo && (
+                  <div className="flex items-center justify-center font-bold" style={{ width: config.teamAName.logoSize * 0.35, height: config.teamAName.logoSize * 0.35, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, fontSize: 5 }}>BD</div>
+                )}
+                <span className="font-bold uppercase tracking-wide" style={{ color: config.teamAName.textColor, fontSize: config.teamAName.fontSize * 0.4, whiteSpace: 'nowrap' }}>
+                  {mockSession.team_a_name}
+                </span>
+              </div>
+            )}
+
+            {/* Team B Detached Box */}
+            {config.teamBName.visible && config.teamBName.detached && (
+              <div
+                className={getHighlightClass('teamBName')}
+                onClick={(e) => { e.stopPropagation(); onSelectElement('teamBName'); }}
+                style={{
+                  position: 'absolute',
+                  left: '100%',
+                  top: '50%',
+                  transform: `translateY(-50%) translate(${(config.teamBName.boxOffsetX ?? 0) * 0.4}px, ${(config.teamBName.boxOffsetY ?? 0) * 0.4}px)`,
+                  width: (config.teamBName.boxWidth ?? 200) * 0.4,
+                  height: (config.teamBName.boxHeight ?? 40) * 0.4,
+                  backgroundColor: config.teamBName.boxBackgroundColor ?? mockSession.team_b_color,
+                  borderRadius: (config.teamBName.boxBorderRadius ?? 4) * 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 3,
+                  padding: '0 4px',
+                }}
+              >
+                <span className="font-bold uppercase tracking-wide" style={{ color: config.teamBName.textColor, fontSize: config.teamBName.fontSize * 0.4, whiteSpace: 'nowrap' }}>
+                  {mockSession.team_b_name}
+                </span>
+                {config.teamBName.showLogo && (
+                  <div className="flex items-center justify-center font-bold" style={{ width: config.teamBName.logoSize * 0.35, height: config.teamBName.logoSize * 0.35, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, fontSize: 5 }}>OP</div>
+                )}
+              </div>
+            )}
+
             {/* Team A: Logo + Name + Score */}
             <div className="flex items-center">
               {/* Team A Logo */}
-              {config.teamAName.visible && config.teamAName.showLogo && (
+              {config.teamAName.visible && config.teamAName.showLogo && !config.teamAName.detached && (
                 <div
                   className={cn('flex items-center justify-center px-2', getHighlightClass('teamAName'))}
                   onClick={(e) => { e.stopPropagation(); onSelectElement('teamAName'); }}
@@ -171,7 +232,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
               )}
 
               {/* Team A Name */}
-              {config.teamAName.visible && (
+              {config.teamAName.visible && !config.teamAName.detached && (
                 <div className="flex flex-col items-end pr-1"
                   style={{ transform: `translate(${-config.teamAName.offsetX * 0.4}px, ${config.teamAName.offsetY * 0.4}px)` }}
                 >
@@ -287,7 +348,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
               )}
 
               {/* Team B Name */}
-              {config.teamBName.visible && (
+              {config.teamBName.visible && !config.teamBName.detached && (
                 <div
                   className={cn('flex flex-col items-start pl-1', getHighlightClass('teamBName'))}
                   onClick={(e) => { e.stopPropagation(); onSelectElement('teamBName'); }}
@@ -333,7 +394,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
               )}
 
               {/* Team B Logo */}
-              {config.teamBName.visible && config.teamBName.showLogo && (
+              {config.teamBName.visible && config.teamBName.showLogo && !config.teamBName.detached && (
                 <div className="flex items-center justify-center px-2">
                   <div 
                     className="flex items-center justify-center font-bold"

@@ -424,6 +424,68 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
     const teamConfig = config[team];
     return (
       <div className="space-y-6">
+        {/* Detached box toggle */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label>Osobny box (poza scoreboardem)</Label>
+            <Switch
+              checked={teamConfig.detached ?? false}
+              onCheckedChange={(v) => onChange(team, { detached: v })}
+            />
+          </div>
+          {teamConfig.detached && (
+            <div className="space-y-4 pl-2 border-l-2 border-primary/30">
+              <h4 className="text-sm font-medium">Ustawienia boxa</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <SliderInput
+                  label="Szerokość boxa"
+                  value={teamConfig.boxWidth ?? 200}
+                  onValueChange={(v) => onChange(team, { boxWidth: v })}
+                  min={100}
+                  max={400}
+                  unit="px"
+                />
+                <SliderInput
+                  label="Wysokość boxa"
+                  value={teamConfig.boxHeight ?? 40}
+                  onValueChange={(v) => onChange(team, { boxHeight: v })}
+                  min={20}
+                  max={80}
+                  unit="px"
+                />
+                <SliderInput
+                  label="Przesunięcie boxa X"
+                  value={teamConfig.boxOffsetX ?? 0}
+                  onValueChange={(v) => onChange(team, { boxOffsetX: v })}
+                  min={-200}
+                  max={200}
+                  unit="px"
+                />
+                <SliderInput
+                  label="Przesunięcie boxa Y"
+                  value={teamConfig.boxOffsetY ?? 0}
+                  onValueChange={(v) => onChange(team, { boxOffsetY: v })}
+                  min={-100}
+                  max={100}
+                  unit="px"
+                />
+              </div>
+              <ColorPicker
+                label="Tło boxa"
+                value={teamConfig.boxBackgroundColor ?? (team === 'teamAName' ? '#3B82F6' : '#F97316')}
+                onChange={(v) => onChange(team, { boxBackgroundColor: v })}
+              />
+              <SliderInput
+                label="Zaokrąglenie boxa"
+                value={teamConfig.boxBorderRadius ?? 4}
+                onValueChange={(v) => onChange(team, { boxBorderRadius: v })}
+                min={0}
+                max={20}
+                unit="px"
+              />
+            </div>
+          )}
+        </div>
         <div className="space-y-4">
           <h4 className="text-sm font-medium">Rozmiar i przesunięcie</h4>
           <div className="grid grid-cols-2 gap-4">
