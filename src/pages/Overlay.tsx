@@ -185,7 +185,7 @@ export default function Overlay() {
                     style={{ 
                       color: config.teamAName.textColor,
                       fontSize: config.teamAName.fontSize,
-                      maxWidth: config.teamAName.maxWidth,
+                      whiteSpace: config.teamAName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal',
                     }}
                   >
                     {splitTeamName(session?.team_a_name || 'Blue Team', config.teamAName.maxCharsPerLine).map((line, i) => (
@@ -315,11 +315,11 @@ export default function Overlay() {
                   }}
                 >
                   <span
-                    className="font-bold uppercase tracking-wide"
+                    className="font-bold uppercase tracking-wide flex flex-col items-start"
                     style={{ 
                       color: config.teamBName.textColor,
                       fontSize: config.teamBName.fontSize,
-                      maxWidth: config.teamBName.maxWidth,
+                      whiteSpace: config.teamBName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal',
                     }}
                   >
                     {splitTeamName(session?.team_b_name || 'Orange Team', config.teamBName.maxCharsPerLine).map((line, i) => (
