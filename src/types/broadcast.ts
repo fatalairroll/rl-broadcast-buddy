@@ -146,6 +146,13 @@ export interface TeamNameConfig extends ElementStyle {
   height: number;
   offsetX: number;
   offsetY: number;
+  detached?: boolean;
+  boxWidth?: number;
+  boxHeight?: number;
+  boxOffsetX?: number;
+  boxOffsetY?: number;
+  boxBackgroundColor?: string;
+  boxBorderRadius?: number;
 }
 
 // Overlay configuration types
@@ -424,6 +431,13 @@ export const defaultOverlayConfig: OverlayConfig = {
     offsetX: 0,
     offsetY: 0,
     glow: defaultGlow,
+    detached: false,
+    boxWidth: 200,
+    boxHeight: 40,
+    boxOffsetX: 0,
+    boxOffsetY: 0,
+    boxBackgroundColor: '#3B82F6',
+    boxBorderRadius: 4,
   },
   teamBName: {
     ...defaultElementStyle,
@@ -440,6 +454,13 @@ export const defaultOverlayConfig: OverlayConfig = {
     offsetX: 0,
     offsetY: 0,
     glow: defaultGlow,
+    detached: false,
+    boxWidth: 200,
+    boxHeight: 40,
+    boxOffsetX: 0,
+    boxOffsetY: 0,
+    boxBackgroundColor: '#F97316',
+    boxBorderRadius: 4,
   },
   boostBars: {
     visible: true,
