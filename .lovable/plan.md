@@ -1,34 +1,45 @@
 
-# Plan: Ksztalt boxa nazw druzyn (ShapePicker)
 
-## Opis
+# Fix: Detached team name boxes clipped by scoreboard shape
 
-Dodanie pola `boxShape` do konfiguracji nazw druzyn, analogicznie do `shape` w scoreboardzie i boostBars. Uzytkownik bedzie mogl wybierac ksztalt detached boxa (ostre, zaokraglone, skosne, kapulka, szescioakat, rownoleglbok).
+## Problem
 
-## Zmiany
+The detached team name boxes are rendered as **children** of the scoreboard bar div, which uses CSS `clip-path` for shapes like "skewed" or "hexagon". Since `clip-path` clips all child elements, any part of the detached box that extends beyond the scoreboard area becomes invisible.
 
-### 1. `src/types/broadcast.ts`
+## Solution
 
-Dodanie pola `boxShape?: ElementShape` do interfejsu `TeamNameConfig`. Aktualizacja `defaultOverlayConfig` z wartoscia domyslna `'rounded'` dla obu druzyn.
+Move the detached team name box elements **outside** the scoreboard bar div and into the parent positioning container. The parent container (the outer `div` with `position: absolute`) does not have `clip-path`, so the boxes will be fully visible regardless of the scoreboard shape.
 
-### 2. `src/components/creator/StyleEditor.tsx`
+## Changes
 
-W sekcji detached box (linia ~437-486), zamiana suwaka "Zaokraglenie boxa" na komponent `ShapePicker` z etykieta "Ksztalt boxa". Usunuecie suwaka `boxBorderRadius` -- zaokraglenie bedzie kontrolowane przez ksztalt (tak jak w scoreboardzie).
+### `src/pages/Overlay.tsx`
 
-### 3. `src/pages/Overlay.tsx`
+- Move the Team A and Team B detached box divs (currently inside the scoreboard bar at lines ~141-205) to be **siblings** of the scoreboard bar div, still inside the outer container (lines ~117-124)
+- Adjust positioning: since the parent container centers with `translateX(-50%)`, the detached boxes should be positioned relative to the scoreboard bar width using `calc()` or explicit left/right values
 
-W renderowaniu detached boxow (Team A ~141-171, Team B ~175-205), zamiana `borderRadius: config.teamXName.boxBorderRadius` na wywolanie `getShapeStyle(config.teamXName.boxShape ?? 'rounded')` -- ta sama funkcja, ktora jest uzywana dla scoreboardu.
+### `src/components/creator/OverlayPreview.tsx`
 
-### 4. `src/components/creator/OverlayPreview.tsx`
+- Same structural change: move detached boxes outside the scoreboard bar div and into the parent container
 
-Analogiczna zmiana jak w Overlay.tsx -- uzycie `getShapeStyle` dla detached boxow w podgladzie.
+## Technical Details
 
-### 5. `src/config/overlayTemplates.ts`
+Current structure (broken):
+```text
+outer-container (absolute, no clip-path)
+  scoreboard-bar (clip-path applied)
+    detached-box-A (clipped!)
+    detached-box-B (clipped!)
+    ...score, timer, etc...
+```
 
-Dodanie `boxShape: 'rounded'` do szablonow teamAName i teamBName.
+Fixed structure:
+```text
+outer-container (absolute, no clip-path)
+  scoreboard-bar (clip-path applied)
+    ...score, timer, etc...
+  detached-box-A (visible, not clipped)
+  detached-box-B (visible, not clipped)
+```
 
-## Szczegoly techniczne
+The detached boxes will use `position: absolute` relative to the outer container, with `right` and `left` calculated based on scoreboard width to maintain the same visual placement.
 
-- Import `getShapeStyle` z `@/components/ui/shape-picker` w Overlay.tsx i OverlayPreview.tsx (jezeli jeszcze nie jest zaimportowany)
-- `ShapePicker` jest juz zaimportowany w StyleEditor.tsx
-- Pole `boxBorderRadius` pozostaje w typie dla kompatybilnosci wstecznej, ale nie bedzie juz edytowalne -- ksztalt przejmuje kontrole
