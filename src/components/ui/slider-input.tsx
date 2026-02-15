@@ -22,11 +22,12 @@ export function SliderInput({
   step = 1,
   unit = '',
 }: SliderInputProps) {
-  const [inputValue, setInputValue] = useState(value.toString());
+  const safeValue = value ?? min;
+  const [inputValue, setInputValue] = useState(safeValue.toString());
 
   useEffect(() => {
-    setInputValue(value.toString());
-  }, [value]);
+    setInputValue((value ?? min).toString());
+  }, [value, min]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
@@ -39,7 +40,7 @@ export function SliderInput({
       onValueChange(clamped);
       setInputValue(clamped.toString());
     } else {
-      setInputValue(value.toString());
+      setInputValue((value ?? min).toString());
     }
   };
 
@@ -69,7 +70,7 @@ export function SliderInput({
         </div>
       </div>
       <Slider
-        value={[value]}
+        value={[value ?? min]}
         onValueChange={([v]) => {
           onValueChange(v);
           setInputValue(v.toString());
