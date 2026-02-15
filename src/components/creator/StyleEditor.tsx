@@ -475,13 +475,10 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
                 value={teamConfig.boxBackgroundColor ?? (team === 'teamAName' ? '#3B82F6' : '#F97316')}
                 onChange={(v) => onChange(team, { boxBackgroundColor: v })}
               />
-              <SliderInput
-                label="Zaokrąglenie boxa"
-                value={teamConfig.boxBorderRadius ?? 4}
-                onValueChange={(v) => onChange(team, { boxBorderRadius: v })}
-                min={0}
-                max={20}
-                unit="px"
+              <ShapePicker
+                label="Kształt boxa"
+                value={teamConfig.boxShape ?? 'rounded'}
+                onChange={(v) => onChange(team, { boxShape: v })}
               />
             </div>
           )}
