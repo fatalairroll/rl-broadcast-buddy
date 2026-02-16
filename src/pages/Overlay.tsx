@@ -137,74 +137,6 @@ export default function Overlay() {
               padding: '8px 0',
             }}
           >
-            {/* Team A Detached Box */}
-            {config.teamAName.visible && config.teamAName.detached && (
-              <div
-                style={{
-                  position: 'absolute',
-                  right: '100%',
-                  top: '50%',
-                  transform: `translateY(-50%) translate(${-(config.teamAName.boxOffsetX ?? 0)}px, ${config.teamAName.boxOffsetY ?? 0}px)`,
-                  width: config.teamAName.boxWidth ?? 200,
-                  height: config.teamAName.boxHeight ?? 40,
-                  backgroundColor: config.teamAName.boxBackgroundColor ?? session?.team_a_color ?? '#3B82F6',
-                  ...getShapeStyle(config.teamAName.boxShape ?? 'rounded', config.teamAName.boxBorderRadius ?? 4),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: '0 8px',
-                }}
-              >
-                {config.teamAName.showLogo && (
-                  session?.team_a_logo ? (
-                    <img src={session.team_a_logo} alt="" style={{ width: config.teamAName.logoSize, height: config.teamAName.logoSize }} className="object-contain" />
-                  ) : (
-                    <div className="flex items-center justify-center font-bold text-sm" style={{ width: config.teamAName.logoSize, height: config.teamAName.logoSize, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4 }}>BD</div>
-                  )
-                )}
-                <span className="font-bold uppercase tracking-wide" style={{ color: config.teamAName.textColor, fontSize: config.teamAName.fontSize, whiteSpace: config.teamAName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal' }}>
-                  {splitTeamName(session?.team_a_name || 'Blue Team', config.teamAName.maxCharsPerLine).map((line, i) => (
-                    <span key={i} className="block text-right">{line}</span>
-                  ))}
-                </span>
-              </div>
-            )}
-
-            {/* Team B Detached Box */}
-            {config.teamBName.visible && config.teamBName.detached && (
-              <div
-                style={{
-                  position: 'absolute',
-                  left: '100%',
-                  top: '50%',
-                  transform: `translateY(-50%) translate(${config.teamBName.boxOffsetX ?? 0}px, ${config.teamBName.boxOffsetY ?? 0}px)`,
-                  width: config.teamBName.boxWidth ?? 200,
-                  height: config.teamBName.boxHeight ?? 40,
-                  backgroundColor: config.teamBName.boxBackgroundColor ?? session?.team_b_color ?? '#F97316',
-                  ...getShapeStyle(config.teamBName.boxShape ?? 'rounded', config.teamBName.boxBorderRadius ?? 4),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: '0 8px',
-                }}
-              >
-                <span className="font-bold uppercase tracking-wide" style={{ color: config.teamBName.textColor, fontSize: config.teamBName.fontSize, whiteSpace: config.teamBName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal' }}>
-                  {splitTeamName(session?.team_b_name || 'Orange Team', config.teamBName.maxCharsPerLine).map((line, i) => (
-                    <span key={i} className="block text-left">{line}</span>
-                  ))}
-                </span>
-                {config.teamBName.showLogo && (
-                  session?.team_b_logo ? (
-                    <img src={session.team_b_logo} alt="" style={{ width: config.teamBName.logoSize, height: config.teamBName.logoSize }} className="object-contain" />
-                  ) : (
-                    <div className="flex items-center justify-center font-bold text-sm" style={{ width: config.teamBName.logoSize, height: config.teamBName.logoSize, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4 }}>OP</div>
-                  )
-                )}
-              </div>
-            )}
-
             {/* Team A: Logo + Name + Score */}
             <div className="flex items-center">
               {/* Team A Logo */}
@@ -459,6 +391,74 @@ export default function Overlay() {
               )}
             </div>
           </div>
+
+          {/* Team A Detached Box - outside scoreboard bar to avoid clip-path */}
+          {config.teamAName.visible && config.teamAName.detached && (
+            <div
+              style={{
+                position: 'absolute',
+                right: '100%',
+                top: '50%',
+                transform: `translateY(-50%) translate(${-(config.teamAName.boxOffsetX ?? 0)}px, ${config.teamAName.boxOffsetY ?? 0}px)`,
+                width: config.teamAName.boxWidth ?? 200,
+                height: config.teamAName.boxHeight ?? 40,
+                backgroundColor: config.teamAName.boxBackgroundColor ?? session?.team_a_color ?? '#3B82F6',
+                ...getShapeStyle(config.teamAName.boxShape ?? 'rounded', config.teamAName.boxBorderRadius ?? 4),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '0 8px',
+              }}
+            >
+              {config.teamAName.showLogo && (
+                session?.team_a_logo ? (
+                  <img src={session.team_a_logo} alt="" style={{ width: config.teamAName.logoSize, height: config.teamAName.logoSize }} className="object-contain" />
+                ) : (
+                  <div className="flex items-center justify-center font-bold text-sm" style={{ width: config.teamAName.logoSize, height: config.teamAName.logoSize, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4 }}>BD</div>
+                )
+              )}
+              <span className="font-bold uppercase tracking-wide" style={{ color: config.teamAName.textColor, fontSize: config.teamAName.fontSize, whiteSpace: config.teamAName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal' }}>
+                {splitTeamName(session?.team_a_name || 'Blue Team', config.teamAName.maxCharsPerLine).map((line, i) => (
+                  <span key={i} className="block text-right">{line}</span>
+                ))}
+              </span>
+            </div>
+          )}
+
+          {/* Team B Detached Box - outside scoreboard bar to avoid clip-path */}
+          {config.teamBName.visible && config.teamBName.detached && (
+            <div
+              style={{
+                position: 'absolute',
+                left: '100%',
+                top: '50%',
+                transform: `translateY(-50%) translate(${config.teamBName.boxOffsetX ?? 0}px, ${config.teamBName.boxOffsetY ?? 0}px)`,
+                width: config.teamBName.boxWidth ?? 200,
+                height: config.teamBName.boxHeight ?? 40,
+                backgroundColor: config.teamBName.boxBackgroundColor ?? session?.team_b_color ?? '#F97316',
+                ...getShapeStyle(config.teamBName.boxShape ?? 'rounded', config.teamBName.boxBorderRadius ?? 4),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '0 8px',
+              }}
+            >
+              <span className="font-bold uppercase tracking-wide" style={{ color: config.teamBName.textColor, fontSize: config.teamBName.fontSize, whiteSpace: config.teamBName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal' }}>
+                {splitTeamName(session?.team_b_name || 'Orange Team', config.teamBName.maxCharsPerLine).map((line, i) => (
+                  <span key={i} className="block text-left">{line}</span>
+                ))}
+              </span>
+              {config.teamBName.showLogo && (
+                session?.team_b_logo ? (
+                  <img src={session.team_b_logo} alt="" style={{ width: config.teamBName.logoSize, height: config.teamBName.logoSize }} className="object-contain" />
+                ) : (
+                  <div className="flex items-center justify-center font-bold text-sm" style={{ width: config.teamBName.logoSize, height: config.teamBName.logoSize, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4 }}>OP</div>
+                )
+              )}
+            </div>
+          )}
         </div>
       )}
 
