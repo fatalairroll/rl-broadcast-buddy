@@ -110,3 +110,50 @@ export function getShapeStyle(shape: ElementShape, borderRadius: number = 8): Re
       return { borderRadius };
   }
 }
+
+// Helper for detached boxes - inner edge is straight, outer edge is shaped
+export function getDetachedBoxShapeStyle(
+  shape: ElementShape, 
+  side: 'left' | 'right', 
+  skewOffset: number = 10,
+  borderRadius: number = 8
+): React.CSSProperties {
+  switch (shape) {
+    case 'sharp':
+      return { borderRadius: 0 };
+    case 'rounded':
+      return { borderRadius };
+    case 'pill':
+      return { borderRadius: 9999 };
+    case 'skewed':
+    case 'parallelogram':
+      if (side === 'left') {
+        // Left box: right edge (inner, touching scoreboard) is straight, left edge (outer) is skewed
+        return {
+          clipPath: `polygon(${skewOffset}px 0, 100% 0, 100% 100%, 0 100%)`,
+          borderRadius: 0,
+        };
+      } else {
+        // Right box: left edge (inner, touching scoreboard) is straight, right edge (outer) is skewed
+        return {
+          clipPath: `polygon(0 0, 100% 0, calc(100% - ${skewOffset}px) 100%, 0 100%)`,
+          borderRadius: 0,
+        };
+      }
+    case 'hexagon':
+      if (side === 'left') {
+        // Left box: right edge flat, left edge pointed
+        return {
+          clipPath: `polygon(${skewOffset}px 0, 100% 0, 100% 100%, 0 100%, ${skewOffset}px 50%)`,
+          borderRadius: 0,
+        };
+      } else {
+        return {
+          clipPath: `polygon(0 0, calc(100% - ${skewOffset}px) 0, 100% 50%, calc(100% - ${skewOffset}px) 100%, 0 100%)`,
+          borderRadius: 0,
+        };
+      }
+    default:
+      return { borderRadius };
+  }
+}

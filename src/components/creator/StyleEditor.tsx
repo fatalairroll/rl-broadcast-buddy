@@ -480,6 +480,16 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
                 value={teamConfig.boxShape ?? 'rounded'}
                 onChange={(v) => onChange(team, { boxShape: v })}
               />
+              {(teamConfig.boxShape === 'parallelogram' || teamConfig.boxShape === 'skewed') && (
+                <SliderInput
+                  label="Nachylenie krawędzi"
+                  value={teamConfig.boxSkewOffset ?? 10}
+                  onValueChange={(v) => onChange(team, { boxSkewOffset: v })}
+                  min={0}
+                  max={40}
+                  unit="px"
+                />
+              )}
             </div>
           )}
         </div>

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import type { GameState, OverlayConfig, PlayerState, ElementShape, GradientConfig } from '@/types/broadcast';
 import { defaultOverlayConfig } from '@/types/broadcast';
-import { getShapeStyle } from '@/components/ui/shape-picker';
+import { getShapeStyle, getDetachedBoxShapeStyle } from '@/components/ui/shape-picker';
 import { getBackgroundStyle } from '@/lib/gradient-utils';
 import { getGlowStyle } from '@/lib/glow-utils';
 
@@ -403,7 +403,7 @@ export default function Overlay() {
                 width: config.teamAName.boxWidth ?? 200,
                 height: config.teamAName.boxHeight ?? 40,
                 backgroundColor: config.teamAName.boxBackgroundColor ?? session?.team_a_color ?? '#3B82F6',
-                ...getShapeStyle(config.teamAName.boxShape ?? 'rounded', config.teamAName.boxBorderRadius ?? 4),
+                ...getDetachedBoxShapeStyle(config.teamAName.boxShape ?? 'rounded', 'left', config.teamAName.boxSkewOffset ?? 10, config.teamAName.boxBorderRadius ?? 4),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -437,7 +437,7 @@ export default function Overlay() {
                 width: config.teamBName.boxWidth ?? 200,
                 height: config.teamBName.boxHeight ?? 40,
                 backgroundColor: config.teamBName.boxBackgroundColor ?? session?.team_b_color ?? '#F97316',
-                ...getShapeStyle(config.teamBName.boxShape ?? 'rounded', config.teamBName.boxBorderRadius ?? 4),
+                ...getDetachedBoxShapeStyle(config.teamBName.boxShape ?? 'rounded', 'right', config.teamBName.boxSkewOffset ?? 10, config.teamBName.boxBorderRadius ?? 4),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
