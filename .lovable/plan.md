@@ -1,45 +1,51 @@
 
 
-# Fix: Detached team name boxes clipped by scoreboard shape
+# Fix: Detached boxy obcinane przez clip-path scoreboardu
 
 ## Problem
 
-The detached team name boxes are rendered as **children** of the scoreboard bar div, which uses CSS `clip-path` for shapes like "skewed" or "hexagon". Since `clip-path` clips all child elements, any part of the detached box that extends beyond the scoreboard area becomes invisible.
+Detached boxy nazw druzyn sa renderowane jako **dzieci** diva scoreboardu, ktory uzywa CSS `clip-path` dla ksztaltow takich jak "skosne", "szescioakat" itp. Wlasciwosc `clip-path` obcina **wszystkie** elementy potomne, wiec czesci boxow wystawajace poza pasek scoreboardu sa niewidoczne.
 
-## Solution
+## Rozwiazanie
 
-Move the detached team name box elements **outside** the scoreboard bar div and into the parent positioning container. The parent container (the outer `div` with `position: absolute`) does not have `clip-path`, so the boxes will be fully visible regardless of the scoreboard shape.
+Przeniesc detached boxy z wnetrza diva scoreboardu (ktory ma `clip-path`) do rodzica -- kontenera pozycjonujacego (ktory nie ma `clip-path`). Boxy stana sie rodzenstwa paska scoreboardu zamiast jego dzieci.
 
-## Changes
+## Struktura przed zmiana
 
-### `src/pages/Overlay.tsx`
-
-- Move the Team A and Team B detached box divs (currently inside the scoreboard bar at lines ~141-205) to be **siblings** of the scoreboard bar div, still inside the outer container (lines ~117-124)
-- Adjust positioning: since the parent container centers with `translateX(-50%)`, the detached boxes should be positioned relative to the scoreboard bar width using `calc()` or explicit left/right values
-
-### `src/components/creator/OverlayPreview.tsx`
-
-- Same structural change: move detached boxes outside the scoreboard bar div and into the parent container
-
-## Technical Details
-
-Current structure (broken):
 ```text
-outer-container (absolute, no clip-path)
-  scoreboard-bar (clip-path applied)
-    detached-box-A (clipped!)
-    detached-box-B (clipped!)
-    ...score, timer, etc...
+outer-container (position: absolute, translateX(-50%))
+  scoreboard-bar (clip-path: polygon(...))     <-- obcina dzieci!
+    detached-box-A (position: absolute)        <-- obciete!
+    detached-box-B (position: absolute)        <-- obciete!
+    ...score, timer, nazwy inline...
 ```
 
-Fixed structure:
+## Struktura po zmianie
+
 ```text
-outer-container (absolute, no clip-path)
-  scoreboard-bar (clip-path applied)
-    ...score, timer, etc...
-  detached-box-A (visible, not clipped)
-  detached-box-B (visible, not clipped)
+outer-container (position: absolute, translateX(-50%))
+  scoreboard-bar (clip-path: polygon(...))
+    ...score, timer, nazwy inline...
+  detached-box-A (position: absolute)          <-- widoczne!
+  detached-box-B (position: absolute)          <-- widoczne!
 ```
 
-The detached boxes will use `position: absolute` relative to the outer container, with `right` and `left` calculated based on scoreboard width to maintain the same visual placement.
+## Zmiany w plikach
+
+### 1. `src/pages/Overlay.tsx`
+
+- Dodanie `position: 'relative'` do outer-container (linia ~118) -- jesli jeszcze nie ma
+- Przeniesienie blokow Team A Detached Box (linie ~141-172) i Team B Detached Box (linie ~174-206) **za** zamykajacy tag diva scoreboard-bar
+- Pozycjonowanie boxow wzgledem outer-container: zamiast `right: '100%'` wzgledem paska, uzycie `right: '100%'` wzgledem tego samego kontenera (outer-container ma ta sama szerokosc co pasek, wiec wartosci sie nie zmieniaja)
+
+### 2. `src/components/creator/OverlayPreview.tsx`
+
+- Identyczna zmiana strukturalna: przeniesienie detached boxow (linie ~151-208) za div paska scoreboardu
+- Outer-container (linia ~127) juz ma `position: absolute`, trzeba upewnic sie ze detached boxy sa pozycjonowane wzgledem niego
+
+## Szczegoly techniczne
+
+- Outer-container ma `transform: translateX(-50%)`, wiec jest kontekstem pozycjonowania (stacking context) -- `position: absolute` na dzieciach bedzie dzialac wzgledem niego
+- Szerokosc outer-container nie jest jawnie ustawiona, wiec rozciaga sie do rozmiaru scoreboard-bar -- `right: '100%'` i `left: '100%'` beda dzialac identycznie jak wczesniej
+- Zadne inne elementy nie sa modyfikowane -- zmiana jest czysto strukturalna (przeniesienie w DOM)
 
