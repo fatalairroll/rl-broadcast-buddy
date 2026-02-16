@@ -1,51 +1,58 @@
 
 
-# Fix: Detached boxy obcinane przez clip-path scoreboardu
+# Plan: Ksztalty detached boxow jako naturalne przedluzenie scoreboardu
 
 ## Problem
 
-Detached boxy nazw druzyn sa renderowane jako **dzieci** diva scoreboardu, ktory uzywa CSS `clip-path` dla ksztaltow takich jak "skosne", "szescioakat" itp. Wlasciwosc `clip-path` obcina **wszystkie** elementy potomne, wiec czesci boxow wystawajace poza pasek scoreboardu sa niewidoczne.
+Gdy scoreboard i detached boxy maja ksztalt "rownoleglobok", boxy nie sa naturalnym przedluzeniem paska -- obie krawedzie sa skosne, zamiast tylko krawedz zewnetrzna. Wewnetrzna krawedz (stykajaca sie ze scoreboardem) powinna byc prosta/pionowa, a skosna powinna byc tylko krawedz zewnetrzna.
 
 ## Rozwiazanie
 
-Przeniesc detached boxy z wnetrza diva scoreboardu (ktory ma `clip-path`) do rodzica -- kontenera pozycjonujacego (ktory nie ma `clip-path`). Boxy stana sie rodzenstwa paska scoreboardu zamiast jego dzieci.
+### 1. Nowy parametr `boxSkewOffset` w `TeamNameConfig`
 
-## Struktura przed zmiana
+Plik: `src/types/broadcast.ts`
 
-```text
-outer-container (position: absolute, translateX(-50%))
-  scoreboard-bar (clip-path: polygon(...))     <-- obcina dzieci!
-    detached-box-A (position: absolute)        <-- obciete!
-    detached-box-B (position: absolute)        <-- obciete!
-    ...score, timer, nazwy inline...
-```
+Dodanie opcjonalnego pola `boxSkewOffset?: number` (w pikselach, domyslnie 10). Kontroluje jak bardzo skosna jest zewnetrzna krawedz boxa dla ksztaltow "parallelogram" i "skewed".
 
-## Struktura po zmianie
+### 2. Nowa funkcja `getDetachedBoxShapeStyle` w `src/components/ui/shape-picker.tsx`
 
-```text
-outer-container (position: absolute, translateX(-50%))
-  scoreboard-bar (clip-path: polygon(...))
-    ...score, timer, nazwy inline...
-  detached-box-A (position: absolute)          <-- widoczne!
-  detached-box-B (position: absolute)          <-- widoczne!
-```
+Funkcja przyjmuje: `shape`, `side` ('left' | 'right'), `skewOffset` (px).
 
-## Zmiany w plikach
+Dla ksztaltow z clip-path generuje warianty dostosowane do strony:
+- **Team A (left/lewa strona)**: wewnetrzna (prawa) krawedz prosta, zewnetrzna (lewa) skosna
+  - parallelogram: `polygon(Xpx 0, 100% 0, 100% 100%, 0 100%)`
+  - skewed: analogicznie
+- **Team B (right/prawa strona)**: wewnetrzna (lewa) krawedz prosta, zewnetrzna (prawa) skosna
+  - parallelogram: `polygon(0 0, 100% 0, calc(100% - Xpx) 100%, 0 100%)`
+  - skewed: analogicznie
 
-### 1. `src/pages/Overlay.tsx`
+Dla hexagon -- wariant z jedna plaska strona (od strony scoreboardu).
 
-- Dodanie `position: 'relative'` do outer-container (linia ~118) -- jesli jeszcze nie ma
-- Przeniesienie blokow Team A Detached Box (linie ~141-172) i Team B Detached Box (linie ~174-206) **za** zamykajacy tag diva scoreboard-bar
-- Pozycjonowanie boxow wzgledem outer-container: zamiast `right: '100%'` wzgledem paska, uzycie `right: '100%'` wzgledem tego samego kontenera (outer-container ma ta sama szerokosc co pasek, wiec wartosci sie nie zmieniaja)
+Dla sharp, rounded, pill -- bez zmian (delegacja do istniejacego `getShapeStyle`).
 
-### 2. `src/components/creator/OverlayPreview.tsx`
+### 3. Aktualizacja Overlay.tsx i OverlayPreview.tsx
 
-- Identyczna zmiana strukturalna: przeniesienie detached boxow (linie ~151-208) za div paska scoreboardu
-- Outer-container (linia ~127) juz ma `position: absolute`, trzeba upewnic sie ze detached boxy sa pozycjonowane wzgledem niego
+Zamiana `getShapeStyle(config.teamXName.boxShape)` na `getDetachedBoxShapeStyle(config.teamXName.boxShape, 'left'/'right', config.teamXName.boxSkewOffset)` w renderowaniu detached boxow.
 
-## Szczegoly techniczne
+### 4. Suwak "Kat nachylenia" w StyleEditor.tsx
 
-- Outer-container ma `transform: translateX(-50%)`, wiec jest kontekstem pozycjonowania (stacking context) -- `position: absolute` na dzieciach bedzie dzialac wzgledem niego
-- Szerokosc outer-container nie jest jawnie ustawiona, wiec rozciaga sie do rozmiaru scoreboard-bar -- `right: '100%'` i `left: '100%'` beda dzialac identycznie jak wczesniej
-- Zadne inne elementy nie sa modyfikowane -- zmiana jest czysto strukturalna (przeniesienie w DOM)
+Po komponencie `ShapePicker` w sekcji detached box, dodanie warunkowego suwaka `SliderInput` widocznego gdy `boxShape` to `'parallelogram'` lub `'skewed'`:
+- Etykieta: "Nachylenie krawedzi"
+- Zakres: 0-40 px
+- Domyslnie: 10
+
+### 5. Aktualizacja domyslnych wartosci
+
+W `defaultOverlayConfig` (types/broadcast.ts) dodanie `boxSkewOffset: 10` dla teamAName i teamBName.
+
+W `overlayTemplates.ts` dodanie `boxSkewOffset: 10` do szablonow.
+
+## Pliki do modyfikacji
+
+- `src/types/broadcast.ts` -- nowe pole `boxSkewOffset`
+- `src/components/ui/shape-picker.tsx` -- nowa funkcja `getDetachedBoxShapeStyle`
+- `src/pages/Overlay.tsx` -- uzycie nowej funkcji dla detached boxow
+- `src/components/creator/OverlayPreview.tsx` -- j.w.
+- `src/components/creator/StyleEditor.tsx` -- suwak nachylenia
+- `src/config/overlayTemplates.ts` -- domyslne wartosci
 
