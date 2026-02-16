@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import type { OverlayConfig, EditableElement, GameState, ElementShape, GradientConfig } from '@/types/broadcast';
-import { getShapeStyle } from '@/components/ui/shape-picker';
+import { getShapeStyle, getDetachedBoxShapeStyle } from '@/components/ui/shape-picker';
 import { getBackgroundStyle } from '@/lib/gradient-utils';
 import { getGlowStyle } from '@/lib/glow-utils';
 
@@ -367,7 +367,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 width: (config.teamAName.boxWidth ?? 200) * 0.4,
                 height: (config.teamAName.boxHeight ?? 40) * 0.4,
                 backgroundColor: config.teamAName.boxBackgroundColor ?? mockSession.team_a_color,
-                ...getShapeStyle(config.teamAName.boxShape ?? 'rounded', (config.teamAName.boxBorderRadius ?? 4) * 0.5),
+                ...getDetachedBoxShapeStyle(config.teamAName.boxShape ?? 'rounded', 'left', (config.teamAName.boxSkewOffset ?? 10) * 0.4, (config.teamAName.boxBorderRadius ?? 4) * 0.5),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -397,7 +397,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 width: (config.teamBName.boxWidth ?? 200) * 0.4,
                 height: (config.teamBName.boxHeight ?? 40) * 0.4,
                 backgroundColor: config.teamBName.boxBackgroundColor ?? mockSession.team_b_color,
-                ...getShapeStyle(config.teamBName.boxShape ?? 'rounded', (config.teamBName.boxBorderRadius ?? 4) * 0.5),
+                ...getDetachedBoxShapeStyle(config.teamBName.boxShape ?? 'rounded', 'right', (config.teamBName.boxSkewOffset ?? 10) * 0.4, (config.teamBName.boxBorderRadius ?? 4) * 0.5),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

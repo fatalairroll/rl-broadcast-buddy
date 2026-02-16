@@ -154,6 +154,7 @@ export interface TeamNameConfig extends ElementStyle {
   boxBackgroundColor?: string;
   boxBorderRadius?: number;
   boxShape?: ElementShape;
+  boxSkewOffset?: number;
 }
 
 // Overlay configuration types
@@ -440,6 +441,7 @@ export const defaultOverlayConfig: OverlayConfig = {
     boxBackgroundColor: '#3B82F6',
     boxBorderRadius: 4,
     boxShape: 'rounded',
+    boxSkewOffset: 10,
   },
   teamBName: {
     ...defaultElementStyle,
@@ -464,6 +466,7 @@ export const defaultOverlayConfig: OverlayConfig = {
     boxBackgroundColor: '#F97316',
     boxBorderRadius: 4,
     boxShape: 'rounded',
+    boxSkewOffset: 10,
   },
   boostBars: {
     visible: true,
