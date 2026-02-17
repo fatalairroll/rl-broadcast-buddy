@@ -1,62 +1,97 @@
 
 
-# Plan: Skosy po obu stronach, naprawa kropek serii, gradient dla wiecej elementow
+# Plan: Wynik serii jako niezalezny element
 
-## 1. Regulowane skosy po obu stronach detached boxa
+## Problem
 
-### Problem
-Obecnie `getDetachedBoxShapeStyle` skosi tylko zewnetrzna krawedz, a wewnetrzna jest zawsze prosta. Uzytkownik chce niezaleznej kontroli obu stron.
+Kropki serii sa renderowane wewnatrz kontenerow nazw druzyn (zarowno w trybie inline jak i detached). Nie mozna ich swobodnie przesuwac -- zawsze sa "przyklejone" pod nazwa druzyny.
 
-### Rozwiazanie
-Dodac drugi parametr `boxSkewOffsetInner` do `TeamNameConfig` kontrolujacy nachylenie wewnetrznej krawedzi (od strony scoreboardu). Zmodyfikowac `getDetachedBoxShapeStyle` aby przyjmowal oba offsety.
+## Rozwiazanie
 
-**Pliki:**
+Wyniesc kropki serii z kontenerow nazw druzyn i renderowac je jako niezalezne, absolutnie pozycjonowane elementy wzgledem outer-container scoreboardu. Kazda druzyna ma swoje kropki z wlasnymi offsetami.
 
-- `src/types/broadcast.ts` -- dodanie `boxSkewOffsetInner?: number` (domyslnie 0) do `TeamNameConfig`, zmiana nazwy istniejacego na jasniejsza: `boxSkewOffset` pozostaje jako zewnetrzny
-- `src/components/ui/shape-picker.tsx` -- modyfikacja `getDetachedBoxShapeStyle`: nowy parametr `skewOffsetInner`, clip-path uzywa obu wartosci:
-  - Team A (left): `polygon(outerSkew 0, 100% 0, calc(100% - innerSkew) 100%, 0 100%)`  
-  - Team B (right): `polygon(innerSkew 0, 100% 0, calc(100% - outerSkew) 100%, 0 100%)`
-- `src/components/creator/StyleEditor.tsx` -- dodanie drugiego suwaka "Nachylenie wewnetrzne" pod istniejacym "Nachylenie krawedzi", widoczny dla parallelogram/skewed
-- `src/pages/Overlay.tsx` i `src/components/creator/OverlayPreview.tsx` -- przekazanie nowego parametru do `getDetachedBoxShapeStyle`
-- `src/config/overlayTemplates.ts` -- dodanie `boxSkewOffsetInner: 0` do szablonow
+## Zmiany
 
-## 2. Naprawa widocznosci kropek serii po wyodrebnieniu nazwy druzyny
+### 1. `src/types/broadcast.ts` -- rozszerzenie `SeriesDisplayConfig`
 
-### Problem
-Kropki serii (series dots) sa renderowane wewnatrz bloku `!config.teamXName.detached`, wiec znikaja gdy nazwa druzyny jest wyodrebniona.
+Dodanie nowych pol umozliwiajacych niezalezne pozycjonowanie kropek dla kazdej druzyny:
 
-### Rozwiazanie
-Gdy `detached === true`, renderowac kropki serii wewnatrz detached boxa (pod nazwa druzyny) lub obok niej. Kropki beda dodane do detached box divow w obu plikach renderujacych.
+```
+teamAOffsetX: number;  // offset X kropek druzyny A
+teamAOffsetY: number;  // offset Y kropek druzyny A
+teamBOffsetX: number;  // offset X kropek druzyny B
+teamBOffsetY: number;  // offset Y kropek druzyny B
+```
 
-**Pliki:**
+Istniejace `offsetX`/`offsetY` zostana uzyte jako globalne wartosci domyslne. Nowe pola daja niezalezna kontrole nad kazdym zestawem kropek.
 
-- `src/pages/Overlay.tsx` -- w blokach Team A/B Detached Box (linie ~396-461), dodac renderowanie kropek serii pod nazwa druzyny, analogicznie do tego jak sa renderowane w trybie inline
-- `src/components/creator/OverlayPreview.tsx` -- identyczna zmiana w blokach detached boxow (linie ~357-415)
+Alternatywnie -- prostsze podejscie: uzyc istniejacych `offsetX`/`offsetY` jako wspolnych i dodac `position` z `x`/`y` procentowym (jak scoreboard). Ale to zmienia cala koncepcje -- lepiej zachowac offsety per-team.
 
-## 3. Gradient dla tla detached boxa nazwy druzyny
+**Aktualizacja domyslnych wartosci** w `defaultOverlayConfig`:
+- `teamAOffsetX: 0`, `teamAOffsetY: 0`
+- `teamBOffsetX: 0`, `teamBOffsetY: 0`
 
-### Problem
-Detached box ma tylko `ColorPicker` dla tla. Brakuje mozliwosci ustawienia gradientu.
+### 2. `src/pages/Overlay.tsx` -- przeniesienie kropek serii
 
-### Rozwiazanie
-Dodac `boxBackgroundGradient?: GradientConfig` do `TeamNameConfig` i zamienic `ColorPicker` na `GradientEditor` w sekcji detached box. W renderowaniu uzyc `getBackgroundStyle()`.
+**Usuniecie** bloków renderujacych kropki serii z:
+- Wnetrza Team A inline name (linie ~197-221)
+- Wnetrza Team B inline name (linie ~331-355)
+- Wnetrza Team A detached box (linie ~429-442)
+- Wnetrza Team B detached box (odpowiednie linie)
 
-**Pliki:**
+**Dodanie** dwoch nowych, niezaleznych blokow po detached boxach (ale wciaz wewnatrz outer-container):
 
-- `src/types/broadcast.ts` -- dodanie `boxBackgroundGradient?: GradientConfig` do `TeamNameConfig`
-- `src/components/creator/StyleEditor.tsx` -- zamiana `ColorPicker` "Tlo boxa" (linia ~473) na `GradientEditor`
-- `src/pages/Overlay.tsx` -- zamiana `backgroundColor: config.teamXName.boxBackgroundColor` na `...getBackgroundStyle(boxBgColor, boxBgGradient)` w detached boxach
-- `src/components/creator/OverlayPreview.tsx` -- analogiczna zmiana
-- `src/config/overlayTemplates.ts` -- aktualizacja szablonow
+```
+{/* Team A Series Dots - independent element */}
+{config.seriesDisplay.visible && seriesDotsCount > 0 && (
+  <div style={{
+    position: 'absolute',
+    right: '50%',        // domyslnie przy lewej polowie scoreboardu
+    top: '100%',         // pod scoreboardem
+    transform: `translate(${-config.seriesDisplay.teamAOffsetX}px, ${config.seriesDisplay.teamAOffsetY}px)`,
+    ...
+  }}>
+    {/* kropki A */}
+  </div>
+)}
+
+{/* Team B Series Dots - independent element */}
+{config.seriesDisplay.visible && seriesDotsCount > 0 && (
+  <div style={{
+    position: 'absolute',
+    left: '50%',
+    top: '100%',
+    transform: `translate(${config.seriesDisplay.teamBOffsetX}px, ${config.seriesDisplay.teamBOffsetY}px)`,
+    ...
+  }}>
+    {/* kropki B */}
+  </div>
+)}
+```
+
+### 3. `src/components/creator/OverlayPreview.tsx` -- identyczna zmiana
+
+Przeniesienie kropek serii z kontenerow nazw druzyn do niezaleznych elementow w outer-container. Skalowanie 0.4x jak pozostale elementy podgladu.
+
+### 4. `src/components/creator/StyleEditor.tsx` -- nowe suwaki
+
+W sekcji edycji `seriesDisplay` dodanie suwaków:
+- "Offset X druzyny A" / "Offset Y druzyny A"
+- "Offset X druzyny B" / "Offset Y druzyny B"
+
+Pozwoli to na niezalezne przesuwanie kropek kazdej druzyny.
+
+### 5. `src/config/overlayTemplates.ts` -- domyslne wartosci
+
+Dodanie `teamAOffsetX: 0`, `teamAOffsetY: 0`, `teamBOffsetX: 0`, `teamBOffsetY: 0` do szablonow.
 
 ## Podsumowanie zmian w plikach
 
 | Plik | Zmiany |
 |------|--------|
-| `src/types/broadcast.ts` | `boxSkewOffsetInner`, `boxBackgroundGradient` |
-| `src/components/ui/shape-picker.tsx` | Dwustronny skos w `getDetachedBoxShapeStyle` |
-| `src/components/creator/StyleEditor.tsx` | Suwak wewnetrznego skosu, GradientEditor dla boxa |
-| `src/pages/Overlay.tsx` | Dwustronny skos, kropki serii w detached, gradient boxa |
+| `src/types/broadcast.ts` | Nowe pola `teamAOffsetX/Y`, `teamBOffsetX/Y` w `SeriesDisplayConfig` |
+| `src/pages/Overlay.tsx` | Usuniecie kropek z nazw druzyn, dodanie niezaleznych blokow |
 | `src/components/creator/OverlayPreview.tsx` | j.w. |
-| `src/config/overlayTemplates.ts` | Nowe domyslne wartosci |
+| `src/components/creator/StyleEditor.tsx` | Suwaki per-team offset |
+| `src/config/overlayTemplates.ts` | Domyslne wartosci nowych pol |
 
