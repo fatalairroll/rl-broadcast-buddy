@@ -366,21 +366,37 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 transform: `translateY(-50%) translate(${-(config.teamAName.boxOffsetX ?? 0) * 0.4}px, ${(config.teamAName.boxOffsetY ?? 0) * 0.4}px)`,
                 width: (config.teamAName.boxWidth ?? 200) * 0.4,
                 height: (config.teamAName.boxHeight ?? 40) * 0.4,
-                backgroundColor: config.teamAName.boxBackgroundColor ?? mockSession.team_a_color,
-                ...getDetachedBoxShapeStyle(config.teamAName.boxShape ?? 'rounded', 'left', (config.teamAName.boxSkewOffset ?? 10) * 0.4, (config.teamAName.boxBorderRadius ?? 4) * 0.5),
+                ...getBackgroundStyle(config.teamAName.boxBackgroundColor ?? mockSession.team_a_color, config.teamAName.boxBackgroundGradient),
+                ...getDetachedBoxShapeStyle(config.teamAName.boxShape ?? 'rounded', 'left', (config.teamAName.boxSkewOffset ?? 10) * 0.4, (config.teamAName.boxBorderRadius ?? 4) * 0.5, (config.teamAName.boxSkewOffsetInner ?? 0) * 0.4),
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 3,
+                gap: 1,
                 padding: '0 4px',
               }}
             >
-              {config.teamAName.showLogo && (
-                <div className="flex items-center justify-center font-bold" style={{ width: config.teamAName.logoSize * 0.35, height: config.teamAName.logoSize * 0.35, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, fontSize: 5 }}>BD</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                {config.teamAName.showLogo && (
+                  <div className="flex items-center justify-center font-bold" style={{ width: config.teamAName.logoSize * 0.35, height: config.teamAName.logoSize * 0.35, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, fontSize: 5 }}>BD</div>
+                )}
+                <span className="font-bold uppercase tracking-wide" style={{ color: config.teamAName.textColor, fontSize: config.teamAName.fontSize * 0.4, whiteSpace: 'nowrap' }}>
+                  {mockSession.team_a_name}
+                </span>
+              </div>
+              {config.seriesDisplay.visible && seriesDotsCount > 0 && (
+                <div className="flex items-center gap-0.5" style={{
+                  flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+                }}>
+                  {Array.from({ length: seriesDotsCount }).map((_, i) => (
+                    <div key={`a-${i}`} className="rounded-full" style={{
+                      width: config.seriesDisplay.dotSize * 0.4,
+                      height: config.seriesDisplay.dotSize * 0.4,
+                      backgroundColor: i < teamAWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
+                    }} />
+                  ))}
+                </div>
               )}
-              <span className="font-bold uppercase tracking-wide" style={{ color: config.teamAName.textColor, fontSize: config.teamAName.fontSize * 0.4, whiteSpace: 'nowrap' }}>
-                {mockSession.team_a_name}
-              </span>
             </div>
           )}
 
@@ -396,20 +412,36 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 transform: `translateY(-50%) translate(${(config.teamBName.boxOffsetX ?? 0) * 0.4}px, ${(config.teamBName.boxOffsetY ?? 0) * 0.4}px)`,
                 width: (config.teamBName.boxWidth ?? 200) * 0.4,
                 height: (config.teamBName.boxHeight ?? 40) * 0.4,
-                backgroundColor: config.teamBName.boxBackgroundColor ?? mockSession.team_b_color,
-                ...getDetachedBoxShapeStyle(config.teamBName.boxShape ?? 'rounded', 'right', (config.teamBName.boxSkewOffset ?? 10) * 0.4, (config.teamBName.boxBorderRadius ?? 4) * 0.5),
+                ...getBackgroundStyle(config.teamBName.boxBackgroundColor ?? mockSession.team_b_color, config.teamBName.boxBackgroundGradient),
+                ...getDetachedBoxShapeStyle(config.teamBName.boxShape ?? 'rounded', 'right', (config.teamBName.boxSkewOffset ?? 10) * 0.4, (config.teamBName.boxBorderRadius ?? 4) * 0.5, (config.teamBName.boxSkewOffsetInner ?? 0) * 0.4),
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 3,
+                gap: 1,
                 padding: '0 4px',
               }}
             >
-              <span className="font-bold uppercase tracking-wide" style={{ color: config.teamBName.textColor, fontSize: config.teamBName.fontSize * 0.4, whiteSpace: 'nowrap' }}>
-                {mockSession.team_b_name}
-              </span>
-              {config.teamBName.showLogo && (
-                <div className="flex items-center justify-center font-bold" style={{ width: config.teamBName.logoSize * 0.35, height: config.teamBName.logoSize * 0.35, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, fontSize: 5 }}>OP</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span className="font-bold uppercase tracking-wide" style={{ color: config.teamBName.textColor, fontSize: config.teamBName.fontSize * 0.4, whiteSpace: 'nowrap' }}>
+                  {mockSession.team_b_name}
+                </span>
+                {config.teamBName.showLogo && (
+                  <div className="flex items-center justify-center font-bold" style={{ width: config.teamBName.logoSize * 0.35, height: config.teamBName.logoSize * 0.35, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, fontSize: 5 }}>OP</div>
+                )}
+              </div>
+              {config.seriesDisplay.visible && seriesDotsCount > 0 && (
+                <div className="flex items-center gap-0.5" style={{
+                  flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+                }}>
+                  {Array.from({ length: seriesDotsCount }).map((_, i) => (
+                    <div key={`b-${i}`} className="rounded-full" style={{
+                      width: config.seriesDisplay.dotSize * 0.4,
+                      height: config.seriesDisplay.dotSize * 0.4,
+                      backgroundColor: i < teamBWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
+                    }} />
+                  ))}
+                </div>
               )}
             </div>
           )}
