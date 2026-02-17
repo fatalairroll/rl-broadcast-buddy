@@ -155,6 +155,8 @@ export interface TeamNameConfig extends ElementStyle {
   boxBorderRadius?: number;
   boxShape?: ElementShape;
   boxSkewOffset?: number;
+  boxSkewOffsetInner?: number;
+  boxBackgroundGradient?: GradientConfig;
 }
 
 // Overlay configuration types
@@ -442,6 +444,7 @@ export const defaultOverlayConfig: OverlayConfig = {
     boxBorderRadius: 4,
     boxShape: 'rounded',
     boxSkewOffset: 10,
+    boxSkewOffsetInner: 0,
   },
   teamBName: {
     ...defaultElementStyle,
@@ -467,6 +470,7 @@ export const defaultOverlayConfig: OverlayConfig = {
     boxBorderRadius: 4,
     boxShape: 'rounded',
     boxSkewOffset: 10,
+    boxSkewOffsetInner: 0,
   },
   boostBars: {
     visible: true,

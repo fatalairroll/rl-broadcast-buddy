@@ -470,25 +470,37 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
                   unit="px"
                 />
               </div>
-              <ColorPicker
+              <GradientEditor
                 label="Tło boxa"
-                value={teamConfig.boxBackgroundColor ?? (team === 'teamAName' ? '#3B82F6' : '#F97316')}
-                onChange={(v) => onChange(team, { boxBackgroundColor: v })}
+                backgroundColor={teamConfig.boxBackgroundColor ?? (team === 'teamAName' ? '#3B82F6' : '#F97316')}
+                gradient={teamConfig.boxBackgroundGradient}
+                onBackgroundColorChange={(v) => onChange(team, { boxBackgroundColor: v })}
+                onGradientChange={(g) => onChange(team, { boxBackgroundGradient: g })}
               />
               <ShapePicker
                 label="Kształt boxa"
                 value={teamConfig.boxShape ?? 'rounded'}
                 onChange={(v) => onChange(team, { boxShape: v })}
               />
-              {(teamConfig.boxShape === 'parallelogram' || teamConfig.boxShape === 'skewed') && (
-                <SliderInput
-                  label="Nachylenie krawędzi"
-                  value={teamConfig.boxSkewOffset ?? 10}
-                  onValueChange={(v) => onChange(team, { boxSkewOffset: v })}
-                  min={0}
-                  max={40}
-                  unit="px"
-                />
+              {(teamConfig.boxShape === 'parallelogram' || teamConfig.boxShape === 'skewed' || teamConfig.boxShape === 'hexagon') && (
+                <>
+                  <SliderInput
+                    label="Nachylenie zewnętrzne"
+                    value={teamConfig.boxSkewOffset ?? 10}
+                    onValueChange={(v) => onChange(team, { boxSkewOffset: v })}
+                    min={0}
+                    max={40}
+                    unit="px"
+                  />
+                  <SliderInput
+                    label="Nachylenie wewnętrzne"
+                    value={teamConfig.boxSkewOffsetInner ?? 0}
+                    onValueChange={(v) => onChange(team, { boxSkewOffsetInner: v })}
+                    min={0}
+                    max={40}
+                    unit="px"
+                  />
+                </>
               )}
             </div>
           )}

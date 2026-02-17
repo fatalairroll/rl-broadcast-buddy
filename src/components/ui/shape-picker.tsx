@@ -116,7 +116,8 @@ export function getDetachedBoxShapeStyle(
   shape: ElementShape, 
   side: 'left' | 'right', 
   skewOffset: number = 10,
-  borderRadius: number = 8
+  borderRadius: number = 8,
+  skewOffsetInner: number = 0
 ): React.CSSProperties {
   switch (shape) {
     case 'sharp':
@@ -128,28 +129,27 @@ export function getDetachedBoxShapeStyle(
     case 'skewed':
     case 'parallelogram':
       if (side === 'left') {
-        // Left box: right edge (inner, touching scoreboard) is straight, left edge (outer) is skewed
+        // Left box: left=outer (skewOffset), right=inner (skewOffsetInner)
         return {
-          clipPath: `polygon(${skewOffset}px 0, 100% 0, 100% 100%, 0 100%)`,
+          clipPath: `polygon(${skewOffset}px 0, 100% 0, calc(100% - ${skewOffsetInner}px) 100%, 0 100%)`,
           borderRadius: 0,
         };
       } else {
-        // Right box: left edge (inner, touching scoreboard) is straight, right edge (outer) is skewed
+        // Right box: right=outer (skewOffset), left=inner (skewOffsetInner)
         return {
-          clipPath: `polygon(0 0, 100% 0, calc(100% - ${skewOffset}px) 100%, 0 100%)`,
+          clipPath: `polygon(${skewOffsetInner}px 0, 100% 0, calc(100% - ${skewOffset}px) 100%, 0 100%)`,
           borderRadius: 0,
         };
       }
     case 'hexagon':
       if (side === 'left') {
-        // Left box: right edge flat, left edge pointed
         return {
-          clipPath: `polygon(${skewOffset}px 0, 100% 0, 100% 100%, 0 100%, ${skewOffset}px 50%)`,
+          clipPath: `polygon(${skewOffset}px 0, calc(100% - ${skewOffsetInner}px) 0, 100% 50%, calc(100% - ${skewOffsetInner}px) 100%, 0 100%, ${skewOffset}px 50%)`,
           borderRadius: 0,
         };
       } else {
         return {
-          clipPath: `polygon(0 0, calc(100% - ${skewOffset}px) 0, 100% 50%, calc(100% - ${skewOffset}px) 100%, 0 100%)`,
+          clipPath: `polygon(${skewOffsetInner}px 0, calc(100% - ${skewOffset}px) 0, 100% 50%, calc(100% - ${skewOffset}px) 100%, 0 100%, ${skewOffsetInner}px 50%)`,
           borderRadius: 0,
         };
       }

@@ -121,6 +121,7 @@ const rlcsClassicConfig: OverlayConfig = {
     boxBorderRadius: 4,
     boxShape: 'rounded',
     boxSkewOffset: 10,
+    boxSkewOffsetInner: 0,
   },
   teamBName: {
     visible: true,
@@ -152,6 +153,7 @@ const rlcsClassicConfig: OverlayConfig = {
     boxBorderRadius: 4,
     boxShape: 'rounded',
     boxSkewOffset: 10,
+    boxSkewOffsetInner: 0,
   },
   boostBars: {
     visible: true,
