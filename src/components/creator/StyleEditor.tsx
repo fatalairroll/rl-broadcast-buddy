@@ -136,14 +136,26 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
         </div>
       </div>
       <div className="space-y-4">
+        <h4 className="text-sm font-medium">Kolor tła</h4>
+        <div className="flex items-center justify-between">
+          <Label>Użyj koloru drużyny</Label>
+          <Switch
+            checked={config.scoreDisplay.useTeamColor !== false}
+            onCheckedChange={(v) => onChange('scoreDisplay', { useTeamColor: v })}
+          />
+        </div>
+        {config.scoreDisplay.useTeamColor === false && (
+          <GradientEditor
+            label="Własny kolor / gradient tła"
+            backgroundColor={config.scoreDisplay.backgroundColor}
+            gradient={config.scoreDisplay.backgroundGradient}
+            onBackgroundColorChange={(v) => onChange('scoreDisplay', { backgroundColor: v })}
+            onGradientChange={(g) => onChange('scoreDisplay', { backgroundGradient: g })}
+          />
+        )}
+      </div>
+      <div className="space-y-4">
         <h4 className="text-sm font-medium">Styl</h4>
-        <GradientEditor
-          label="Tło"
-          backgroundColor={config.scoreDisplay.backgroundColor}
-          gradient={config.scoreDisplay.backgroundGradient}
-          onBackgroundColorChange={(v) => onChange('scoreDisplay', { backgroundColor: v })}
-          onGradientChange={(g) => onChange('scoreDisplay', { backgroundGradient: g })}
-        />
         <ColorPicker
           label="Kolor tekstu"
           value={config.scoreDisplay.textColor}
@@ -727,6 +739,61 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
           max={500}
           unit="ms"
         />
+      </div>
+
+      <div className="space-y-4">
+        <h4 className="text-sm font-medium">Statystyki gracza w pasku</h4>
+        <div className="flex items-center justify-between">
+          <Label>Pokaż statystyki gracza</Label>
+          <Switch
+            checked={config.boostBars.showStatsInBar}
+            onCheckedChange={(v) => onChange('boostBars', { showStatsInBar: v })}
+          />
+        </div>
+        {config.boostBars.showStatsInBar && (
+          <div className="space-y-3 pl-2 border-l-2 border-primary/30">
+            <p className="text-xs text-muted-foreground">Wybierz widoczne statystyki</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Wynik (SCR)</Label>
+                <Switch checked={config.boostBars.statsInBarScore} onCheckedChange={(v) => onChange('boostBars', { statsInBarScore: v })} className="scale-75" />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Gole (G)</Label>
+                <Switch checked={config.boostBars.statsInBarGoals} onCheckedChange={(v) => onChange('boostBars', { statsInBarGoals: v })} className="scale-75" />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Asysty (A)</Label>
+                <Switch checked={config.boostBars.statsInBarAssists} onCheckedChange={(v) => onChange('boostBars', { statsInBarAssists: v })} className="scale-75" />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Obrony (SV)</Label>
+                <Switch checked={config.boostBars.statsInBarSaves} onCheckedChange={(v) => onChange('boostBars', { statsInBarSaves: v })} className="scale-75" />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Strzały (SH)</Label>
+                <Switch checked={config.boostBars.statsInBarShots} onCheckedChange={(v) => onChange('boostBars', { statsInBarShots: v })} className="scale-75" />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Kasacje (DEM)</Label>
+                <Switch checked={config.boostBars.statsInBarDemos} onCheckedChange={(v) => onChange('boostBars', { statsInBarDemos: v })} className="scale-75" />
+              </div>
+            </div>
+            <ColorPicker
+              label="Kolor tekstu statystyk"
+              value={config.boostBars.statsTextColor}
+              onChange={(v) => onChange('boostBars', { statsTextColor: v })}
+            />
+            <SliderInput
+              label="Rozmiar czcionki statystyk"
+              value={config.boostBars.statsFontSize}
+              onValueChange={(v) => onChange('boostBars', { statsFontSize: v })}
+              min={8}
+              max={18}
+              unit="px"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

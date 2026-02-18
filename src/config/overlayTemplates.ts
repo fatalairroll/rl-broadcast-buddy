@@ -33,6 +33,7 @@ const rlcsClassicConfig: OverlayConfig = {
   },
   scoreDisplay: {
     visible: true,
+    useTeamColor: true,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 6,
     borderWidth: 0,
@@ -176,6 +177,15 @@ const rlcsClassicConfig: OverlayConfig = {
     animationSpeed: 120,
     opacity: 1,
     glow: defaultGlow,
+    showStatsInBar: false,
+    statsInBarScore: true,
+    statsInBarGoals: true,
+    statsInBarAssists: true,
+    statsInBarSaves: true,
+    statsInBarShots: false,
+    statsInBarDemos: false,
+    statsTextColor: 'rgba(255,255,255,0.7)',
+    statsFontSize: 11,
   },
   boostCircle: {
     visible: true,

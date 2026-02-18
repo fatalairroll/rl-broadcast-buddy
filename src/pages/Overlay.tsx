@@ -228,8 +228,10 @@ export default function Overlay() {
                   <motion.div
                     className="flex items-center justify-center font-bold"
                     style={{
-                      backgroundColor: session?.team_a_color || '#3B82F6',
-                      color: '#ffffff',
+                      ...(config.scoreDisplay.useTeamColor !== false
+                        ? { backgroundColor: session?.team_a_color || '#3B82F6' }
+                        : getBackgroundStyle(config.scoreDisplay.backgroundColor, config.scoreDisplay.backgroundGradient)),
+                      color: config.scoreDisplay.textColor,
                       fontSize: config.scoreDisplay.fontSize,
                       minWidth: config.scoreDisplay.fontSize * 1.8,
                       height: config.scoreDisplay.fontSize * 1.6,
@@ -289,8 +291,10 @@ export default function Overlay() {
                   <motion.div
                     className="flex items-center justify-center font-bold"
                     style={{
-                      backgroundColor: session?.team_b_color || '#F97316',
-                      color: '#ffffff',
+                      ...(config.scoreDisplay.useTeamColor !== false
+                        ? { backgroundColor: session?.team_b_color || '#F97316' }
+                        : getBackgroundStyle(config.scoreDisplay.backgroundColor, config.scoreDisplay.backgroundGradient)),
+                      color: config.scoreDisplay.textColor,
                       fontSize: config.scoreDisplay.fontSize,
                       minWidth: config.scoreDisplay.fontSize * 1.8,
                       height: config.scoreDisplay.fontSize * 1.6,
@@ -591,9 +595,47 @@ function BoostBar({ player, teamColor, config, reversed }: BoostBarProps) {
   const shapeStyles = getShapeStyle(config.shape, config.borderRadius);
   const barShapeStyles = getShapeStyle(config.shape, config.barHeight / 2);
   
+  const statsRow = config.showStatsInBar && (
+    <div
+      className={`flex items-center gap-2 mt-0.5 ${reversed ? 'flex-row-reverse' : ''}`}
+      style={{ paddingLeft: reversed ? 0 : 2, paddingRight: reversed ? 2 : 0 }}
+    >
+      {config.statsInBarScore && (
+        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ opacity: 0.6 }}>SCR </span>{player.score}
+        </span>
+      )}
+      {config.statsInBarGoals && (
+        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ opacity: 0.6 }}>G </span>{player.goals}
+        </span>
+      )}
+      {config.statsInBarAssists && (
+        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ opacity: 0.6 }}>A </span>{player.assists}
+        </span>
+      )}
+      {config.statsInBarSaves && (
+        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ opacity: 0.6 }}>SV </span>{player.saves}
+        </span>
+      )}
+      {config.statsInBarShots && (
+        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ opacity: 0.6 }}>SH </span>{player.shots}
+        </span>
+      )}
+      {config.statsInBarDemos && (
+        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ opacity: 0.6 }}>DEM </span>{player.demos}
+        </span>
+      )}
+    </div>
+  );
+
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-2 ${reversed ? 'flex-row-reverse' : ''}`}
+      className="px-3 py-2"
       style={{
         ...getBackgroundStyle(config.backgroundColor, config.backgroundGradient),
         ...shapeStyles,
@@ -601,53 +643,56 @@ function BoostBar({ player, teamColor, config, reversed }: BoostBarProps) {
         opacity: config.opacity,
       }}
     >
-      {/* Player name - flex container that can shrink */}
-      {config.showPlayerNames && (
-        <div className="flex-1 min-w-0">
-          <span
-            className="font-semibold truncate uppercase block"
-            style={{ 
-              fontSize: config.fontSize, 
-              color: '#ffffff',
-              textAlign: reversed ? 'right' : 'left',
-            }}
-          >
-            {player.name}
-          </span>
-        </div>
-      )}
-      
-      {/* Boost bar - fixed width, won't shrink */}
-      <div 
-        className="flex-shrink-0 overflow-hidden"
-        style={{
-          width: config.boostBarWidth,
-          height: config.barHeight,
-          backgroundColor: 'rgba(255,255,255,0.1)',
-          ...barShapeStyles,
-        }}
-      >
-        <motion.div
-          className="h-full"
-          initial={false}
-          animate={{
-            width: `${normalizedBoost}%`,
-            backgroundColor: teamColor,
+      <div className={`flex items-center gap-2 ${reversed ? 'flex-row-reverse' : ''}`}>
+        {/* Player name - flex container that can shrink */}
+        {config.showPlayerNames && (
+          <div className="flex-1 min-w-0">
+            <span
+              className="font-semibold truncate uppercase block"
+              style={{ 
+                fontSize: config.fontSize, 
+                color: '#ffffff',
+                textAlign: reversed ? 'right' : 'left',
+              }}
+            >
+              {player.name}
+            </span>
+          </div>
+        )}
+        
+        {/* Boost bar - fixed width, won't shrink */}
+        <div 
+          className="flex-shrink-0 overflow-hidden"
+          style={{
+            width: config.boostBarWidth,
+            height: config.barHeight,
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            ...barShapeStyles,
           }}
-          transition={{ duration: config.animationSpeed / 1000 }}
-          style={barShapeStyles}
-        />
-      </div>
-      
-      {/* Boost value - fixed width */}
-      {config.showBoostValue && (
-        <span 
-          className="font-mono font-bold w-8 text-center flex-shrink-0"
-          style={{ fontSize: config.fontSize, color: '#ffffff' }}
         >
-          {normalizedBoost}
-        </span>
-      )}
+          <motion.div
+            className="h-full"
+            initial={false}
+            animate={{
+              width: `${normalizedBoost}%`,
+              backgroundColor: teamColor,
+            }}
+            transition={{ duration: config.animationSpeed / 1000 }}
+            style={barShapeStyles}
+          />
+        </div>
+        
+        {/* Boost value - fixed width */}
+        {config.showBoostValue && (
+          <span 
+            className="font-mono font-bold w-8 text-center flex-shrink-0"
+            style={{ fontSize: config.fontSize, color: '#ffffff' }}
+          >
+            {normalizedBoost}
+          </span>
+        )}
+      </div>
+      {statsRow}
     </div>
   );
 }

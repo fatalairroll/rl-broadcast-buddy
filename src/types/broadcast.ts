@@ -104,6 +104,7 @@ export interface ElementStyle {
 // Scoreboard sub-elements
 export interface ScoreDisplayConfig extends ElementStyle {
   visible: boolean;
+  useTeamColor: boolean; // when true, uses team color; when false, uses backgroundColor/backgroundGradient
   gap: number; // gap between scores
   separatorColor: string;
   separatorWidth: number;
@@ -211,6 +212,16 @@ export interface BoostBarsConfig {
   animationSpeed: number;
   opacity: number;
   glow?: GlowConfig;
+  // Player stats in boost bar
+  showStatsInBar: boolean;
+  statsInBarScore: boolean;
+  statsInBarGoals: boolean;
+  statsInBarAssists: boolean;
+  statsInBarSaves: boolean;
+  statsInBarShots: boolean;
+  statsInBarDemos: boolean;
+  statsTextColor: string;
+  statsFontSize: number;
 }
 
 export interface BoostCircleConfig {
@@ -374,6 +385,7 @@ export const defaultOverlayConfig: OverlayConfig = {
   scoreDisplay: {
     ...defaultElementStyle,
     visible: true,
+    useTeamColor: true,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 8,
     padding: 12,
@@ -493,6 +505,15 @@ export const defaultOverlayConfig: OverlayConfig = {
     animationSpeed: 150,
     opacity: 1,
     glow: defaultGlow,
+    showStatsInBar: false,
+    statsInBarScore: true,
+    statsInBarGoals: true,
+    statsInBarAssists: true,
+    statsInBarSaves: true,
+    statsInBarShots: false,
+    statsInBarDemos: false,
+    statsTextColor: 'rgba(255,255,255,0.7)',
+    statsFontSize: 11,
   },
   boostCircle: {
     visible: true,
