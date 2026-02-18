@@ -222,8 +222,10 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                   className={cn('flex items-center justify-center font-bold', getHighlightClass('scoreDisplay'))}
                   onClick={(e) => { e.stopPropagation(); onSelectElement('scoreDisplay'); }}
                   style={{
-                    backgroundColor: mockSession.team_a_color,
-                    color: '#ffffff',
+                    ...(config.scoreDisplay.useTeamColor !== false
+                      ? { backgroundColor: mockSession.team_a_color }
+                      : getBackgroundStyle(config.scoreDisplay.backgroundColor, config.scoreDisplay.backgroundGradient)),
+                    color: config.scoreDisplay.textColor,
                     fontSize: config.scoreDisplay.fontSize * 0.4,
                     minWidth: config.scoreDisplay.fontSize * 0.7,
                     height: config.scoreDisplay.fontSize * 0.65,
@@ -272,8 +274,10 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                 <div
                   className="flex items-center justify-center font-bold"
                   style={{
-                    backgroundColor: mockSession.team_b_color,
-                    color: '#ffffff',
+                    ...(config.scoreDisplay.useTeamColor !== false
+                      ? { backgroundColor: mockSession.team_b_color }
+                      : getBackgroundStyle(config.scoreDisplay.backgroundColor, config.scoreDisplay.backgroundGradient)),
+                    color: config.scoreDisplay.textColor,
                     fontSize: config.scoreDisplay.fontSize * 0.4,
                     minWidth: config.scoreDisplay.fontSize * 0.7,
                     height: config.scoreDisplay.fontSize * 0.65,
@@ -466,46 +470,57 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
             return (
               <div
                 key={player.id}
-                className="flex items-center gap-1 px-1.5 py-0.5"
+                className="px-1.5 py-0.5"
                 style={{
                   ...getBackgroundStyle(config.boostBars.backgroundColor, config.boostBars.backgroundGradient),
                   ...shapeStyles,
                   ...getGlowStyle(config.boostBars.glow),
                   opacity: config.boostBars.opacity,
-                  fontSize: config.boostBars.fontSize * 0.4,
                 }}
               >
-                {/* Player name - flex container */}
-                {config.boostBars.showPlayerNames && (
-                  <div className="flex-1 min-w-0">
-                    <span className="text-white truncate uppercase font-semibold block" style={{ fontSize: 5 }}>
-                      {player.name}
-                    </span>
-                  </div>
-                )}
-                {/* Boost bar - fixed width */}
-                <div 
-                  className="flex-shrink-0 overflow-hidden"
-                  style={{
-                    width: config.boostBars.boostBarWidth * 0.35,
-                    height: config.boostBars.barHeight * 0.4,
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    ...barShapeStyles,
-                  }}
-                >
-                  <div
-                    className="h-full"
-                    style={{ 
-                      width: `${normalizeBoost(player.boost)}%`, 
-                      backgroundColor: config.boostBars.teamAColor,
+                <div className="flex items-center gap-1">
+                  {/* Player name */}
+                  {config.boostBars.showPlayerNames && (
+                    <div className="flex-1 min-w-0">
+                      <span className="text-white truncate uppercase font-semibold block" style={{ fontSize: 5 }}>
+                        {player.name}
+                      </span>
+                    </div>
+                  )}
+                  {/* Boost bar */}
+                  <div 
+                    className="flex-shrink-0 overflow-hidden"
+                    style={{
+                      width: config.boostBars.boostBarWidth * 0.35,
+                      height: config.boostBars.barHeight * 0.4,
+                      backgroundColor: 'rgba(255,255,255,0.1)',
                       ...barShapeStyles,
                     }}
-                  />
+                  >
+                    <div
+                      className="h-full"
+                      style={{ 
+                        width: `${normalizeBoost(player.boost)}%`, 
+                        backgroundColor: config.boostBars.teamAColor,
+                        ...barShapeStyles,
+                      }}
+                    />
+                  </div>
+                  {config.boostBars.showBoostValue && (
+                    <span className="font-mono text-white w-3 text-center font-bold flex-shrink-0" style={{ fontSize: 5 }}>
+                      {normalizeBoost(player.boost)}
+                    </span>
+                  )}
                 </div>
-                {config.boostBars.showBoostValue && (
-                  <span className="font-mono text-white w-3 text-center font-bold flex-shrink-0" style={{ fontSize: 5 }}>
-                    {normalizeBoost(player.boost)}
-                  </span>
+                {config.boostBars.showStatsInBar && (
+                  <div className="flex items-center gap-1 mt-0.5" style={{ flexWrap: 'wrap' }}>
+                    {config.boostBars.statsInBarScore && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SCR </span>{player.score}</span>}
+                    {config.boostBars.statsInBarGoals && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>G </span>{player.goals}</span>}
+                    {config.boostBars.statsInBarAssists && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>A </span>{player.assists}</span>}
+                    {config.boostBars.statsInBarSaves && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SV </span>{player.saves}</span>}
+                    {config.boostBars.statsInBarShots && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SH </span>{player.shots}</span>}
+                    {config.boostBars.statsInBarDemos && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>DEM </span>{player.demos}</span>}
+                  </div>
                 )}
               </div>
             );
@@ -530,46 +545,57 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
             return (
               <div
                 key={player.id}
-                className="flex items-center gap-1 px-1.5 py-0.5 flex-row-reverse"
+                className="px-1.5 py-0.5"
                 style={{
                   ...getBackgroundStyle(config.boostBars.backgroundColor, config.boostBars.backgroundGradient),
                   ...shapeStyles,
                   ...getGlowStyle(config.boostBars.glow),
                   opacity: config.boostBars.opacity,
-                  fontSize: config.boostBars.fontSize * 0.4,
                 }}
               >
-                {/* Player name - flex container */}
-                {config.boostBars.showPlayerNames && (
-                  <div className="flex-1 min-w-0">
-                    <span className="text-white truncate uppercase font-semibold block" style={{ fontSize: 5, textAlign: 'right' }}>
-                      {player.name}
-                    </span>
-                  </div>
-                )}
-                {/* Boost bar - fixed width */}
-                <div 
-                  className="flex-shrink-0 overflow-hidden"
-                  style={{
-                    width: config.boostBars.boostBarWidth * 0.35,
-                    height: config.boostBars.barHeight * 0.4,
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    ...barShapeStyles,
-                  }}
-                >
-                  <div
-                    className="h-full"
-                    style={{ 
-                      width: `${normalizeBoost(player.boost)}%`, 
-                      backgroundColor: config.boostBars.teamBColor,
+                <div className="flex items-center gap-1 flex-row-reverse">
+                  {/* Player name */}
+                  {config.boostBars.showPlayerNames && (
+                    <div className="flex-1 min-w-0">
+                      <span className="text-white truncate uppercase font-semibold block" style={{ fontSize: 5, textAlign: 'right' }}>
+                        {player.name}
+                      </span>
+                    </div>
+                  )}
+                  {/* Boost bar */}
+                  <div 
+                    className="flex-shrink-0 overflow-hidden"
+                    style={{
+                      width: config.boostBars.boostBarWidth * 0.35,
+                      height: config.boostBars.barHeight * 0.4,
+                      backgroundColor: 'rgba(255,255,255,0.1)',
                       ...barShapeStyles,
                     }}
-                  />
+                  >
+                    <div
+                      className="h-full"
+                      style={{ 
+                        width: `${normalizeBoost(player.boost)}%`, 
+                        backgroundColor: config.boostBars.teamBColor,
+                        ...barShapeStyles,
+                      }}
+                    />
+                  </div>
+                  {config.boostBars.showBoostValue && (
+                    <span className="font-mono text-white w-3 text-center font-bold flex-shrink-0" style={{ fontSize: 5 }}>
+                      {normalizeBoost(player.boost)}
+                    </span>
+                  )}
                 </div>
-                {config.boostBars.showBoostValue && (
-                  <span className="font-mono text-white w-3 text-center font-bold flex-shrink-0" style={{ fontSize: 5 }}>
-                    {normalizeBoost(player.boost)}
-                  </span>
+                {config.boostBars.showStatsInBar && (
+                  <div className="flex items-center gap-1 mt-0.5 flex-row-reverse" style={{ flexWrap: 'wrap' }}>
+                    {config.boostBars.statsInBarScore && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SCR </span>{player.score}</span>}
+                    {config.boostBars.statsInBarGoals && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>G </span>{player.goals}</span>}
+                    {config.boostBars.statsInBarAssists && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>A </span>{player.assists}</span>}
+                    {config.boostBars.statsInBarSaves && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SV </span>{player.saves}</span>}
+                    {config.boostBars.statsInBarShots && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SH </span>{player.shots}</span>}
+                    {config.boostBars.statsInBarDemos && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>DEM </span>{player.demos}</span>}
+                  </div>
                 )}
               </div>
             );
