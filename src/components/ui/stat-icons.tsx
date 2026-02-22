@@ -21,16 +21,8 @@ export function GoalIcon({ size = 16, color = 'currentColor' }: StatIconProps) {
 export function DemoIcon({ size = 16, color = 'currentColor' }: StatIconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-      {/* Explosion rays */}
-      <circle cx="12" cy="12" r="3" />
-      <line x1="12" y1="2" x2="12" y2="5" />
-      <line x1="12" y1="19" x2="12" y2="22" />
-      <line x1="2" y1="12" x2="5" y2="12" />
-      <line x1="19" y1="12" x2="22" y2="12" />
-      <line x1="4.93" y1="4.93" x2="7.05" y2="7.05" />
-      <line x1="16.95" y1="16.95" x2="19.07" y2="19.07" />
-      <line x1="4.93" y1="19.07" x2="7.05" y2="16.95" />
-      <line x1="16.95" y1="7.05" x2="19.07" y2="4.93" />
+      {/* Spiky explosion star */}
+      <polygon points="12,1 14,8 17,3 15,9 22,8 16,11 21,16 15,13 17,21 12,15 7,21 9,13 3,16 8,11 2,8 9,9 7,3 10,8" />
     </svg>
   );
 }

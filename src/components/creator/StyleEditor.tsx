@@ -797,8 +797,8 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
               label="Przesunięcie poziome"
               value={config.boostBars.statsOffsetX ?? 0}
               onValueChange={(v) => onChange('boostBars', { statsOffsetX: v })}
-              min={-50}
-              max={50}
+              min={-100}
+              max={100}
               unit="px"
             />
             <ColorPicker
