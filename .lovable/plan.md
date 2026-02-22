@@ -1,97 +1,73 @@
 
-# Plan: Wynik serii jako niezalezny element
+# Plan: Ikonki statystyk graczy pod paskami boosta
 
-## Problem
+## Opis
 
-Kropki serii sa renderowane wewnatrz kontenerow nazw druzyn -- zarowno w trybie inline (pod nazwa), jak i w trybie detached (wewnatrz boxa). Przez to nie da sie ich przesuwac niezaleznie suwakami X/Y -- zawsze sa "przyklejone" do nazwy druzyny.
+Zamiana tekstowych etykiet statystyk (SCR, G, A, SV, SH, DEM) na niestandardowe ikonki SVG renderowane inline. Ikony beda przezroczyste z cienkim stroke, 30% mniejsze od nicku gracza, z mozliwoscia przesuwania w poziomie i wlaczania/wylaczania checkboxem.
 
-## Rozwiazanie
+## Zmiany
 
-Wyniesc WSZYSTKIE bloki kropek serii z kontenerow nazw druzyn i renderowac je jako dwa niezalezne, absolutnie pozycjonowane elementy (Team A i Team B) wewnatrz outer-container scoreboardu. Dodac per-team offsety do `SeriesDisplayConfig`.
+### 1. Nowy komponent `src/components/ui/stat-icons.tsx`
 
-## Zmiany w plikach
+Komponent eksportujacy 4 ikonki SVG jako komponenty React:
+- **GoalIcon** -- bramka (uproszczony obrys bramki/siatki)
+- **DemoIcon** -- eksplozja (promienie wybuchu)
+- **AssistIcon** -- piesc (fist bump przodem)
+- **ScoreIcon** -- wykres slupkowy
 
-### 1. `src/types/broadcast.ts`
+Kazda ikona:
+- Przyjmuje `size` i `color` jako props
+- Ma `fill="none"` (przezroczyste tlo)
+- Ma cienki `strokeWidth={1.5}`
+- Uzywa `currentColor` jako domyslny kolor
 
-Dodac 4 nowe pola do `SeriesDisplayConfig`:
+### 2. `src/types/broadcast.ts` -- nowe pole
 
-```
-teamAOffsetX: number;  // default 0
-teamAOffsetY: number;  // default 0
-teamBOffsetX: number;  // default 0
-teamBOffsetY: number;  // default 0
-```
+Dodanie `statsOffsetX: number` (default 0) do `BoostBarsConfig` -- offset poziomy statystyk w px.
 
-Zaktualizowac `defaultOverlayConfig.seriesDisplay` o te pola.
+Usuniecie `statsInBarSaves` i `statsInBarShots` z wyswietlanych ikon (uzytkownik poprosil tylko o bramki, demo, asysty, score). Istniejace pola zostana zachowane w typie dla kompatybilnosci, ale nie beda juz renderowane jako ikony.
 
-### 2. `src/pages/Overlay.tsx`
+### 3. `src/pages/Overlay.tsx` -- zmiana `statsRow` w `BoostBar`
 
-**Usunac** bloki kropek serii z 4 miejsc:
-- Linie ~196-221 (inline Team A, wewnatrz `!config.teamAName.detached`)
-- Linie ~334-358 (inline Team B, wewnatrz `!config.teamBName.detached`)
-- Linie ~433-446 (detached Team A box)
-- Linie ~484-496 (detached Team B box)
+Zastapienie tekstowych etykiet ikonkami SVG:
+- Rozmiar ikon = `config.fontSize * 0.7` (30% mniejsze niz nick)
+- Kazda ikona + wartosc liczbowa obok
+- Caly wiersz statystyk przesuwalny przez `marginLeft`/`marginRight` na podstawie `statsOffsetX`
+- Uklad: `flex items-center gap-N` z ikonami i liczbami
 
-**Dodac** 2 nowe niezalezne bloki po detached boxach (ale wciaz wewnatrz outer-container `<div className="absolute flex flex-col items-center">`):
-
+Przyklad renderowania:
 ```tsx
-{/* Team A Series Dots - independent */}
-{config.seriesDisplay.visible && seriesDotsCount > 0 && (
-  <div style={{
-    position: 'absolute',
-    right: '50%',
-    top: '100%',
-    transform: `translate(${-(config.seriesDisplay.teamAOffsetX ?? 0)}px, ${(config.seriesDisplay.teamAOffsetY ?? 0)}px)`,
-    opacity: config.seriesDisplay.opacity,
-    ...getGlowStyle(config.seriesDisplay.glow),
-  }}>
-    <div className="flex items-center" style={{
-      gap: config.seriesDisplay.dotSpacing,
-      flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-    }}>
-      {/* kropki A */}
-    </div>
-  </div>
-)}
-
-{/* Team B Series Dots - independent */}
-{config.seriesDisplay.visible && seriesDotsCount > 0 && (
-  <div style={{
-    position: 'absolute',
-    left: '50%',
-    top: '100%',
-    transform: `translate(${(config.seriesDisplay.teamBOffsetX ?? 0)}px, ${(config.seriesDisplay.teamBOffsetY ?? 0)}px)`,
-    ...
-  }}>
-    {/* kropki B */}
-  </div>
+{config.statsInBarGoals && (
+  <span className="flex items-center gap-0.5">
+    <GoalIcon size={iconSize} color={config.statsTextColor} />
+    <span>{player.goals}</span>
+  </span>
 )}
 ```
 
-### 3. `src/components/creator/OverlayPreview.tsx`
+### 4. `src/components/creator/OverlayPreview.tsx` -- analogiczna zmiana
 
-Identyczna zmiana -- usunac kropki z 4 miejsc (inline A ~191-215, inline B ~313-336, detached A ~391-403, detached B ~437-449) i dodac 2 niezalezne bloki ze skalowaniem 0.4x.
+Identyczne zastapienie tekstowych etykiet ikonkami w podgladzie (skalowanie ~0.4x).
 
-### 4. `src/components/creator/StyleEditor.tsx`
+### 5. `src/components/creator/StyleEditor.tsx` -- aktualizacja sekcji
 
-W `renderSeriesDisplayEditor` dodac nowa sekcje "Pozycja per druzyna" z 4 suwakami:
-- Offset X druzyny A (min -200, max 200)
-- Offset Y druzyny A (min -100, max 100)
-- Offset X druzyny B (min -200, max 200)
-- Offset Y druzyny B (min -100, max 100)
+W sekcji "Statystyki gracza w pasku":
+- Zamiana `Switch` na `Checkbox` dla poszczegolnych statystyk (bramki, demo, asysty, score)
+- Usuniecie opcji SV i SH (lub pozostawienie jesli chcesz -- uzytkownik wymienil 4)
+- Dodanie `SliderInput` "Przesuniecie poziome" (`statsOffsetX`, min -50, max 50, px)
+- Etykiety przy checkboxach: "Bramki", "Kasacje (Demo)", "Asysty", "Wynik (Score)" z podgladem ikonek
 
-Istniejace suwaki "Rozsuwanie X" i "Przesuniecie Y" moga zostac (jako globalne/wspolne) lub zostac zastapione per-team suwakami. Proponuje zastapic je per-team suwakami, poniewaz to daje pelna kontrole.
+### 6. `src/config/overlayTemplates.ts` -- domyslna wartosc
 
-### 5. `src/config/overlayTemplates.ts`
+Dodanie `statsOffsetX: 0` do szablonow.
 
-Dodac `teamAOffsetX: 0`, `teamAOffsetY: 0`, `teamBOffsetX: 0`, `teamBOffsetY: 0` do wszystkich szablonow w sekcji `seriesDisplay`.
-
-## Podsumowanie
+## Podsumowanie zmian w plikach
 
 | Plik | Zmiany |
 |------|--------|
-| `src/types/broadcast.ts` | 4 nowe pola w `SeriesDisplayConfig` + defaults |
-| `src/pages/Overlay.tsx` | Usuniecie kropek z 4 kontenerow, dodanie 2 niezaleznych blokow |
-| `src/components/creator/OverlayPreview.tsx` | j.w. |
-| `src/components/creator/StyleEditor.tsx` | 4 suwaki per-team offset zamiast wspolnych |
-| `src/config/overlayTemplates.ts` | Nowe wartosci domyslne |
+| `src/components/ui/stat-icons.tsx` | NOWY -- 4 komponenty ikon SVG |
+| `src/types/broadcast.ts` | `statsOffsetX: number` w `BoostBarsConfig` |
+| `src/pages/Overlay.tsx` | Ikony SVG zamiast tekstu w `statsRow` |
+| `src/components/creator/OverlayPreview.tsx` | j.w. w podgladzie |
+| `src/components/creator/StyleEditor.tsx` | Checkboxy + suwak offsetu |
+| `src/config/overlayTemplates.ts` | `statsOffsetX: 0` |
