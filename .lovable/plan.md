@@ -1,117 +1,97 @@
 
-# Plan: Gradienty dla wszystkich elementów + Statystyki graczy przy paskach boosta
+# Plan: Wynik serii jako niezalezny element
 
-## 1. Pełna kontrola kolorów/gradientów dla elementów
+## Problem
 
-### Aktualny stan
-Elementy mają już `GradientEditor` w `StyleEditor.tsx`:
-- Tło Scoreboardu — OK (GradientEditor)
-- Wynik meczu — StyleEditor ma GradientEditor dla `backgroundColor`, ale w Overlay.tsx wynik jest renderowany z `session?.team_a_color` jako tło (kolor drużyny), całkowicie ignorując `scoreDisplay.backgroundColor` i `backgroundGradient`
-- Timer — OK (GradientEditor)
-- Wynik Serii — OK (GradientEditor)
-- Nazwy drużyn — OK (GradientEditor)
+Kropki serii sa renderowane wewnatrz kontenerow nazw druzyn -- zarowno w trybie inline (pod nazwa), jak i w trybie detached (wewnatrz boxa). Przez to nie da sie ich przesuwac niezaleznie suwakami X/Y -- zawsze sa "przyklejone" do nazwy druzyny.
 
-### Problem z Wynikiem meczu
-W `Overlay.tsx` (linie ~229-246) i `OverlayPreview.tsx` (linie ~219-238) bloki wyniku używają:
-```tsx
-backgroundColor: session?.team_a_color || '#3B82F6'
+## Rozwiazanie
+
+Wyniesc WSZYSTKIE bloki kropek serii z kontenerow nazw druzyn i renderowac je jako dwa niezalezne, absolutnie pozycjonowane elementy (Team A i Team B) wewnatrz outer-container scoreboardu. Dodac per-team offsety do `SeriesDisplayConfig`.
+
+## Zmiany w plikach
+
+### 1. `src/types/broadcast.ts`
+
+Dodac 4 nowe pola do `SeriesDisplayConfig`:
+
 ```
-zamiast `getBackgroundStyle(config.scoreDisplay.backgroundColor, config.scoreDisplay.backgroundGradient)`.
-
-### Rozwiązanie dla Wyniku meczu
-Dodać do `ScoreDisplayConfig` nowe pole `useTeamColor: boolean` (domyślnie `true`). Gdy włączone — wynik używa koloru drużyny (obecne zachowanie). Gdy wyłączone — używa `backgroundColor`/`backgroundGradient` z konfiguracji.
-
-W `StyleEditor.tsx` dodać przełącznik "Użyj koloru drużyny" w sekcji `scoreDisplay`. Gdy wyłączony, pokazać `GradientEditor` dla własnego koloru.
-
-W obu plikach renderujących podmienić logikę:
-```tsx
-const scoreABg = config.scoreDisplay.useTeamColor
-  ? { backgroundColor: session?.team_a_color || '#3B82F6' }
-  : getBackgroundStyle(config.scoreDisplay.backgroundColor, config.scoreDisplay.backgroundGradient);
+teamAOffsetX: number;  // default 0
+teamAOffsetY: number;  // default 0
+teamBOffsetX: number;  // default 0
+teamBOffsetY: number;  // default 0
 ```
 
-### Pliki dla pkt 1:
-- `src/types/broadcast.ts` — `useTeamColor?: boolean` w `ScoreDisplayConfig`, default `true`
-- `src/pages/Overlay.tsx` — logika warunkowa dla tła wyniku
-- `src/components/creator/OverlayPreview.tsx` — j.w.
-- `src/components/creator/StyleEditor.tsx` — przełącznik + GradientEditor warunkowy
-- `src/config/overlayTemplates.ts` — `useTeamColor: true` w szablonach
+Zaktualizowac `defaultOverlayConfig.seriesDisplay` o te pola.
 
----
+### 2. `src/pages/Overlay.tsx`
 
-## 2. Statystyki graczy przy paskach boosta
+**Usunac** bloki kropek serii z 4 miejsc:
+- Linie ~196-221 (inline Team A, wewnatrz `!config.teamAName.detached`)
+- Linie ~334-358 (inline Team B, wewnatrz `!config.teamBName.detached`)
+- Linie ~433-446 (detached Team A box)
+- Linie ~484-496 (detached Team B box)
 
-### Odniesienie do screenshota
-Zdjęcie pokazuje: każdy pasek boosta ma pod nim (lub obok) statystyki gracza — widoczne: imię, wynik (np. 0/1/2), kasacje. Układ to tabela pod paskami całego zespołu albo wiersze per-gracz.
-
-Analizując screenshot dokładniej: każdy gracz ma wiersz z: `IMIE | 0 | 1 | 2` gdzie cyfry to np. cele, asysty, obrony. Wygląda jak trzy statystyki w jednym wierszu pod paskiem boosta.
-
-### Podejście: "Statystyki w pasku" jako rozszerzenie istniejącego komponentu BoostBar
-
-Dodać do `BoostBarsConfig` nowe pola:
-```typescript
-showStatsInBar: boolean;    // włącz/wyłącz statystyki per gracz w pasku (default: false)
-statsInBarGoals: boolean;
-statsInBarAssists: boolean;
-statsInBarSaves: boolean;
-statsInBarShots: boolean;
-statsInBarDemos: boolean;
-statsInBarScore: boolean;
-statsTextColor: string;     // kolor tekstu statystyk
-statsFontSize: number;      // rozmiar czcionki statystyk
-```
-
-### Układ renderowania
-Zamiast jednego wiersza `flex items-center`, `BoostBar` będzie miał dwa wiersze (flex-col):
-- Wiersz 1 (istniejący): Nazwa | Pasek | Wartość
-- Wiersz 2 (nowy, gdy `showStatsInBar`): Statystyki jako małe cyfry z etykietami
+**Dodac** 2 nowe niezalezne bloki po detached boxach (ale wciaz wewnatrz outer-container `<div className="absolute flex flex-col items-center">`):
 
 ```tsx
-<div style={{ flexDirection: 'column', ... }}>
-  <div className="flex items-center gap-2">
-    {/* existing: name, bar, value */}
-  </div>
-  {config.showStatsInBar && (
-    <div className="flex items-center gap-2 mt-0.5">
-      {config.statsInBarScore && <span>SCR {player.score}</span>}
-      {config.statsInBarGoals && <span>G {player.goals}</span>}
-      {/* etc. */}
+{/* Team A Series Dots - independent */}
+{config.seriesDisplay.visible && seriesDotsCount > 0 && (
+  <div style={{
+    position: 'absolute',
+    right: '50%',
+    top: '100%',
+    transform: `translate(${-(config.seriesDisplay.teamAOffsetX ?? 0)}px, ${(config.seriesDisplay.teamAOffsetY ?? 0)}px)`,
+    opacity: config.seriesDisplay.opacity,
+    ...getGlowStyle(config.seriesDisplay.glow),
+  }}>
+    <div className="flex items-center" style={{
+      gap: config.seriesDisplay.dotSpacing,
+      flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+    }}>
+      {/* kropki A */}
     </div>
-  )}
-</div>
+  </div>
+)}
+
+{/* Team B Series Dots - independent */}
+{config.seriesDisplay.visible && seriesDotsCount > 0 && (
+  <div style={{
+    position: 'absolute',
+    left: '50%',
+    top: '100%',
+    transform: `translate(${(config.seriesDisplay.teamBOffsetX ?? 0)}px, ${(config.seriesDisplay.teamBOffsetY ?? 0)}px)`,
+    ...
+  }}>
+    {/* kropki B */}
+  </div>
+)}
 ```
 
-### UI w StyleEditor
-W sekcji `boostBars` (po sekcji Opcje) dodać nową sekcję "Statystyki w pasku":
-- Przełącznik "Pokaż statystyki gracza"
-- Gdy włączony: 6 przełączników dla każdej statystyki
-- `ColorPicker` dla koloru tekstu statystyk
-- `SliderInput` dla rozmiaru czcionki statystyk
+### 3. `src/components/creator/OverlayPreview.tsx`
 
-### Pliki dla pkt 2:
-- `src/types/broadcast.ts` — nowe pola w `BoostBarsConfig`
-- `src/pages/Overlay.tsx` — rozszerzenie `BoostBar` o drugi wiersz statystyk
-- `src/components/creator/OverlayPreview.tsx` — j.w. (skalowanie 0.35-0.4x)
-- `src/components/creator/StyleEditor.tsx` — nowa sekcja statystyk w edytorze boostBars
-- `src/config/overlayTemplates.ts` — nowe wartości domyślne
+Identyczna zmiana -- usunac kropki z 4 miejsc (inline A ~191-215, inline B ~313-336, detached A ~391-403, detached B ~437-449) i dodac 2 niezalezne bloki ze skalowaniem 0.4x.
 
----
+### 4. `src/components/creator/StyleEditor.tsx`
 
-## Podsumowanie zmian
+W `renderSeriesDisplayEditor` dodac nowa sekcje "Pozycja per druzyna" z 4 suwakami:
+- Offset X druzyny A (min -200, max 200)
+- Offset Y druzyny A (min -100, max 100)
+- Offset X druzyny B (min -200, max 200)
+- Offset Y druzyny B (min -100, max 100)
+
+Istniejace suwaki "Rozsuwanie X" i "Przesuniecie Y" moga zostac (jako globalne/wspolne) lub zostac zastapione per-team suwakami. Proponuje zastapic je per-team suwakami, poniewaz to daje pelna kontrole.
+
+### 5. `src/config/overlayTemplates.ts`
+
+Dodac `teamAOffsetX: 0`, `teamAOffsetY: 0`, `teamBOffsetX: 0`, `teamBOffsetY: 0` do wszystkich szablonow w sekcji `seriesDisplay`.
+
+## Podsumowanie
 
 | Plik | Zmiany |
 |------|--------|
-| `src/types/broadcast.ts` | `useTeamColor` w `ScoreDisplayConfig`; nowe pola statystyk w `BoostBarsConfig` |
-| `src/pages/Overlay.tsx` | Warunkowe tło wyniku; drugi wiersz statystyk w `BoostBar` |
+| `src/types/broadcast.ts` | 4 nowe pola w `SeriesDisplayConfig` + defaults |
+| `src/pages/Overlay.tsx` | Usuniecie kropek z 4 kontenerow, dodanie 2 niezaleznych blokow |
 | `src/components/creator/OverlayPreview.tsx` | j.w. |
-| `src/components/creator/StyleEditor.tsx` | Przełącznik + warunkowy GradientEditor dla wyniku; sekcja statystyk w pasku |
-| `src/config/overlayTemplates.ts` | Domyślne wartości nowych pól |
-
----
-
-## Kolejność implementacji
-
-1. Typy (`broadcast.ts`) — dodanie nowych pól
-2. Logika renderowania (`Overlay.tsx` i `OverlayPreview.tsx`) — warunkowe style i nowy wiersz statystyk
-3. Edytor (`StyleEditor.tsx`) — nowe kontrolki UI
-4. Szablony (`overlayTemplates.ts`) — wartości domyślne
+| `src/components/creator/StyleEditor.tsx` | 4 suwaki per-team offset zamiast wspolnych |
+| `src/config/overlayTemplates.ts` | Nowe wartosci domyslne |
