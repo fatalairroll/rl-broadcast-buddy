@@ -67,7 +67,7 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
   const [hue, setHue] = React.useState(217);
   
   React.useEffect(() => {
-    if (value.startsWith('#')) {
+    if (value && value.startsWith('#')) {
       const hsl = hexToHsl(value);
       if (hsl) setHue(hsl.h);
     }
@@ -75,7 +75,7 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
 
   const handleHueChange = (newHue: number) => {
     setHue(newHue);
-    const currentHsl = hexToHsl(value);
+    const currentHsl = hexToHsl(value ?? '');
     if (currentHsl) {
       onChange(hslToHex(newHue, currentHsl.s, currentHsl.l));
     } else {
@@ -155,7 +155,7 @@ export function ColorPicker({ label, value, onChange }: ColorPickerProps) {
                     type="button"
                     className={cn(
                       "w-6 h-6 rounded border transition-all hover:scale-110",
-                      value.toLowerCase() === color.toLowerCase() 
+                      (value ?? '').toLowerCase() === color.toLowerCase() 
                         ? "ring-2 ring-primary ring-offset-1 ring-offset-background" 
                         : "border-border/50 hover:border-border"
                     )}
