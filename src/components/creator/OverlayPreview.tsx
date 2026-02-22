@@ -188,31 +188,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                       <span key={i}>{line}</span>
                     ))}
                   </span>
-                  {/* Team A Series dots */}
-                  {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                    <div 
-                      className={cn('flex items-center gap-0.5 mt-0.5', getHighlightClass('seriesDisplay'))}
-                      onClick={(e) => { e.stopPropagation(); onSelectElement('seriesDisplay'); }}
-                      style={{
-                        flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-                        transform: `translate(${-config.seriesDisplay.offsetX * 0.4}px, ${config.seriesDisplay.offsetY * 0.4}px)`,
-                      }}
-                    >
-                      {Array.from({ length: seriesDotsCount }).map((_, i) => (
-                        <div
-                          key={`a-${i}`}
-                          className="rounded-full"
-                          style={{
-                            width: config.seriesDisplay.dotSize * 0.4,
-                            height: config.seriesDisplay.dotSize * 0.4,
-                            backgroundColor: i < teamAWins 
-                              ? config.seriesDisplay.activeDotColor 
-                              : config.seriesDisplay.inactiveDotColor,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  {/* Series dots removed - now independent */}
                 </div>
               )}
 
@@ -310,30 +286,7 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                       <span key={i}>{line}</span>
                     ))}
                   </span>
-                  {/* Team B Series dots */}
-                  {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                    <div 
-                      className="flex items-center gap-0.5 mt-0.5"
-                      style={{
-                        flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-                        transform: `translate(${config.seriesDisplay.offsetX * 0.4}px, ${config.seriesDisplay.offsetY * 0.4}px)`,
-                      }}
-                    >
-                      {Array.from({ length: seriesDotsCount }).map((_, i) => (
-                        <div
-                          key={`b-${i}`}
-                          className="rounded-full"
-                          style={{
-                            width: config.seriesDisplay.dotSize * 0.4,
-                            height: config.seriesDisplay.dotSize * 0.4,
-                            backgroundColor: i < teamBWins 
-                              ? config.seriesDisplay.activeDotColor 
-                              : config.seriesDisplay.inactiveDotColor,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  {/* Series dots removed - now independent */}
                 </div>
               )}
 
@@ -388,19 +341,6 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                   {mockSession.team_a_name}
                 </span>
               </div>
-              {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                <div className="flex items-center gap-0.5" style={{
-                  flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-                }}>
-                  {Array.from({ length: seriesDotsCount }).map((_, i) => (
-                    <div key={`a-${i}`} className="rounded-full" style={{
-                      width: config.seriesDisplay.dotSize * 0.4,
-                      height: config.seriesDisplay.dotSize * 0.4,
-                      backgroundColor: i < teamAWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
-                    }} />
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
@@ -434,19 +374,64 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                   <div className="flex items-center justify-center font-bold" style={{ width: config.teamBName.logoSize * 0.35, height: config.teamBName.logoSize * 0.35, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, fontSize: 5 }}>OP</div>
                 )}
               </div>
-              {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                <div className="flex items-center gap-0.5" style={{
-                  flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-                }}>
-                  {Array.from({ length: seriesDotsCount }).map((_, i) => (
-                    <div key={`b-${i}`} className="rounded-full" style={{
-                      width: config.seriesDisplay.dotSize * 0.4,
-                      height: config.seriesDisplay.dotSize * 0.4,
-                      backgroundColor: i < teamBWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
-                    }} />
-                  ))}
-                </div>
-              )}
+            </div>
+          )}
+
+          {/* Team A Series Dots - independent element */}
+          {config.seriesDisplay.visible && seriesDotsCount > 0 && (
+            <div
+              className={cn(getHighlightClass('seriesDisplay'))}
+              onClick={(e) => { e.stopPropagation(); onSelectElement('seriesDisplay'); }}
+              style={{
+                position: 'absolute',
+                right: '50%',
+                top: '100%',
+                transform: `translate(${-(config.seriesDisplay.teamAOffsetX ?? 0) * 0.4}px, ${(config.seriesDisplay.teamAOffsetY ?? 0) * 0.4}px)`,
+                opacity: config.seriesDisplay.opacity,
+                ...getGlowStyle(config.seriesDisplay.glow),
+              }}
+            >
+              <div className="flex items-center" style={{
+                gap: config.seriesDisplay.dotSpacing * 0.4,
+                flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+              }}>
+                {Array.from({ length: seriesDotsCount }).map((_, i) => (
+                  <div key={`a-${i}`} className="rounded-full" style={{
+                    width: config.seriesDisplay.dotSize * 0.4,
+                    height: config.seriesDisplay.dotSize * 0.4,
+                    backgroundColor: i < teamAWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
+                  }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Team B Series Dots - independent element */}
+          {config.seriesDisplay.visible && seriesDotsCount > 0 && (
+            <div
+              className={cn(getHighlightClass('seriesDisplay'))}
+              onClick={(e) => { e.stopPropagation(); onSelectElement('seriesDisplay'); }}
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '100%',
+                transform: `translate(${(config.seriesDisplay.teamBOffsetX ?? 0) * 0.4}px, ${(config.seriesDisplay.teamBOffsetY ?? 0) * 0.4}px)`,
+                opacity: config.seriesDisplay.opacity,
+                ...getGlowStyle(config.seriesDisplay.glow),
+              }}
+            >
+              <div className="flex items-center" style={{
+                gap: config.seriesDisplay.dotSpacing * 0.4,
+                flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+              }}>
+                {Array.from({ length: seriesDotsCount }).map((_, i) => (
+                  <div key={`b-${i}`} className="rounded-full" style={{
+                    width: config.seriesDisplay.dotSize * 0.4,
+                    height: config.seriesDisplay.dotSize * 0.4,
+                    backgroundColor: i < teamBWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
+                  }} />
+                ))}
+              </div>
             </div>
           )}
         </div>

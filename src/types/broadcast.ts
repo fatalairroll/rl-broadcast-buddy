@@ -134,6 +134,10 @@ export interface SeriesDisplayConfig extends ElementStyle {
   orientation: 'horizontal' | 'vertical';
   offsetX: number;
   offsetY: number;
+  teamAOffsetX: number;
+  teamAOffsetY: number;
+  teamBOffsetX: number;
+  teamBOffsetY: number;
 }
 
 export interface TeamNameConfig extends ElementStyle {
@@ -430,6 +434,10 @@ export const defaultOverlayConfig: OverlayConfig = {
     orientation: 'horizontal',
     offsetX: 0,
     offsetY: 0,
+    teamAOffsetX: 0,
+    teamAOffsetY: 0,
+    teamBOffsetX: 0,
+    teamBOffsetY: 0,
     glow: defaultGlow,
   },
   teamAName: {

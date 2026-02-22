@@ -189,36 +189,10 @@ export default function Overlay() {
                       whiteSpace: config.teamAName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal',
                     }}
                   >
-                    {splitTeamName(session?.team_a_name || 'Blue Team', config.teamAName.maxCharsPerLine).map((line, i) => (
+                  {splitTeamName(session?.team_a_name || 'Blue Team', config.teamAName.maxCharsPerLine).map((line, i) => (
                       <span key={i}>{line}</span>
                     ))}
                   </span>
-                  {/* Team A Series dots - under team name */}
-                  {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                    <div 
-                      className="flex items-center gap-1 mt-1"
-                      style={{
-                        flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-                        transform: `translate(${-config.seriesDisplay.offsetX}px, ${config.seriesDisplay.offsetY}px)`,
-                        opacity: config.seriesDisplay.opacity,
-                        ...getGlowStyle(config.seriesDisplay.glow),
-                      }}
-                    >
-                      {Array.from({ length: seriesDotsCount }).map((_, i) => (
-                        <div
-                          key={`a-${i}`}
-                          className="rounded-full"
-                          style={{
-                            width: config.seriesDisplay.dotSize,
-                            height: config.seriesDisplay.dotSize,
-                            backgroundColor: i < teamAWins 
-                              ? config.seriesDisplay.activeDotColor 
-                              : config.seriesDisplay.inactiveDotColor,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -327,36 +301,10 @@ export default function Overlay() {
                       whiteSpace: config.teamBName.maxCharsPerLine <= 0 ? 'nowrap' : 'normal',
                     }}
                   >
-                    {splitTeamName(session?.team_b_name || 'Orange Team', config.teamBName.maxCharsPerLine).map((line, i) => (
+                  {splitTeamName(session?.team_b_name || 'Orange Team', config.teamBName.maxCharsPerLine).map((line, i) => (
                       <span key={i}>{line}</span>
                     ))}
                   </span>
-                  {/* Team B Series dots - under team name */}
-                  {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                    <div 
-                      className="flex items-center gap-1 mt-1"
-                      style={{
-                        flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-                        transform: `translate(${config.seriesDisplay.offsetX}px, ${config.seriesDisplay.offsetY}px)`,
-                        opacity: config.seriesDisplay.opacity,
-                        ...getGlowStyle(config.seriesDisplay.glow),
-                      }}
-                    >
-                      {Array.from({ length: seriesDotsCount }).map((_, i) => (
-                        <div
-                          key={`b-${i}`}
-                          className="rounded-full"
-                          style={{
-                            width: config.seriesDisplay.dotSize,
-                            height: config.seriesDisplay.dotSize,
-                            backgroundColor: i < teamBWins 
-                              ? config.seriesDisplay.activeDotColor 
-                              : config.seriesDisplay.inactiveDotColor,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -430,20 +378,6 @@ export default function Overlay() {
                   ))}
                 </span>
               </div>
-              {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                <div className="flex items-center gap-1" style={{
-                  flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-                  opacity: config.seriesDisplay.opacity,
-                }}>
-                  {Array.from({ length: seriesDotsCount }).map((_, i) => (
-                    <div key={`a-${i}`} className="rounded-full" style={{
-                      width: config.seriesDisplay.dotSize,
-                      height: config.seriesDisplay.dotSize,
-                      backgroundColor: i < teamAWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
-                    }} />
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
@@ -481,20 +415,56 @@ export default function Overlay() {
                   )
                 )}
               </div>
-              {config.seriesDisplay.visible && seriesDotsCount > 0 && (
-                <div className="flex items-center gap-1" style={{
-                  flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
-                  opacity: config.seriesDisplay.opacity,
-                }}>
-                  {Array.from({ length: seriesDotsCount }).map((_, i) => (
-                    <div key={`b-${i}`} className="rounded-full" style={{
-                      width: config.seriesDisplay.dotSize,
-                      height: config.seriesDisplay.dotSize,
-                      backgroundColor: i < teamBWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
-                    }} />
-                  ))}
-                </div>
-              )}
+            </div>
+          )}
+
+          {/* Team A Series Dots - independent element */}
+          {config.seriesDisplay.visible && seriesDotsCount > 0 && (
+            <div style={{
+              position: 'absolute',
+              right: '50%',
+              top: '100%',
+              transform: `translate(${-(config.seriesDisplay.teamAOffsetX ?? 0)}px, ${(config.seriesDisplay.teamAOffsetY ?? 0)}px)`,
+              opacity: config.seriesDisplay.opacity,
+              ...getGlowStyle(config.seriesDisplay.glow),
+            }}>
+              <div className="flex items-center" style={{
+                gap: config.seriesDisplay.dotSpacing,
+                flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+              }}>
+                {Array.from({ length: seriesDotsCount }).map((_, i) => (
+                  <div key={`a-${i}`} className="rounded-full" style={{
+                    width: config.seriesDisplay.dotSize,
+                    height: config.seriesDisplay.dotSize,
+                    backgroundColor: i < teamAWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
+                  }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Team B Series Dots - independent element */}
+          {config.seriesDisplay.visible && seriesDotsCount > 0 && (
+            <div style={{
+              position: 'absolute',
+              left: '50%',
+              top: '100%',
+              transform: `translate(${(config.seriesDisplay.teamBOffsetX ?? 0)}px, ${(config.seriesDisplay.teamBOffsetY ?? 0)}px)`,
+              opacity: config.seriesDisplay.opacity,
+              ...getGlowStyle(config.seriesDisplay.glow),
+            }}>
+              <div className="flex items-center" style={{
+                gap: config.seriesDisplay.dotSpacing,
+                flexDirection: config.seriesDisplay.orientation === 'vertical' ? 'column' : 'row',
+              }}>
+                {Array.from({ length: seriesDotsCount }).map((_, i) => (
+                  <div key={`b-${i}`} className="rounded-full" style={{
+                    width: config.seriesDisplay.dotSize,
+                    height: config.seriesDisplay.dotSize,
+                    backgroundColor: i < teamBWins ? config.seriesDisplay.activeDotColor : config.seriesDisplay.inactiveDotColor,
+                  }} />
+                ))}
+              </div>
             </div>
           )}
         </div>

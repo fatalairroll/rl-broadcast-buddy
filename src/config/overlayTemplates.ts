@@ -90,6 +90,10 @@ const rlcsClassicConfig: OverlayConfig = {
     orientation: 'horizontal',
     offsetX: 0,
     offsetY: 0,
+    teamAOffsetX: 0,
+    teamAOffsetY: 0,
+    teamBOffsetX: 0,
+    teamBOffsetY: 0,
     glow: defaultGlow,
   },
   teamAName: {

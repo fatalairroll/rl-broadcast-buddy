@@ -338,19 +338,35 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <SliderInput
-            label="Rozsuwanie X"
-            value={config.seriesDisplay.offsetX}
-            onValueChange={(v) => onChange('seriesDisplay', { offsetX: v })}
-            min={-50}
-            max={50}
+            label="Offset X drużyny A"
+            value={config.seriesDisplay.teamAOffsetX ?? 0}
+            onValueChange={(v) => onChange('seriesDisplay', { teamAOffsetX: v })}
+            min={-200}
+            max={200}
             unit="px"
           />
           <SliderInput
-            label="Przesunięcie Y"
-            value={config.seriesDisplay.offsetY}
-            onValueChange={(v) => onChange('seriesDisplay', { offsetY: v })}
-            min={-50}
-            max={50}
+            label="Offset Y drużyny A"
+            value={config.seriesDisplay.teamAOffsetY ?? 0}
+            onValueChange={(v) => onChange('seriesDisplay', { teamAOffsetY: v })}
+            min={-100}
+            max={100}
+            unit="px"
+          />
+          <SliderInput
+            label="Offset X drużyny B"
+            value={config.seriesDisplay.teamBOffsetX ?? 0}
+            onValueChange={(v) => onChange('seriesDisplay', { teamBOffsetX: v })}
+            min={-200}
+            max={200}
+            unit="px"
+          />
+          <SliderInput
+            label="Offset Y drużyny B"
+            value={config.seriesDisplay.teamBOffsetY ?? 0}
+            onValueChange={(v) => onChange('seriesDisplay', { teamBOffsetY: v })}
+            min={-100}
+            max={100}
             unit="px"
           />
         </div>
