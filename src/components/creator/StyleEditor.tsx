@@ -803,12 +803,12 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
             />
             <ColorPicker
               label="Kolor tekstu statystyk"
-              value={config.boostBars.statsTextColor}
+              value={config.boostBars.statsTextColor ?? 'rgba(255,255,255,0.7)'}
               onChange={(v) => onChange('boostBars', { statsTextColor: v })}
             />
             <SliderInput
               label="Rozmiar czcionki statystyk"
-              value={config.boostBars.statsFontSize}
+              value={config.boostBars.statsFontSize ?? 11}
               onValueChange={(v) => onChange('boostBars', { statsFontSize: v })}
               min={8}
               max={18}
