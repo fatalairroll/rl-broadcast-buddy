@@ -1,5 +1,6 @@
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { ShapePicker } from '@/components/ui/shape-picker';
@@ -10,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { EditableElement, OverlayConfig, ElementShape, GradientConfig } from '@/types/broadcast';
 import { ELEMENT_LABELS } from '@/types/broadcast';
 import { Palette } from 'lucide-react';
+import { GoalIcon, DemoIcon, AssistIcon, ScoreIcon } from '@/components/ui/stat-icons';
 
 interface StyleEditorProps {
   element: EditableElement;
@@ -769,32 +771,36 @@ export function StyleEditor({ element, config, onChange }: StyleEditorProps) {
         {config.boostBars.showStatsInBar && (
           <div className="space-y-3 pl-2 border-l-2 border-primary/30">
             <p className="text-xs text-muted-foreground">Wybierz widoczne statystyki</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Wynik (SCR)</Label>
-                <Switch checked={config.boostBars.statsInBarScore} onCheckedChange={(v) => onChange('boostBars', { statsInBarScore: v })} className="scale-75" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Gole (G)</Label>
-                <Switch checked={config.boostBars.statsInBarGoals} onCheckedChange={(v) => onChange('boostBars', { statsInBarGoals: v })} className="scale-75" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Asysty (A)</Label>
-                <Switch checked={config.boostBars.statsInBarAssists} onCheckedChange={(v) => onChange('boostBars', { statsInBarAssists: v })} className="scale-75" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Obrony (SV)</Label>
-                <Switch checked={config.boostBars.statsInBarSaves} onCheckedChange={(v) => onChange('boostBars', { statsInBarSaves: v })} className="scale-75" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Strzały (SH)</Label>
-                <Switch checked={config.boostBars.statsInBarShots} onCheckedChange={(v) => onChange('boostBars', { statsInBarShots: v })} className="scale-75" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">Kasacje (DEM)</Label>
-                <Switch checked={config.boostBars.statsInBarDemos} onCheckedChange={(v) => onChange('boostBars', { statsInBarDemos: v })} className="scale-75" />
-              </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={config.boostBars.statsInBarScore} onCheckedChange={(v) => onChange('boostBars', { statsInBarScore: !!v })} />
+                <ScoreIcon size={14} color="currentColor" />
+                <span className="text-xs">Wynik (Score)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={config.boostBars.statsInBarGoals} onCheckedChange={(v) => onChange('boostBars', { statsInBarGoals: !!v })} />
+                <GoalIcon size={14} color="currentColor" />
+                <span className="text-xs">Bramki</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={config.boostBars.statsInBarAssists} onCheckedChange={(v) => onChange('boostBars', { statsInBarAssists: !!v })} />
+                <AssistIcon size={14} color="currentColor" />
+                <span className="text-xs">Asysty</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <Checkbox checked={config.boostBars.statsInBarDemos} onCheckedChange={(v) => onChange('boostBars', { statsInBarDemos: !!v })} />
+                <DemoIcon size={14} color="currentColor" />
+                <span className="text-xs">Kasacje (Demo)</span>
+              </label>
             </div>
+            <SliderInput
+              label="Przesunięcie poziome"
+              value={config.boostBars.statsOffsetX ?? 0}
+              onValueChange={(v) => onChange('boostBars', { statsOffsetX: v })}
+              min={-50}
+              max={50}
+              unit="px"
+            />
             <ColorPicker
               label="Kolor tekstu statystyk"
               value={config.boostBars.statsTextColor}
