@@ -1,73 +1,39 @@
 
-# Plan: Ikonki statystyk graczy pod paskami boosta
 
-## Opis
+# Fix: Crash when enabling player stats in boost bar
 
-Zamiana tekstowych etykiet statystyk (SCR, G, A, SV, SH, DEM) na niestandardowe ikonki SVG renderowane inline. Ikony beda przezroczyste z cienkim stroke, 30% mniejsze od nicku gracza, z mozliwoscia przesuwania w poziomie i wlaczania/wylaczania checkboxem.
+## Root Cause
 
-## Zmiany
+The `ColorPicker` component calls `value.toLowerCase()` (line 158 of `color-picker.tsx`) without checking if `value` is defined. When a preset is loaded from the database that was saved BEFORE the new stats fields (`statsTextColor`, `statsFontSize`, `statsOffsetX`) were added, these fields are `undefined`. As soon as "Show player stats" is toggled ON, the UI tries to render the `ColorPicker` for `statsTextColor` with `value={undefined}`, causing the crash and making everything disappear.
 
-### 1. Nowy komponent `src/components/ui/stat-icons.tsx`
+## Fix
 
-Komponent eksportujacy 4 ikonki SVG jako komponenty React:
-- **GoalIcon** -- bramka (uproszczony obrys bramki/siatki)
-- **DemoIcon** -- eksplozja (promienie wybuchu)
-- **AssistIcon** -- piesc (fist bump przodem)
-- **ScoreIcon** -- wykres slupkowy
+### 1. `src/components/ui/color-picker.tsx`
 
-Kazda ikona:
-- Przyjmuje `size` i `color` jako props
-- Ma `fill="none"` (przezroczyste tlo)
-- Ma cienki `strokeWidth={1.5}`
-- Uzywa `currentColor` jako domyslny kolor
+Add a safety guard so `value` defaults to a fallback if undefined:
 
-### 2. `src/types/broadcast.ts` -- nowe pole
-
-Dodanie `statsOffsetX: number` (default 0) do `BoostBarsConfig` -- offset poziomy statystyk w px.
-
-Usuniecie `statsInBarSaves` i `statsInBarShots` z wyswietlanych ikon (uzytkownik poprosil tylko o bramki, demo, asysty, score). Istniejace pola zostana zachowane w typie dla kompatybilnosci, ale nie beda juz renderowane jako ikony.
-
-### 3. `src/pages/Overlay.tsx` -- zmiana `statsRow` w `BoostBar`
-
-Zastapienie tekstowych etykiet ikonkami SVG:
-- Rozmiar ikon = `config.fontSize * 0.7` (30% mniejsze niz nick)
-- Kazda ikona + wartosc liczbowa obok
-- Caly wiersz statystyk przesuwalny przez `marginLeft`/`marginRight` na podstawie `statsOffsetX`
-- Uklad: `flex items-center gap-N` z ikonami i liczbami
-
-Przyklad renderowania:
 ```tsx
-{config.statsInBarGoals && (
-  <span className="flex items-center gap-0.5">
-    <GoalIcon size={iconSize} color={config.statsTextColor} />
-    <span>{player.goals}</span>
-  </span>
-)}
+// At line 158, change:
+value.toLowerCase() === color.toLowerCase()
+// To:
+(value ?? '').toLowerCase() === color.toLowerCase()
 ```
 
-### 4. `src/components/creator/OverlayPreview.tsx` -- analogiczna zmiana
+Also guard any other `value` usage (like `hexToHsl(value)` calls) with a fallback.
 
-Identyczne zastapienie tekstowych etykiet ikonkami w podgladzie (skalowanie ~0.4x).
+### 2. `src/components/creator/StyleEditor.tsx`
 
-### 5. `src/components/creator/StyleEditor.tsx` -- aktualizacja sekcji
+Add fallback defaults for all stats-related fields that may be missing from old presets:
 
-W sekcji "Statystyki gracza w pasku":
-- Zamiana `Switch` na `Checkbox` dla poszczegolnych statystyk (bramki, demo, asysty, score)
-- Usuniecie opcji SV i SH (lub pozostawienie jesli chcesz -- uzytkownik wymienil 4)
-- Dodanie `SliderInput` "Przesuniecie poziome" (`statsOffsetX`, min -50, max 50, px)
-- Etykiety przy checkboxach: "Bramki", "Kasacje (Demo)", "Asysty", "Wynik (Score)" z podgladem ikonek
+- `value={config.boostBars.statsTextColor ?? 'rgba(255,255,255,0.7)'}` (line 806)
+- `value={config.boostBars.statsFontSize ?? 11}` (line 811)
 
-### 6. `src/config/overlayTemplates.ts` -- domyslna wartosc
+These two changes will prevent any crash from missing fields in older saved presets.
 
-Dodanie `statsOffsetX: 0` do szablonow.
+## Files to modify
 
-## Podsumowanie zmian w plikach
-
-| Plik | Zmiany |
+| File | Change |
 |------|--------|
-| `src/components/ui/stat-icons.tsx` | NOWY -- 4 komponenty ikon SVG |
-| `src/types/broadcast.ts` | `statsOffsetX: number` w `BoostBarsConfig` |
-| `src/pages/Overlay.tsx` | Ikony SVG zamiast tekstu w `statsRow` |
-| `src/components/creator/OverlayPreview.tsx` | j.w. w podgladzie |
-| `src/components/creator/StyleEditor.tsx` | Checkboxy + suwak offsetu |
-| `src/config/overlayTemplates.ts` | `statsOffsetX: 0` |
+| `src/components/ui/color-picker.tsx` | Guard `value.toLowerCase()` against undefined |
+| `src/components/creator/StyleEditor.tsx` | Add `?? fallback` for `statsTextColor` and `statsFontSize` |
+
