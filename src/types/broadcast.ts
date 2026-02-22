@@ -226,6 +226,7 @@ export interface BoostBarsConfig {
   statsInBarDemos: boolean;
   statsTextColor: string;
   statsFontSize: number;
+  statsOffsetX: number;
 }
 
 export interface BoostCircleConfig {
@@ -522,6 +523,7 @@ export const defaultOverlayConfig: OverlayConfig = {
     statsInBarDemos: false,
     statsTextColor: 'rgba(255,255,255,0.7)',
     statsFontSize: 11,
+    statsOffsetX: 0,
   },
   boostCircle: {
     visible: true,

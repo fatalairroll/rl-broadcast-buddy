@@ -4,6 +4,7 @@ import type { OverlayConfig, EditableElement, GameState, ElementShape, GradientC
 import { getShapeStyle, getDetachedBoxShapeStyle } from '@/components/ui/shape-picker';
 import { getBackgroundStyle } from '@/lib/gradient-utils';
 import { getGlowStyle } from '@/lib/glow-utils';
+import { GoalIcon, DemoIcon, AssistIcon, ScoreIcon } from '@/components/ui/stat-icons';
 
 interface OverlayPreviewProps {
   config: OverlayConfig;
@@ -498,13 +499,11 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                   )}
                 </div>
                 {config.boostBars.showStatsInBar && (
-                  <div className="flex items-center gap-1 mt-0.5" style={{ flexWrap: 'wrap' }}>
-                    {config.boostBars.statsInBarScore && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SCR </span>{player.score}</span>}
-                    {config.boostBars.statsInBarGoals && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>G </span>{player.goals}</span>}
-                    {config.boostBars.statsInBarAssists && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>A </span>{player.assists}</span>}
-                    {config.boostBars.statsInBarSaves && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SV </span>{player.saves}</span>}
-                    {config.boostBars.statsInBarShots && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SH </span>{player.shots}</span>}
-                    {config.boostBars.statsInBarDemos && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>DEM </span>{player.demos}</span>}
+                  <div className="flex items-center gap-1 mt-0.5" style={{ flexWrap: 'wrap', marginLeft: config.boostBars.statsOffsetX ? config.boostBars.statsOffsetX * 0.4 : 0 }}>
+                    {config.boostBars.statsInBarScore && <span className="flex items-center gap-px" style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><ScoreIcon size={config.boostBars.fontSize * 0.28} color={config.boostBars.statsTextColor} />{player.score}</span>}
+                    {config.boostBars.statsInBarGoals && <span className="flex items-center gap-px" style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><GoalIcon size={config.boostBars.fontSize * 0.28} color={config.boostBars.statsTextColor} />{player.goals}</span>}
+                    {config.boostBars.statsInBarAssists && <span className="flex items-center gap-px" style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><AssistIcon size={config.boostBars.fontSize * 0.28} color={config.boostBars.statsTextColor} />{player.assists}</span>}
+                    {config.boostBars.statsInBarDemos && <span className="flex items-center gap-px" style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><DemoIcon size={config.boostBars.fontSize * 0.28} color={config.boostBars.statsTextColor} />{player.demos}</span>}
                   </div>
                 )}
               </div>
@@ -573,13 +572,11 @@ export function OverlayPreview({ config, selectedElement, onSelectElement }: Ove
                   )}
                 </div>
                 {config.boostBars.showStatsInBar && (
-                  <div className="flex items-center gap-1 mt-0.5 flex-row-reverse" style={{ flexWrap: 'wrap' }}>
-                    {config.boostBars.statsInBarScore && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SCR </span>{player.score}</span>}
-                    {config.boostBars.statsInBarGoals && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>G </span>{player.goals}</span>}
-                    {config.boostBars.statsInBarAssists && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>A </span>{player.assists}</span>}
-                    {config.boostBars.statsInBarSaves && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SV </span>{player.saves}</span>}
-                    {config.boostBars.statsInBarShots && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>SH </span>{player.shots}</span>}
-                    {config.boostBars.statsInBarDemos && <span style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><span style={{ opacity: 0.6 }}>DEM </span>{player.demos}</span>}
+                  <div className="flex items-center gap-1 mt-0.5 flex-row-reverse" style={{ flexWrap: 'wrap', marginRight: config.boostBars.statsOffsetX ? config.boostBars.statsOffsetX * 0.4 : 0 }}>
+                    {config.boostBars.statsInBarScore && <span className="flex items-center gap-px" style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><ScoreIcon size={config.boostBars.fontSize * 0.28} color={config.boostBars.statsTextColor} />{player.score}</span>}
+                    {config.boostBars.statsInBarGoals && <span className="flex items-center gap-px" style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><GoalIcon size={config.boostBars.fontSize * 0.28} color={config.boostBars.statsTextColor} />{player.goals}</span>}
+                    {config.boostBars.statsInBarAssists && <span className="flex items-center gap-px" style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><AssistIcon size={config.boostBars.fontSize * 0.28} color={config.boostBars.statsTextColor} />{player.assists}</span>}
+                    {config.boostBars.statsInBarDemos && <span className="flex items-center gap-px" style={{ fontSize: 4, color: config.boostBars.statsTextColor }}><DemoIcon size={config.boostBars.fontSize * 0.28} color={config.boostBars.statsTextColor} />{player.demos}</span>}
                   </div>
                 )}
               </div>

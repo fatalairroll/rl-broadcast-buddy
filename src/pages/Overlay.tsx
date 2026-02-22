@@ -7,6 +7,7 @@ import { defaultOverlayConfig } from '@/types/broadcast';
 import { getShapeStyle, getDetachedBoxShapeStyle } from '@/components/ui/shape-picker';
 import { getBackgroundStyle } from '@/lib/gradient-utils';
 import { getGlowStyle } from '@/lib/glow-utils';
+import { GoalIcon, DemoIcon, AssistIcon, ScoreIcon } from '@/components/ui/stat-icons';
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -565,39 +566,39 @@ function BoostBar({ player, teamColor, config, reversed }: BoostBarProps) {
   const shapeStyles = getShapeStyle(config.shape, config.borderRadius);
   const barShapeStyles = getShapeStyle(config.shape, config.barHeight / 2);
   
+  const iconSize = config.fontSize * 0.7;
   const statsRow = config.showStatsInBar && (
     <div
       className={`flex items-center gap-2 mt-0.5 ${reversed ? 'flex-row-reverse' : ''}`}
-      style={{ paddingLeft: reversed ? 0 : 2, paddingRight: reversed ? 2 : 0 }}
+      style={{
+        paddingLeft: reversed ? 0 : 2,
+        paddingRight: reversed ? 2 : 0,
+        marginLeft: !reversed ? (config.statsOffsetX ?? 0) : 0,
+        marginRight: reversed ? (config.statsOffsetX ?? 0) : 0,
+      }}
     >
       {config.statsInBarScore && (
-        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
-          <span style={{ opacity: 0.6 }}>SCR </span>{player.score}
+        <span className="flex items-center gap-0.5" style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <ScoreIcon size={iconSize} color={config.statsTextColor} />
+          {player.score}
         </span>
       )}
       {config.statsInBarGoals && (
-        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
-          <span style={{ opacity: 0.6 }}>G </span>{player.goals}
+        <span className="flex items-center gap-0.5" style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <GoalIcon size={iconSize} color={config.statsTextColor} />
+          {player.goals}
         </span>
       )}
       {config.statsInBarAssists && (
-        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
-          <span style={{ opacity: 0.6 }}>A </span>{player.assists}
-        </span>
-      )}
-      {config.statsInBarSaves && (
-        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
-          <span style={{ opacity: 0.6 }}>SV </span>{player.saves}
-        </span>
-      )}
-      {config.statsInBarShots && (
-        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
-          <span style={{ opacity: 0.6 }}>SH </span>{player.shots}
+        <span className="flex items-center gap-0.5" style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <AssistIcon size={iconSize} color={config.statsTextColor} />
+          {player.assists}
         </span>
       )}
       {config.statsInBarDemos && (
-        <span style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
-          <span style={{ opacity: 0.6 }}>DEM </span>{player.demos}
+        <span className="flex items-center gap-0.5" style={{ fontSize: config.statsFontSize, color: config.statsTextColor, fontVariantNumeric: 'tabular-nums' }}>
+          <DemoIcon size={iconSize} color={config.statsTextColor} />
+          {player.demos}
         </span>
       )}
     </div>
