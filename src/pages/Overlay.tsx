@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useBroadcast } from '@/hooks/useBroadcast';
+import { supabase } from '@/integrations/supabase/client';
 import type { GameState, OverlayConfig, PlayerState, ElementShape, GradientConfig } from '@/types/broadcast';
 import { defaultOverlayConfig } from '@/types/broadcast';
 import { getShapeStyle, getDetachedBoxShapeStyle } from '@/components/ui/shape-picker';
