@@ -89,31 +89,44 @@ export default function Overlay() {
   const [dbGameState, setDbGameState] = useState<{ timer: string; score_a: string; score_b: string } | null>(null);
 
   useEffect(() => {
-    // Initial fetch
+    // Initial fetch with error handling
     supabase
       .from('game_state')
       .select('*')
       .eq('id', 1)
-      .single()
-      .then(({ data }) => {
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('game_state fetch error:', error);
+          return;
+        }
         if (data) {
-          setDbGameState({ timer: data.timer, score_a: data.score_a, score_b: data.score_b });
+          console.log('game_state fetched:', data);
+          setDbGameState({ 
+            timer: data.timer ?? '0:00', 
+            score_a: data.score_a ?? '0', 
+            score_b: data.score_b ?? '0' 
+          });
+        } else {
+          console.warn('game_state: no row with id=1 found');
         }
       });
 
-    // Realtime subscription
+    // Realtime subscription with status logging
     const channel = supabase
       .channel('game_updates')
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'game_state', filter: 'id=eq.1' },
         (payload) => {
-          console.log('Zmiana wykryta!', payload.new);
+          console.log('game_state UPDATE:', payload.new);
           const newData = payload.new as { timer: string; score_a: string; score_b: string };
           setDbGameState(newData);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('game_updates channel status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
