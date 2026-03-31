@@ -1,32 +1,54 @@
 
 
-# Plan: Tabela `game_state` dla skryptu Python OCR
+# Plan: Podłączenie overlaya do tabeli `game_state`
 
-## Cel
+## Zmiany w `src/pages/Overlay.tsx`
 
-Utworzenie tabeli `game_state` w bazie danych, do której skrypt Python będzie zapisywał dane z OCR (czas gry, wynik). Tabela ma zawsze jeden wiersz (id=1) aktualizowany w czasie rzeczywistym.
+### 1. Dodać importy
+- `useEffect` (już jest `useState`)
+- `supabase` z `@/integrations/supabase/client`
 
-## Zmiany
+### 2. Dodać stan `dbGameState`
+Nowy state: `dbGameState` typu `{ timer: string; score_a: string; score_b: string } | null`
 
-### 1. Migracja SQL
+### 3. Dodać `useEffect` z:
+- **Fetch początkowy**: `supabase.from('game_state').select('*').eq('id', 1).single()` → ustawienie `dbGameState`
+- **Subskrypcja Realtime**:
+```typescript
+supabase
+  .channel('game_updates')
+  .on('postgres_changes', 
+    { event: 'UPDATE', schema: 'public', table: 'game_state', filter: 'id=eq.1' },
+    (payload) => {
+      setDbGameState(payload.new as { timer: string; score_a: string; score_b: string });
+    }
+  )
+  .subscribe();
+```
+- **Cleanup**: `supabase.removeChannel(channel)` w return
 
-Utworzenie tabeli `game_state` z kolumnami:
-- `id` (int8, primary key)
-- `timer` (text, default '5:00')
-- `score_a` (text, default '0')
-- `score_b` (text, default '0')
+### 4. Dodać parser timera
+Funkcja `parseTimerToSeconds("1:33")` → `93`. Obsługa formatu `M:SS` oraz samych sekund.
 
-Włączenie RLS z politykami pozwalającymi na publiczny odczyt (SELECT) i publiczny zapis (UPDATE/INSERT) — skrypt Python używa klucza anon.
+### 5. Merge stanu (linia 94)
+Zmienić logikę `currentGameState`:
+```typescript
+const baseGameState = gameState || mockGameState;
+const currentGameState = dbGameState
+  ? {
+      ...baseGameState,
+      game: { ...baseGameState.game, time: parseTimerToSeconds(dbGameState.timer) },
+      teams: {
+        blue: { score: parseInt(dbGameState.score_a) || 0 },
+        orange: { score: parseInt(dbGameState.score_b) || 0 },
+      },
+    }
+  : baseGameState;
+```
 
-Wstawienie początkowego wiersza: `id=1, timer='5:00', score_a='0', score_b='0'`.
+Dane z `game_state` (OCR) nadpisują timer i wynik, reszta (gracze, boost, piłka) zostaje z Broadcast/mock.
 
-Włączenie Realtime na tabeli, aby overlay mógł nasłuchiwać zmian w czasie rzeczywistym.
+## Testowanie
 
-### 2. Pliki do zmiany
-
-| Element | Opis |
-|---------|------|
-| Migracja SQL | CREATE TABLE, RLS policies, INSERT wiersza startowego, Realtime |
-
-Brak zmian w kodzie frontendu na tym etapie — to fundament pod kolejne kroki.
+Po wdrożeniu — ręczna aktualizacja wiersza w bazie (np. z Pythona lub cURL) powinna natychmiast zmienić wynik i timer na overlayu.
 
