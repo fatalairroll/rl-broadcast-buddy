@@ -1,13 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useBroadcast } from '@/hooks/useBroadcast';
+import { supabase } from '@/integrations/supabase/client';
 import type { GameState, OverlayConfig, PlayerState, ElementShape, GradientConfig } from '@/types/broadcast';
 import { defaultOverlayConfig } from '@/types/broadcast';
 import { getShapeStyle, getDetachedBoxShapeStyle } from '@/components/ui/shape-picker';
 import { getBackgroundStyle } from '@/lib/gradient-utils';
 import { getGlowStyle } from '@/lib/glow-utils';
 import { GoalIcon, DemoIcon, AssistIcon, ScoreIcon } from '@/components/ui/stat-icons';
+
+function parseTimerToSeconds(timer: string): number {
+  const parts = timer.split(':');
+  if (parts.length === 2) {
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  }
+  return parseInt(timer, 10) || 0;
+}
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -74,7 +83,42 @@ export default function Overlay() {
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session') || undefined;
   const { session, gameState, overlayConfig } = useBroadcast(sessionId);
-  const config = overlayConfig; // Use config from preset linked to session
+  const config = overlayConfig;
+
+  // DB game state from game_state table (OCR data)
+  const [dbGameState, setDbGameState] = useState<{ timer: string; score_a: string; score_b: string } | null>(null);
+
+  useEffect(() => {
+    // Initial fetch
+    supabase
+      .from('game_state')
+      .select('*')
+      .eq('id', 1)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setDbGameState({ timer: data.timer, score_a: data.score_a, score_b: data.score_b });
+        }
+      });
+
+    // Realtime subscription
+    const channel = supabase
+      .channel('game_updates')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'game_state', filter: 'id=eq.1' },
+        (payload) => {
+          console.log('Zmiana wykryta!', payload.new);
+          const newData = payload.new as { timer: string; score_a: string; score_b: string };
+          setDbGameState(newData);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Mock game state for development
   const [mockGameState] = useState<GameState>({
@@ -91,7 +135,18 @@ export default function Overlay() {
     game: { time: 121, isOT: false, hasTarget: true },
   });
 
-  const currentGameState = gameState || mockGameState;
+  // Merge: dbGameState (OCR) > gameState (Broadcast) > mockGameState
+  const baseGameState = gameState || mockGameState;
+  const currentGameState = dbGameState
+    ? {
+        ...baseGameState,
+        game: { ...baseGameState.game, time: parseTimerToSeconds(dbGameState.timer) },
+        teams: {
+          blue: { score: parseInt(dbGameState.score_a, 10) || 0 },
+          orange: { score: parseInt(dbGameState.score_b, 10) || 0 },
+        },
+      }
+    : baseGameState;
   const blueTeamPlayers = currentGameState.players.filter((p) => p.team === 0);
   const orangeTeamPlayers = currentGameState.players.filter((p) => p.team === 1);
   const targetPlayer = currentGameState.players.find((p) => p.isPrimary);
