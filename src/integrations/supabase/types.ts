@@ -105,6 +105,27 @@ export type Database = {
           },
         ]
       }
+      game_state: {
+        Row: {
+          id: number
+          score_a: string
+          score_b: string
+          timer: string
+        }
+        Insert: {
+          id: number
+          score_a?: string
+          score_b?: string
+          timer?: string
+        }
+        Update: {
+          id?: number
+          score_a?: string
+          score_b?: string
+          timer?: string
+        }
+        Relationships: []
+      }
       overlay_presets: {
         Row: {
           config: Json
