@@ -10,6 +10,14 @@ import { getBackgroundStyle } from '@/lib/gradient-utils';
 import { getGlowStyle } from '@/lib/glow-utils';
 import { GoalIcon, DemoIcon, AssistIcon, ScoreIcon } from '@/components/ui/stat-icons';
 
+function parseTimerToSeconds(timer: string): number {
+  const parts = timer.split(':');
+  if (parts.length === 2) {
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  }
+  return parseInt(timer, 10) || 0;
+}
+
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
