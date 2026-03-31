@@ -1,39 +1,32 @@
 
 
-# Fix: Crash when enabling player stats in boost bar
+# Plan: Tabela `game_state` dla skryptu Python OCR
 
-## Root Cause
+## Cel
 
-The `ColorPicker` component calls `value.toLowerCase()` (line 158 of `color-picker.tsx`) without checking if `value` is defined. When a preset is loaded from the database that was saved BEFORE the new stats fields (`statsTextColor`, `statsFontSize`, `statsOffsetX`) were added, these fields are `undefined`. As soon as "Show player stats" is toggled ON, the UI tries to render the `ColorPicker` for `statsTextColor` with `value={undefined}`, causing the crash and making everything disappear.
+Utworzenie tabeli `game_state` w bazie danych, do której skrypt Python będzie zapisywał dane z OCR (czas gry, wynik). Tabela ma zawsze jeden wiersz (id=1) aktualizowany w czasie rzeczywistym.
 
-## Fix
+## Zmiany
 
-### 1. `src/components/ui/color-picker.tsx`
+### 1. Migracja SQL
 
-Add a safety guard so `value` defaults to a fallback if undefined:
+Utworzenie tabeli `game_state` z kolumnami:
+- `id` (int8, primary key)
+- `timer` (text, default '5:00')
+- `score_a` (text, default '0')
+- `score_b` (text, default '0')
 
-```tsx
-// At line 158, change:
-value.toLowerCase() === color.toLowerCase()
-// To:
-(value ?? '').toLowerCase() === color.toLowerCase()
-```
+Włączenie RLS z politykami pozwalającymi na publiczny odczyt (SELECT) i publiczny zapis (UPDATE/INSERT) — skrypt Python używa klucza anon.
 
-Also guard any other `value` usage (like `hexToHsl(value)` calls) with a fallback.
+Wstawienie początkowego wiersza: `id=1, timer='5:00', score_a='0', score_b='0'`.
 
-### 2. `src/components/creator/StyleEditor.tsx`
+Włączenie Realtime na tabeli, aby overlay mógł nasłuchiwać zmian w czasie rzeczywistym.
 
-Add fallback defaults for all stats-related fields that may be missing from old presets:
+### 2. Pliki do zmiany
 
-- `value={config.boostBars.statsTextColor ?? 'rgba(255,255,255,0.7)'}` (line 806)
-- `value={config.boostBars.statsFontSize ?? 11}` (line 811)
+| Element | Opis |
+|---------|------|
+| Migracja SQL | CREATE TABLE, RLS policies, INSERT wiersza startowego, Realtime |
 
-These two changes will prevent any crash from missing fields in older saved presets.
-
-## Files to modify
-
-| File | Change |
-|------|--------|
-| `src/components/ui/color-picker.tsx` | Guard `value.toLowerCase()` against undefined |
-| `src/components/creator/StyleEditor.tsx` | Add `?? fallback` for `statsTextColor` and `statsFontSize` |
+Brak zmian w kodzie frontendu na tym etapie — to fundament pod kolejne kroki.
 
