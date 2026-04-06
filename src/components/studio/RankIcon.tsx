@@ -22,9 +22,15 @@ function getRankBase(rank: string): string {
 interface RankIconProps {
   rank: string | null;
   className?: string;
+  size?: 'sm' | 'lg';
 }
 
-export function RankIcon({ rank, className }: RankIconProps) {
+const SIZE_CLASSES = {
+  sm: 'px-1.5 py-0.5 text-[10px]',
+  lg: 'px-3 py-1.5 text-base',
+};
+
+export function RankIcon({ rank, className, size = 'sm' }: RankIconProps) {
   if (!rank) return null;
   const base = getRankBase(rank);
   const colors = RANK_COLORS[base] ?? RANK_COLORS['Unranked'];
@@ -32,7 +38,8 @@ export function RankIcon({ rank, className }: RankIconProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide whitespace-nowrap',
+        'inline-flex items-center rounded font-bold uppercase tracking-wide whitespace-nowrap',
+        SIZE_CLASSES[size],
         colors,
         className,
       )}
