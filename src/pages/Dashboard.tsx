@@ -121,6 +121,10 @@ export default function Dashboard() {
               Overlay
               <ExternalLink className="ml-1 h-3 w-3" />
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/studio')}>
+              <Monitor className="mr-2 h-4 w-4" />
+              Studio
+            </Button>
             {/* Tymczasowo bez sprawdzania isAdmin - dev mode */}
             <Button variant="ghost" size="sm" onClick={() => navigate('/creator')}>
               <Palette className="mr-2 h-4 w-4" />
