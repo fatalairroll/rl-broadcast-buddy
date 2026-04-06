@@ -1,41 +1,47 @@
 
 
-# Plan: Przebudowa MatchCard w stylu RLCS
+# Plan: Ikony rang z obrazkami i mapowanie MMR
 
-## Referencja
+## Podsumowanie
 
-Z obrazka referencyjnego (image-26) wyciągam:
-- Panele graczy jako ostre parallelogramy (clip-path, bez zaokrągleń)
-- Nicki graczy obrócone pionowo wzdłuż krawędzi panelu
-- Duży napis "VERSUS" w centrum
-- Pasek z nazwami drużyn na dole
-- Kolory: niebieski (Team A / lewa) i pomarańczowy (Team B / prawa) — odwracam obecny układ kolorów
-- Zamiast zdjęć graczy — duża ikona rangi jako główny element wizualny panelu
+Skopiowanie wszystkich 22 ikon rang do projektu, stworzenie systemu mapowania MMR → ranga, i zamiana tekstowych badge'ów w `RankIcon` na prawdziwe obrazki rang.
 
-## Zmiany wizualne
+## Pliki ikon do skopiowania
 
-### PlayerCard (wewnątrz MatchCard.tsx)
-- **Kształt**: `clip-path: polygon(15% 0, 100% 0, 85% 100%, 0 100%)` — ostry parallelogram, zero border-radius
-- **Wymiary**: ~140px x 280px (wyższe, bardziej jak w referencji)
-- **Ikona rangi**: Powiększona RankIcon jako centralny element (duży badge ~48x48px zamiast małego 10px)
-- **Nick**: Obrócony pionowo (`writing-mode: vertical-rl`) wzdłuż lewej krawędzi panelu, biały, bold
-- **MMR**: Na dole panelu, font-mono
-- **Kolory**: Team A = niebieski gradient (`#2563EB` → `#1E40AF`), Team B = pomarańczowy gradient (`#F97316` → `#C2410C`)
+22 plików `.webp` z `user-uploads://` do `src/assets/ranks/`:
+- Bronze_I.webp, Bronze_II.webp, Bronze_III.webp
+- Silver_I.webp, Silver_II.webp, Silver_III.webp
+- Gold_I.webp, Gold_II.webp, Gold_III.webp
+- Platinum_I.webp, Platinum_II.webp, Platinum_III.webp
+- Diamond_I.webp, Diamond_II.webp, Diamond_III.webp
+- Champion_I.webp, Champion_II.webp, Champion_III.webp
+- Grand_Champion_I.webp, Grand_Champion_II.webp, Grand_Champion_III.webp
+- Supersonic_Legend.webp
 
-### RankIcon — nowy prop `size`
-- Dodanie prop `size?: 'sm' | 'lg'` do RankIcon
-- `lg`: większy padding, font ~16px, ikona bardziej widoczna w panelu gracza
+## Nowy plik: `src/lib/rank-utils.ts`
 
-### Układ główny MatchCard
-- Środkowy "VERSUS" — duży, pionowy tekst, bold, ~48px
-- Nazwy drużyn: pasek na dole pod panelami (jak w referencji), bold uppercase
-- Header (Round/BO/status) zostaje nad panelami
-- Panele gracza blisko siebie z minimalnym gap, "VERSUS" w środku
+- Tabela MMR → nazwa rangi (22 pozycji z progami z dostarczonej tabeli)
+- Funkcja `getRankFromMmr(mmr: number): string` — zwraca nazwę rangi na podstawie MMR
+- Mapa nazw rang → importy obrazków (ES6 imports z `@/assets/ranks/`)
+
+## Zmiany w `src/components/studio/RankIcon.tsx`
+
+- Zamiana tekstowego badge'a na `<img>` z ikoną rangi
+- Prop `size`: `sm` = 24px, `lg` = 64px
+- Opcjonalny tekst rangi pod ikoną (tylko w `lg`)
+- Fallback na tekstowy badge jeśli ikona nie znaleziona
+
+## Zmiany w `src/components/studio/MatchCard.tsx`
+
+- W `PlayerPanel`: użycie `getRankFromMmr()` gdy `rank` z API jest null ale MMR jest dostępny
+- RankIcon z obrazkiem zamiast tekstu jako centralny element panelu
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/studio/MatchCard.tsx` | Pełna przebudowa: ostre parallelogramy z clip-path, pionowe nicki, duża ikona rangi, odwrócone kolory, pasek drużyn na dole, duży VERSUS |
-| `src/components/studio/RankIcon.tsx` | Dodanie prop `size` dla wariantu dużego (`lg`) |
+| `src/assets/ranks/*.webp` | 22 nowych plików ikon |
+| `src/lib/rank-utils.ts` | Nowy — mapowanie MMR→ranga, importy obrazków |
+| `src/components/studio/RankIcon.tsx` | Przebudowa na obrazki zamiast tekstowych badge'ów |
+| `src/components/studio/MatchCard.tsx` | Użycie `getRankFromMmr` jako fallback |
 
