@@ -10,6 +10,8 @@ export interface Tournament {
 export interface PlayerData {
   discord_id: string;
   nick: string;
+  nick_in_game?: string | null;
+  rlstats_url?: string | null;
   avatar: string | null;
   mmr_1v1: number | null;
   mmr_2v2: number | null;
