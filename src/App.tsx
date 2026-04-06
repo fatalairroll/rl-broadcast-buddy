@@ -11,6 +11,8 @@ import Overlay from "./pages/Overlay";
 import Creator from "./pages/Creator";
 import Admin from "./pages/Admin";
 import Relay from "./pages/Relay";
+import Studio from "./pages/Studio";
+import StudioRender from "./pages/StudioRender";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
