@@ -34,7 +34,7 @@ export function PlayerRow({ player, gameMode }: PlayerRowProps) {
         />
       )}
       <span className="text-sm font-medium text-white flex-1 truncate">
-        {player.nick}
+        {player.nick_in_game ?? player.nick}
       </span>
       {mmr != null && (
         <span className="text-xs text-slate-400 font-mono">{mmr}</span>

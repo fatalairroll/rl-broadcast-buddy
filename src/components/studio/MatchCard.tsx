@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import type { MatchData, PlayerData } from '@/types/studio';
 import { RankIcon } from './RankIcon';
-import { getRankFromMmr } from '@/lib/rank-utils';
+import { getRankFromMmr, normalizeRankName, isValidRank } from '@/lib/rank-utils';
 
 interface MatchCardProps {
   match: MatchData;
@@ -24,7 +24,7 @@ function getRankForMode(player: PlayerData, mode: string): string | null {
 
 function resolveRank(player: PlayerData, mode: string): string | null {
   const rank = getRankForMode(player, mode);
-  if (rank) return rank;
+  if (rank && isValidRank(rank)) return normalizeRankName(rank);
   const mmr = getMmrForMode(player, mode);
   if (mmr != null) return getRankFromMmr(mmr);
   return null;
@@ -65,7 +65,7 @@ function PlayerPanel({
         className="absolute left-3 top-1/2 -translate-y-1/2 text-white/90 font-black text-sm uppercase tracking-widest"
         style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
       >
-        {player.nick}
+        {player.nick_in_game ?? player.nick}
       </span>
 
       {/* Center content */}
