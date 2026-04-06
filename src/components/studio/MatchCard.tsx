@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import type { MatchData, PlayerData } from '@/types/studio';
 import { RankIcon } from './RankIcon';
+import { getRankFromMmr } from '@/lib/rank-utils';
 
 interface MatchCardProps {
   match: MatchData;
@@ -21,6 +22,14 @@ function getRankForMode(player: PlayerData, mode: string): string | null {
   return player.rank_2v2;
 }
 
+function resolveRank(player: PlayerData, mode: string): string | null {
+  const rank = getRankForMode(player, mode);
+  if (rank) return rank;
+  const mmr = getMmrForMode(player, mode);
+  if (mmr != null) return getRankFromMmr(mmr);
+  return null;
+}
+
 function PlayerPanel({
   player,
   gameMode,
@@ -33,7 +42,7 @@ function PlayerPanel({
   index: number;
 }) {
   const mmr = getMmrForMode(player, gameMode);
-  const rank = getRankForMode(player, gameMode);
+  const rank = resolveRank(player, gameMode);
 
   const gradient =
     side === 'a'
@@ -61,7 +70,7 @@ function PlayerPanel({
 
       {/* Center content */}
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6">
-        <RankIcon rank={rank} size="lg" />
+        <RankIcon rank={rank} size="lg" showLabel />
         {mmr != null && (
           <span className="text-xs text-white/70 font-mono">{mmr}</span>
         )}
