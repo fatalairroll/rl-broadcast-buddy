@@ -1,47 +1,36 @@
 
 
-# Plan: Ikony rang z obrazkami i mapowanie MMR
+# Plan: Aktualizacja API — nowe pola i naprawa rang
 
-## Podsumowanie
+## Problem
 
-Skopiowanie wszystkich 22 ikon rang do projektu, stworzenie systemu mapowania MMR → ranga, i zamiana tekstowych badge'ów w `RankIcon` na prawdziwe obrazki rang.
+1. API zwraca nowe pola (`nick_in_game`, `rlstats_url`) nieobecne w typach
+2. API zwraca rangi w formacie `"Diamond 1"` (arabskie cyfry), a kod używa `"Diamond I"` (rzymskie) — ikony nie pasują
+3. Nick powinien priorytetowo wyświetlać `nick_in_game`
 
-## Pliki ikon do skopiowania
+## Zmiany
 
-22 plików `.webp` z `user-uploads://` do `src/assets/ranks/`:
-- Bronze_I.webp, Bronze_II.webp, Bronze_III.webp
-- Silver_I.webp, Silver_II.webp, Silver_III.webp
-- Gold_I.webp, Gold_II.webp, Gold_III.webp
-- Platinum_I.webp, Platinum_II.webp, Platinum_III.webp
-- Diamond_I.webp, Diamond_II.webp, Diamond_III.webp
-- Champion_I.webp, Champion_II.webp, Champion_III.webp
-- Grand_Champion_I.webp, Grand_Champion_II.webp, Grand_Champion_III.webp
-- Supersonic_Legend.webp
+### 1. `src/types/studio.ts` — nowe pola w `PlayerData`
+- Dodać `nick_in_game?: string | null`
+- Dodać `rlstats_url?: string | null`
 
-## Nowy plik: `src/lib/rank-utils.ts`
+### 2. `src/lib/rank-utils.ts` — normalizacja nazw rang
+- Dodać funkcję `normalizeRankName(raw: string): string` zamieniającą format API (`"Diamond 1"`, `"Platinum 3"`, `"Grand Champion 2"`) na wewnętrzny (`"Diamond I"`, `"Platinum III"`, `"Grand Champion II"`)
+- Użyć jej w `getRankIcon()` aby dopasować ikony niezależnie od formatu
 
-- Tabela MMR → nazwa rangi (22 pozycji z progami z dostarczonej tabeli)
-- Funkcja `getRankFromMmr(mmr: number): string` — zwraca nazwę rangi na podstawie MMR
-- Mapa nazw rang → importy obrazków (ES6 imports z `@/assets/ranks/`)
+### 3. `src/components/studio/MatchCard.tsx` — nick_in_game + rank fallback
+- `PlayerPanel`: wyświetlać `player.nick_in_game ?? player.nick`
+- `resolveRank`: przepuszczać rangę z API przez `normalizeRankName`, jeśli wynik nie pasuje do żadnego tier-a → fallback na MMR
 
-## Zmiany w `src/components/studio/RankIcon.tsx`
+### 4. `src/components/studio/PlayerRow.tsx` — nick_in_game
+- Wyświetlać `player.nick_in_game ?? player.nick`
 
-- Zamiana tekstowego badge'a na `<img>` z ikoną rangi
-- Prop `size`: `sm` = 24px, `lg` = 64px
-- Opcjonalny tekst rangi pod ikoną (tylko w `lg`)
-- Fallback na tekstowy badge jeśli ikona nie znaleziona
-
-## Zmiany w `src/components/studio/MatchCard.tsx`
-
-- W `PlayerPanel`: użycie `getRankFromMmr()` gdy `rank` z API jest null ale MMR jest dostępny
-- RankIcon z obrazkiem zamiast tekstu jako centralny element panelu
-
-## Pliki do zmiany
+## Pliki
 
 | Plik | Zmiana |
 |------|--------|
-| `src/assets/ranks/*.webp` | 22 nowych plików ikon |
-| `src/lib/rank-utils.ts` | Nowy — mapowanie MMR→ranga, importy obrazków |
-| `src/components/studio/RankIcon.tsx` | Przebudowa na obrazki zamiast tekstowych badge'ów |
-| `src/components/studio/MatchCard.tsx` | Użycie `getRankFromMmr` jako fallback |
+| `src/types/studio.ts` | Dodać `nick_in_game`, `rlstats_url` |
+| `src/lib/rank-utils.ts` | Dodać `normalizeRankName()`, użyć w `getRankIcon` |
+| `src/components/studio/MatchCard.tsx` | `nick_in_game` priorytet, normalizacja rang |
+| `src/components/studio/PlayerRow.tsx` | `nick_in_game` priorytet |
 
