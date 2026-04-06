@@ -5,7 +5,7 @@ import { MatchCard } from '@/components/studio/MatchCard';
 import { BracketView } from '@/components/studio/BracketView';
 import type { StudioMode } from '@/types/studio';
 
-const VALID_KEY = 'MY_SECRET_AUTH';
+const VALID_KEY = 'kXS6cVkTpJM2Qti';
 
 export default function StudioRender() {
   const [params] = useSearchParams();
