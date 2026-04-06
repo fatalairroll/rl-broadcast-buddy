@@ -67,13 +67,24 @@ export function getRankFromMmr(mmr: number): string {
   return 'Bronze I';
 }
 
+export function normalizeRankName(raw: string): string {
+  return raw
+    .replace(/\s3$/, ' III')
+    .replace(/\s2$/, ' II')
+    .replace(/\s1$/, ' I');
+}
+
+export function isValidRank(name: string): boolean {
+  const normalized = normalizeRankName(name);
+  return RANK_TIERS.some((t) => t.name === normalized);
+}
+
 export function getRankIcon(rankName: string | null): string | null {
   if (!rankName) return null;
-  // Try exact match first
-  if (RANK_ICON_MAP[rankName]) return RANK_ICON_MAP[rankName];
-  // Try partial match (e.g. "Diamond" → "Diamond I")
+  const normalized = normalizeRankName(rankName);
+  if (RANK_ICON_MAP[normalized]) return RANK_ICON_MAP[normalized];
   for (const tier of RANK_TIERS) {
-    if (tier.name.startsWith(rankName)) return tier.icon;
+    if (tier.name.startsWith(normalized)) return tier.icon;
   }
   return null;
 }
