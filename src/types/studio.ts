@@ -1,0 +1,56 @@
+export interface Tournament {
+  tournament_id: string;
+  name: string;
+  mode: string;
+  status: string;
+  start_at: string;
+  banner_url: string | null;
+}
+
+export interface PlayerData {
+  discord_id: string;
+  nick: string;
+  avatar: string | null;
+  mmr_1v1: number | null;
+  mmr_2v2: number | null;
+  mmr_3v3: number | null;
+  rank_1v1: string | null;
+  rank_2v2: string | null;
+  rank_3v3: string | null;
+}
+
+export interface TeamData {
+  team_id: string;
+  name: string;
+  avg_mmr: number;
+  seed: number;
+  players: PlayerData[];
+}
+
+export interface MatchData {
+  match_id: string;
+  round_index: number;
+  best_of: number;
+  state: 'scheduled' | 'in_progress' | 'finished';
+  score_a: number;
+  score_b: number;
+  winner_team_id: string | null;
+  scheduled_at: string | null;
+  team_a: TeamData | null;
+  team_b: TeamData | null;
+}
+
+export interface TournamentResponse {
+  tournaments: Tournament[];
+}
+
+export interface MatchResponse {
+  tournament: {
+    name: string;
+    mode: string;
+    status: string;
+  };
+  matches: MatchData[];
+}
+
+export type StudioMode = 'next_match' | 'next_3' | 'bracket';
