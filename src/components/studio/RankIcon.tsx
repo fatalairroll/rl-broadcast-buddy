@@ -4,23 +4,24 @@ import { getRankIcon } from '@/lib/rank-utils';
 interface RankIconProps {
   rank: string | null;
   className?: string;
-  size?: 'sm' | 'lg';
+  size?: 'sm' | 'lg' | 'xl';
   showLabel?: boolean;
+  glowColor?: string;
 }
 
 const SIZE_PX = {
   sm: 24,
   lg: 64,
+  xl: 96,
 };
 
-export function RankIcon({ rank, className, size = 'sm', showLabel = false }: RankIconProps) {
+export function RankIcon({ rank, className, size = 'sm', showLabel = false, glowColor }: RankIconProps) {
   if (!rank) return null;
 
   const iconSrc = getRankIcon(rank);
   const px = SIZE_PX[size];
 
   if (!iconSrc) {
-    // Fallback text badge
     return (
       <span
         className={cn(
@@ -41,11 +42,21 @@ export function RankIcon({ rank, className, size = 'sm', showLabel = false }: Ra
         alt={rank}
         width={px}
         height={px}
-        className="object-contain drop-shadow-lg"
+        className={cn(
+          'object-contain',
+          size === 'xl' && 'animate-pulse-glow drop-shadow-lg',
+          size === 'lg' && 'drop-shadow-lg',
+        )}
+        style={size === 'xl' && glowColor ? { color: glowColor } : undefined}
         draggable={false}
       />
-      {showLabel && size === 'lg' && (
-        <span className="text-[10px] font-bold uppercase tracking-wider text-white/80 whitespace-nowrap">
+      {showLabel && (size === 'lg' || size === 'xl') && (
+        <span
+          className={cn(
+            'font-esports font-bold uppercase tracking-wider whitespace-nowrap',
+            size === 'xl' ? 'text-xs text-white/90' : 'text-[10px] text-white/80',
+          )}
+        >
           {rank}
         </span>
       )}

@@ -30,6 +30,38 @@ function resolveRank(player: PlayerData, mode: string): string | null {
   return null;
 }
 
+const SMOKE_BLUE = [
+  'radial-gradient(ellipse 80% 60% at 30% 70%, rgba(37,99,235,0.35) 0%, transparent 70%)',
+  'radial-gradient(ellipse 60% 80% at 70% 30%, rgba(59,130,246,0.2) 0%, transparent 60%)',
+  'radial-gradient(ellipse 50% 50% at 50% 90%, rgba(30,64,175,0.25) 0%, transparent 70%)',
+];
+
+const SMOKE_ORANGE = [
+  'radial-gradient(ellipse 80% 60% at 70% 70%, rgba(249,115,22,0.35) 0%, transparent 70%)',
+  'radial-gradient(ellipse 60% 80% at 30% 30%, rgba(251,146,60,0.2) 0%, transparent 60%)',
+  'radial-gradient(ellipse 50% 50% at 50% 90%, rgba(194,65,12,0.25) 0%, transparent 70%)',
+];
+
+function SmokeLayer({ side }: { side: 'a' | 'b' }) {
+  const layers = side === 'a' ? SMOKE_BLUE : SMOKE_ORANGE;
+  return (
+    <>
+      <div
+        className="absolute inset-0 animate-smoke-drift pointer-events-none"
+        style={{ background: layers[0] }}
+      />
+      <div
+        className="absolute inset-0 animate-smoke-drift-alt pointer-events-none"
+        style={{ background: layers[1] }}
+      />
+      <div
+        className="absolute inset-0 animate-smoke-drift pointer-events-none"
+        style={{ background: layers[2], animationDelay: '-3s' }}
+      />
+    </>
+  );
+}
+
 function PlayerPanel({
   player,
   gameMode,
@@ -43,36 +75,53 @@ function PlayerPanel({
 }) {
   const mmr = getMmrForMode(player, gameMode);
   const rank = resolveRank(player, gameMode);
+  const displayName = player.nick_in_game ?? player.nick;
 
   const gradient =
     side === 'a'
       ? 'linear-gradient(180deg, #2563EB, #1E40AF)'
       : 'linear-gradient(180deg, #F97316, #C2410C)';
 
+  const glowColor = side === 'a' ? '#3B82F6' : '#F97316';
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.12, ease: 'easeOut' }}
-      className="relative w-[140px] h-[280px] overflow-hidden"
+      className="relative w-[160px] h-[320px] overflow-hidden brushed-metal"
       style={{
         background: gradient,
         clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
       }}
     >
-      {/* Vertical nick along left edge */}
-      <span
-        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/90 font-black text-sm uppercase tracking-widest"
-        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-      >
-        {player.nick_in_game ?? player.nick}
-      </span>
+      {/* Smoke effects */}
+      <SmokeLayer side={side} />
 
-      {/* Center content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6">
-        <RankIcon rank={rank} size="lg" showLabel />
+      {/* Content with hierarchy: Nick → Rank Icon → Rank Name → MMR */}
+      <div className="absolute inset-0 flex flex-col items-center justify-between py-5 px-4 z-10">
+        {/* Nick at top */}
+        <div className="w-full text-center">
+          <span
+            className="font-esports font-bold text-white text-sm uppercase tracking-wider drop-shadow-md leading-tight block truncate"
+            title={displayName}
+          >
+            {displayName}
+          </span>
+        </div>
+
+        {/* Rank icon — center, enlarged */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+          <RankIcon rank={rank} size="xl" showLabel glowColor={glowColor} />
+        </div>
+
+        {/* MMR bar at bottom */}
         {mmr != null && (
-          <span className="text-xs text-white/70 font-mono">{mmr}</span>
+          <div className="w-full text-center">
+            <span className="text-[10px] text-white/50 font-mono tracking-wider">
+              {mmr} MMR
+            </span>
+          </div>
         )}
       </div>
     </motion.div>
@@ -87,7 +136,7 @@ function TbdPanel({ side }: { side: 'a' | 'b' }) {
 
   return (
     <div
-      className="w-[140px] h-[280px] flex items-center justify-center text-white/30 text-sm font-bold uppercase"
+      className="w-[160px] h-[320px] flex items-center justify-center text-white/30 text-sm font-esports font-bold uppercase"
       style={{
         background: gradient,
         clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
@@ -120,10 +169,10 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
     >
       {/* Header */}
       <div className="flex items-center justify-center gap-3 mb-6">
-        <span className="text-xs text-white/50 uppercase tracking-wider font-medium">
+        <span className="font-esports text-xs text-white/50 uppercase tracking-[0.2em] font-semibold">
           Round {match.round_index + 1} · BO{match.best_of}
         </span>
-        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${stateColor} text-white`}>
+        <span className={`font-esports text-[10px] font-bold uppercase px-2 py-0.5 rounded ${stateColor} text-white`}>
           {stateLabel}
         </span>
       </div>
@@ -142,11 +191,11 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="mx-2 flex items-center justify-center z-10"
+          className="mx-3 flex items-center justify-center z-10"
         >
           <span
-            className="text-white/80 font-black text-4xl uppercase tracking-widest"
-            style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', letterSpacing: '0.3em' }}
+            className="font-esports text-white/80 font-bold text-4xl uppercase tracking-[0.3em]"
+            style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
           >
             VS
           </span>
@@ -162,10 +211,10 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
 
       {/* Team names bar */}
       <div className="flex items-center justify-between mt-4 px-4">
-        <span className="text-sm font-bold text-blue-400 uppercase tracking-wide">
+        <span className="font-esports text-sm font-bold text-blue-400 uppercase tracking-wider">
           {match.team_a?.name ?? 'TBD'}
         </span>
-        <span className="text-sm font-bold text-orange-400 uppercase tracking-wide">
+        <span className="font-esports text-sm font-bold text-orange-400 uppercase tracking-wider">
           {match.team_b?.name ?? 'TBD'}
         </span>
       </div>
