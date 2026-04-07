@@ -209,20 +209,13 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
       ? 'linear-gradient(90deg, transparent 0%, rgba(37,99,235,0.5) 30%, rgba(37,99,235,0.7) 100%)'
       : 'linear-gradient(270deg, transparent 0%, rgba(249,115,22,0.5) 30%, rgba(249,115,22,0.7) 100%)';
   const textAlign = side === 'a' ? ('right' as const) : ('left' as const);
-  // Offset banner to align with inner card edges:
-  // Card clipPath bottom: left=0%, right=85% (136px of 160px)
-  // For 2 cards (320px): Team A right edge at ~296px, Team B left edge at ~24px
-  const margin = side === 'a'
-    ? { marginRight: '24px' }
-    : { marginLeft: '24px' };
   return (
     <div
-      className="py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
+      className="w-full py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
       style={{
         background: bg,
         transform: 'skewX(-5deg)',
         textAlign,
-        ...margin,
       }}
     >
       <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{name}</span>
@@ -230,17 +223,76 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
   );
 }
 
+function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: number }) {
+  return (
+    <div className="relative flex items-center justify-center gap-0 mb-8">
+      {/* Glowing line behind */}
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[1px]"
+        style={{
+          background: 'linear-gradient(90deg, rgba(37,99,235,0.6) 0%, rgba(37,99,235,0) 30%, rgba(255,255,255,0.15) 45%, rgba(255,255,255,0.15) 55%, rgba(249,115,22,0) 70%, rgba(249,115,22,0.6) 100%)',
+          boxShadow: '0 0 8px rgba(37,99,235,0.3), 0 0 8px rgba(249,115,22,0.3)',
+        }}
+      />
+      {/* Drip lines down */}
+      <div
+        className="absolute left-[10%] top-1/2 w-[1px] h-6"
+        style={{ background: 'linear-gradient(180deg, rgba(37,99,235,0.5), transparent)' }}
+      />
+      <div
+        className="absolute right-[10%] top-1/2 w-[1px] h-6"
+        style={{ background: 'linear-gradient(180deg, rgba(249,115,22,0.5), transparent)' }}
+      />
+
+      {/* Round info — glass trapezoid left */}
+      <div
+        className="relative z-10 px-5 py-2 font-esports text-[11px] font-bold text-white/70 uppercase tracking-[0.2em]"
+        style={{
+          background: 'rgba(10,15,30,0.5)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          transform: 'skewX(-5deg)',
+          clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
+        }}
+      >
+        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Round {roundIndex + 1}</span>
+      </div>
+
+      {/* NEXT MATCH — center banner */}
+      <div
+        className="relative z-20 px-8 py-2.5 mx-1"
+        style={{
+          background: 'linear-gradient(135deg, #ffffff 0%, #d4d4d8 100%)',
+          transform: 'skewX(-15deg)',
+          boxShadow: '0 2px 15px rgba(255,255,255,0.1)',
+        }}
+      >
+        <span
+          className="font-esports text-sm font-black uppercase tracking-[0.25em] text-black"
+          style={{ transform: 'skewX(15deg)', display: 'block' }}
+        >
+          Next Match
+        </span>
+      </div>
+
+      {/* Best of info — glass trapezoid right */}
+      <div
+        className="relative z-10 px-5 py-2 font-esports text-[11px] font-bold text-white/70 uppercase tracking-[0.2em]"
+        style={{
+          background: 'rgba(30,15,10,0.5)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          transform: 'skewX(-5deg)',
+          clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
+        }}
+      >
+        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Best of {bestOf}</span>
+      </div>
+    </div>
+  );
+}
+
 export function MatchCard({ match, gameMode }: MatchCardProps) {
-  const stateLabel =
-    match.state === 'in_progress' ? 'LIVE' :
-    match.state === 'finished' ? 'FINISHED' :
-    'UPCOMING';
-
-  const stateColor =
-    match.state === 'in_progress' ? 'bg-red-600' :
-    match.state === 'finished' ? 'bg-green-600' :
-    'bg-blue-600';
-
   return (
     <motion.div
       layout
@@ -251,19 +303,12 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
       className="p-6"
     >
       {/* Header */}
-      <div className="flex items-center justify-center gap-3 mb-6">
-        <span className="font-esports text-xs text-white/50 uppercase tracking-[0.2em] font-semibold">
-          Round {match.round_index + 1} · BO{match.best_of}
-        </span>
-        <span className={`font-esports text-[10px] font-bold uppercase px-2 py-0.5 rounded ${stateColor} text-white`}>
-          {stateLabel}
-        </span>
-      </div>
+      <HeaderPanel roundIndex={match.round_index} bestOf={match.best_of} />
 
-      {/* Players + VERSUS + Banners */}
+      {/* Players + VERSUS */}
       <div className="flex items-start justify-center">
-        {/* Team A column */}
-        <div className="flex flex-col items-stretch">
+        {/* Team A wrapper — flex-end aligns banner to right edge of cards */}
+        <div className="team-blue-wrapper flex flex-col items-end">
           <div className="flex" style={{ marginRight: '-8px' }}>
             {match.team_a?.players.map((p, i) => (
               <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="a" index={i} />
@@ -287,8 +332,8 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
           </span>
         </motion.div>
 
-        {/* Team B column */}
-        <div className="flex flex-col items-stretch">
+        {/* Team B wrapper — flex-start aligns banner to left edge of cards */}
+        <div className="team-orange-wrapper flex flex-col items-start">
           <div className="flex" style={{ marginLeft: '-8px' }}>
             {match.team_b?.players.map((p, i) => (
               <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="b" index={i + 2} />
