@@ -26,7 +26,6 @@ export default function StudioRender() {
   const authorized = key === VALID_KEY;
 
   const [mode, setMode] = useState<StudioMode>(initialMode);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { tournament, matches, isLoading, error } = useStudioData({
     tournamentId,
