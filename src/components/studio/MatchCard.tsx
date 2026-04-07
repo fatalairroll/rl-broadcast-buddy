@@ -266,7 +266,7 @@ function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: numbe
           clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
         }}
       >
-        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Runda {roundIndex + 1}</span>
+        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Runda {roundIndex}</span>
       </div>
 
       <div
