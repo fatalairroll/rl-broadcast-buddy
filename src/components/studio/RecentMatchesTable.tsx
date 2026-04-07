@@ -24,7 +24,7 @@ function Header() {
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span className="font-esports text-[10px] uppercase tracking-[0.25em] text-slate-500 w-8 text-center">
-          #
+          SEED
         </span>
         <span className="font-esports text-[10px] uppercase tracking-[0.25em] text-slate-500 flex-1 text-right">
           TEAM
@@ -59,7 +59,7 @@ function Header() {
           TEAM
         </span>
         <span className="font-esports text-[10px] uppercase tracking-[0.25em] text-slate-500 w-8 text-center">
-          #
+          SEED
         </span>
       </div>
     </div>
@@ -124,11 +124,8 @@ function MatchRow({
         <span
           className="font-esports text-sm uppercase tracking-wider truncate flex-1 text-right"
           style={{
-            color: aWon ? '#ffffff' : 'hsl(215, 16%, 45%)',
-            fontWeight: aWon ? 700 : 500,
-            textShadow: aWon
-              ? '0 0 12px rgba(37,99,235,0.7), 0 0 4px rgba(37,99,235,0.4)'
-              : 'none',
+            color: '#ffffff',
+            fontWeight: 500,
           }}
         >
           {match.team_a?.name ?? 'TBD'}
@@ -207,11 +204,8 @@ function MatchRow({
         <span
           className="font-esports text-sm uppercase tracking-wider truncate flex-1 text-left"
           style={{
-            color: bWon ? '#ffffff' : 'hsl(215, 16%, 45%)',
-            fontWeight: bWon ? 700 : 500,
-            textShadow: bWon
-              ? '0 0 12px rgba(249,115,22,0.7), 0 0 4px rgba(249,115,22,0.4)'
-              : 'none',
+            color: '#ffffff',
+            fontWeight: 500,
           }}
         >
           {match.team_b?.name ?? 'TBD'}
