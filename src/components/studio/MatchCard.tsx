@@ -143,7 +143,7 @@ function PlayerPanel({
         style={{ transform: 'skewX(5deg)' }}
       >
         {/* Nick at top — centered relative to visible top edge (clipPath 15%-100%) */}
-        <div className="w-full text-center" style={{ paddingRight: '15%' }}>
+        <div className="w-full text-center" style={{ paddingLeft: '15%' }}>
           <span
             className="font-esports font-bold text-white text-sm uppercase tracking-wider drop-shadow-md leading-tight block truncate"
             title={displayName}
