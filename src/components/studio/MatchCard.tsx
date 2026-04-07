@@ -65,18 +65,21 @@ function SmokeLayer({ side }: { side: 'a' | 'b' }) {
 function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
   if (mmr == null) return null;
   const color = side === 'a' ? 'rgba(37,99,235,0.9)' : 'rgba(249,115,22,0.9)';
+  const digits = String(mmr).length;
+  // Center vertically for short MMR values, align to bottom for 4+ digits
+  const alignItems = digits < 4 ? 'center' : 'flex-end';
   return (
     <div
       className="absolute pointer-events-none z-[2]"
       style={{
-        top: '12%',
+        top: '15%',
         bottom: 0,
         left: 0,
         right: 0,
         display: 'flex',
-        alignItems: 'flex-end',
+        alignItems,
         justifyContent: 'center',
-        paddingBottom: '4px',
+        paddingBottom: digits < 4 ? '0' : '4px',
         mixBlendMode: 'overlay',
         opacity: 0.25,
       }}
@@ -86,7 +89,7 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
-          fontSize: '100px',
+          fontSize: '115px',
           lineHeight: 1,
           letterSpacing: '0.03em',
           color,
@@ -209,6 +212,9 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
       ? 'linear-gradient(90deg, transparent 0%, rgba(37,99,235,0.5) 30%, rgba(37,99,235,0.7) 100%)'
       : 'linear-gradient(270deg, transparent 0%, rgba(249,115,22,0.5) 30%, rgba(249,115,22,0.7) 100%)';
   const textAlign = side === 'a' ? ('right' as const) : ('left' as const);
+  const padding = side === 'a'
+    ? { paddingRight: '20px' }
+    : { paddingLeft: '20px' };
   return (
     <div
       className="w-full py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
@@ -216,6 +222,7 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
         background: bg,
         transform: 'skewX(-5deg)',
         textAlign,
+        ...padding,
       }}
     >
       <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{name}</span>
