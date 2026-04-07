@@ -1,48 +1,31 @@
 
 
-# Plan: Redesign kart graczy — MMR hero, skew, glassmorphism
+# Plan: Zmiana układu karty gracza — ikona pod nick, MMR pionowy niżej, usunięcie etykiet
 
 ## Zmiany
 
 ### 1. `src/components/studio/MatchCard.tsx` — PlayerPanel
 
-**Usunięcie tekstury**: Usunąć klasę `brushed-metal` z paneli.
+- **Usunięcie MMR na dole**: Usunąć sekcję `{mmr} MMR` (linie 160-167)
+- **Nowa hierarchia contentu** (góra→dół):
+  1. **Nick** — bez zmian, u góry
+  2. **Ikona rangi** — zaraz pod nickiem (nie w centrum karty), bez labela (`showLabel={false}`)
+  3. **Puste miejsce** — reszta karty wolna dla MMR hero
+- **MmrHeroText** — zmienić pozycjonowanie: zamiast `inset-0` + `items-center`, ustawić `top: 45%` do `bottom: 0` (dolna ~55% karty), dodać `letterSpacing: '0.3em'` dla większych odstępów między cyframi
 
-**Nick wyśrodkowany względem górnej krawędzi**: Ponieważ karta ma `clipPath: polygon(15% 0, 100% 0, 85% 100%, 0 100%)`, górna krawędź zaczyna się od 15% — nick musi być wyśrodkowany względem zakresu 15%-100% (środek ~57.5% od lewej), co wymaga przesunięcia `padding-left` lub odpowiedniego offsetu.
+### 2. `src/components/studio/MatchCard.tsx` — MmrHeroText
 
-**MMR jako "Hero Element"**: Duży pionowy tekst MMR zajmujący ~70% wysokości karty:
-- `writing-mode: vertical-rl` z obrotem liter
-- Font Rajdhani/Inter Black, bardzo duży (~80-100px)
-- `mix-blend-mode: overlay`, `opacity: 0.35`
-- Ciemniejszy odcień koloru drużyny — efekt "wytłoczenia"
-- Pozycja absolutna za ikoną rangi (warstwa tła)
+- Zmienić kontener z `absolute inset-0` na `absolute left-0 right-0 bottom-0` z `top: 45%`
+- Zwiększyć `letterSpacing` z `0.05em` na `0.3em` dla większych odstępów między cyframi
+- Tekst zaczyna się pod rangą i kończy na dole karty
 
-**Premium detale**:
-- `border: 1px solid rgba(255,255,255,0.1)`
-- `box-shadow` glow w kolorze drużyny (niebieski/pomarańczowy)
-- `transform: skewX(-5deg)` na całej karcie (zawartość wewnątrz counter-skew `skewX(5deg)`)
-- `backdrop-filter: blur(10px)` (glassmorphism)
+### 3. `src/components/studio/RankIcon.tsx` — bez zmian w pliku
 
-**Nazwy drużyn**: Białe (`text-white`), przesunięte niżej pod karty z większym `mt`, wycentrowane pod odpowiednimi grupami kart (nie justify-between na pełnej szerokości).
-
-**Round index**: Zweryfikować `match.round_index + 1` — wartość pochodzi z API i jest 0-indexed, więc +1 jest poprawne.
-
-### 2. `src/components/studio/MatchCard.tsx` — TbdPanel
-- Analogiczne zmiany: skew, border, bez tekstury.
-
-### 3. `src/index.css` — ewentualne drobne poprawki
-- Usunięcie `.brushed-metal` jeśli nie jest już potrzebna nigdzie indziej (sprawdzę użycia).
-
-## Hierarchia warstw w karcie (z-index, od tyłu):
-1. Gradient tła drużyny
-2. Smoke layers (animowane)
-3. **MMR hero text** (pionowy, blend overlay, opacity 0.35)
-4. Nick (góra), Ikona rangi (środek), Nazwa rangi (pod ikoną)
+W `MatchCard.tsx` zmienić wywołanie `RankIcon` z `showLabel` na `showLabel={false}` (lub usunąć prop), aby nie wyświetlać nazwy rangi pod ikoną.
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/studio/MatchCard.tsx` | Usunięcie tekstury, MMR hero, skew, glassmorphism, białe nazwy drużyn, centrowanie nicku |
-| `src/index.css` | Opcjonalnie usunięcie `.brushed-metal` jeśli nieużywana |
+| `src/components/studio/MatchCard.tsx` | Usunięcie MMR na dole, ikona rangi pod nick bez labela, MmrHeroText w dolnej części karty z większym letter-spacing |
 
