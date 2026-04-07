@@ -19,7 +19,7 @@ export default function Studio() {
   const { toast } = useToast();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedTournament, setSelectedTournament] = useState('');
-  const [mode, setMode] = useState<StudioMode>('next_match');
+  const [mode, setMode] = useState<StudioMode>('next_3');
   const [count, setCount] = useState('1');
   const [streamerKey, setStreamerKey] = useState('');
   const [loading, setLoading] = useState(true);

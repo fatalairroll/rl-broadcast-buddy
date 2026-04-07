@@ -46,9 +46,6 @@ export function useStudioData({
 
       // Map mode + count to API mode
       let apiMode: string = mode;
-      if (mode === 'next_match' && count > 1) {
-        apiMode = 'next_3';
-      }
       if (mode === 'recent') {
         apiMode = 'bracket';
       }
@@ -69,7 +66,7 @@ export function useStudioData({
       }
 
       // Limit to requested count for next_match modes
-      if (mode === 'next_match' || mode === 'next_3') {
+      if (mode === 'next_3') {
         resultMatches = resultMatches.slice(0, count);
       }
 
