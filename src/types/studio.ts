@@ -34,7 +34,7 @@ export interface MatchData {
   round_index: number;
   match_index?: number;
   best_of: number;
-  state: 'scheduled' | 'in_progress' | 'finished';
+  state: 'scheduled' | 'in_progress' | 'finished' | 'live' | 'done';
   score_a: number;
   score_b: number;
   winner_team_id: string | null;
