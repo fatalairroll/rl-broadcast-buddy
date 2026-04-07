@@ -89,7 +89,7 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
-          fontSize: '115px',
+          fontSize: '98px',
           lineHeight: 1,
           letterSpacing: '0.03em',
           color,
@@ -313,7 +313,7 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
       <HeaderPanel roundIndex={match.round_index} bestOf={match.best_of} />
 
       {/* Players + VERSUS */}
-      <div className="flex items-start justify-center">
+      <div className="flex items-end justify-center">
         {/* Team A wrapper — flex-end aligns banner to right edge of cards */}
         <div className="team-blue-wrapper flex flex-col items-end">
           <div className="flex" style={{ marginRight: '-8px' }}>
