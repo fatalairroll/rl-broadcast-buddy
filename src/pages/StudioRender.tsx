@@ -1,11 +1,13 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useStudioData } from '@/hooks/useStudioData';
 import { MatchCard } from '@/components/studio/MatchCard';
 import { BracketView } from '@/components/studio/BracketView';
 import type { StudioMode } from '@/types/studio';
 
 const VALID_KEY = 'kXS6cVkTpJM2Qti';
+const ROTATE_INTERVAL = 6000;
 
 export default function StudioRender() {
   const [params] = useSearchParams();
@@ -24,13 +26,25 @@ export default function StudioRender() {
     pollInterval: 5000,
   });
 
-  if (!authorized) {
-    return null; // Don't render anything for unauthorized access
-  }
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  if (isLoading) {
-    return null; // Transparent loading state
-  }
+  const shouldRotate = matches.length > 1;
+
+  useEffect(() => {
+    if (!shouldRotate) return;
+    const timer = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % matches.length);
+    }, ROTATE_INTERVAL);
+    return () => clearInterval(timer);
+  }, [shouldRotate, matches.length]);
+
+  // Reset index when matches change
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [matches.length]);
+
+  if (!authorized) return null;
+  if (isLoading) return null;
 
   if (error) {
     return (
@@ -46,10 +60,18 @@ export default function StudioRender() {
         <BracketView matches={matches} />
       ) : (
         <div className="flex flex-col gap-4 p-4">
-          <AnimatePresence mode="popLayout">
-            {matches.map((match) => (
-              <MatchCard key={match.match_id} match={match} gameMode={gameMode} />
-            ))}
+          <AnimatePresence mode="wait">
+            {matches[activeIndex] && (
+              <motion.div
+                key={matches[activeIndex].match_id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.5 }}
+              >
+                <MatchCard match={matches[activeIndex]} gameMode={gameMode} />
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       )}
