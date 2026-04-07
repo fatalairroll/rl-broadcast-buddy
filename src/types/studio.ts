@@ -56,4 +56,4 @@ export interface MatchResponse {
   matches: MatchData[];
 }
 
-export type StudioMode = 'next_match' | 'next_3' | 'bracket';
+export type StudioMode = 'next_match' | 'next_3' | 'bracket' | 'recent';

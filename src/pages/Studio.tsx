@@ -99,6 +99,7 @@ export default function Studio() {
                     <SelectItem value="next_match">Next Match</SelectItem>
                     <SelectItem value="next_3">Next Matches</SelectItem>
                     <SelectItem value="bracket">Bracket</SelectItem>
+                    <SelectItem value="recent">Ostatnie mecze</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
