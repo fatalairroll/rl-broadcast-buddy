@@ -204,6 +204,8 @@ function TbdPanel({ side }: { side: 'a' | 'b' }) {
   );
 }
 
+const SKEW_OFFSET = 28; // 320 * tan(5°) ≈ 28px
+
 function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
   const bg =
     side === 'a'
@@ -213,14 +215,21 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
   const padding = side === 'a'
     ? { paddingRight: '20px' }
     : { paddingLeft: '20px' };
+  const margin = side === 'a'
+    ? { marginRight: `${SKEW_OFFSET}px`, alignSelf: 'flex-end' as const }
+    : { marginLeft: `${SKEW_OFFSET}px`, alignSelf: 'flex-start' as const };
+
   return (
     <div
-      className="w-full py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
+      className="py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
       style={{
+        width: '450px',
         background: bg,
         transform: 'skewX(-5deg)',
         textAlign,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
         ...padding,
+        ...margin,
       }}
     >
       <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{name}</span>
