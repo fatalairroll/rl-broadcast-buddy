@@ -32,6 +32,7 @@ export interface TeamData {
 export interface MatchData {
   match_id: string;
   round_index: number;
+  match_index?: number;
   best_of: number;
   state: 'scheduled' | 'in_progress' | 'finished';
   score_a: number;
