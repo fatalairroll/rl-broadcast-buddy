@@ -96,16 +96,15 @@ export default function Studio() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="next_match">Next Match</SelectItem>
-                    <SelectItem value="next_3">Next Matches</SelectItem>
-                    <SelectItem value="bracket">Bracket</SelectItem>
-                    <SelectItem value="recent">Ostatnie mecze</SelectItem>
+                    <SelectItem value="next_3">Następne mecze</SelectItem>
+                    <SelectItem value="bracket">Drabinka</SelectItem>
+                    <SelectItem value="recent">Zakończone mecze</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Count */}
-              {(mode === 'next_match' || mode === 'next_3') && (
+              {mode === 'next_3' && (
                 <div className="space-y-2">
                   <Label>Ilość meczy</Label>
                   <Select value={count} onValueChange={setCount}>
