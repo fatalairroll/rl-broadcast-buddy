@@ -142,8 +142,8 @@ function PlayerPanel({
         className="absolute inset-0 flex flex-col items-center justify-between py-5 px-4 z-10"
         style={{ transform: 'skewX(5deg)' }}
       >
-        {/* Nick at top — centered relative to top edge (15%-100% range, center ~57.5%) */}
-        <div className="w-full text-center" style={{ paddingLeft: '7.5%' }}>
+        {/* Nick at top — centered relative to visible top edge (clipPath 15%-100%) */}
+        <div className="w-full text-center" style={{ paddingLeft: '15%' }}>
           <span
             className="font-esports font-bold text-white text-sm uppercase tracking-wider drop-shadow-md leading-tight block truncate"
             title={displayName}
@@ -153,18 +153,9 @@ function PlayerPanel({
         </div>
 
         {/* Rank icon — center */}
-        <div className="flex-1 flex flex-col items-center justify-center gap-2">
-          <RankIcon rank={rank} size="xl" showLabel glowColor={glowColor} />
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <RankIcon rank={rank} size="xl" glowColor={glowColor} />
         </div>
-
-        {/* MMR value at bottom */}
-        {mmr != null && (
-          <div className="w-full text-center">
-            <span className="text-[10px] text-white/50 font-mono tracking-wider">
-              {mmr} MMR
-            </span>
-          </div>
-        )}
       </div>
     </motion.div>
   );
@@ -254,14 +245,14 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
         </div>
       </div>
 
-      {/* Team names — white, centered under card groups */}
-      <div className="flex items-center justify-center gap-6 mt-8">
+      {/* Team names — white, tight under cards */}
+      <div className="flex items-center justify-center gap-6 mt-2">
         <div className="flex-1 text-center">
           <span className="font-esports text-sm font-bold text-white uppercase tracking-wider">
             {match.team_a?.name ?? 'TBD'}
           </span>
         </div>
-        <div className="w-16" /> {/* spacer for VS column */}
+        <div className="w-16" />
         <div className="flex-1 text-center">
           <span className="font-esports text-sm font-bold text-white uppercase tracking-wider">
             {match.team_b?.name ?? 'TBD'}
