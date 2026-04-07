@@ -217,7 +217,7 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
     : { paddingLeft: '20px' };
   const margin = side === 'a'
     ? { marginRight: '18px', alignSelf: 'flex-end' as const }
-    : { marginLeft: '-52px', alignSelf: 'flex-start' as const };
+    : { marginLeft: '-12px', alignSelf: 'flex-start' as const };
 
   return (
     <div
