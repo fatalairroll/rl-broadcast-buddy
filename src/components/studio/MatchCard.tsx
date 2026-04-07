@@ -78,7 +78,7 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
         alignItems: 'center',
         justifyContent: 'center',
         mixBlendMode: 'overlay',
-        opacity: 0.25,
+        opacity: 0.45,
         overflow: 'hidden',
       }}
     >
@@ -216,8 +216,8 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
     ? { paddingRight: '20px' }
     : { paddingLeft: '20px' };
   const margin = side === 'a'
-    ? { marginRight: '8px', alignSelf: 'flex-end' as const }
-    : { marginLeft: '-32px', alignSelf: 'flex-start' as const };
+    ? { marginRight: '18px', alignSelf: 'flex-end' as const }
+    : { marginLeft: '-52px', alignSelf: 'flex-start' as const };
 
   return (
     <div
