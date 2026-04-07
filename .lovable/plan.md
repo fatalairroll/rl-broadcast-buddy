@@ -1,46 +1,48 @@
 
 
-# Plan: Redesign kart graczy w stylu esportowym
-
-## Podsumowanie
-
-Przebudowa `PlayerPanel` w `MatchCard.tsx` i `RankIcon.tsx` — dodanie tekstury szczotkowanego aluminium, efektów dymnych/cząsteczkowych, powiększonych ikon rang z pulsowaniem, agresywnej czcionki technicznej i nowej hierarchii informacji (nick → ikona → ranga → MMR).
+# Plan: Redesign kart graczy — MMR hero, skew, glassmorphism
 
 ## Zmiany
 
-### 1. `src/index.css` — nowa czcionka + animacje + tekstura
-- Import fontu **Rajdhani** (bold, techniczna czcionka w stylu esportowym) z Google Fonts
-- Keyframes CSS: `pulse-glow` (pulsowanie blasku wokół ikony rangi), `smoke-drift` (animacja dymnych smug), `brushed-metal` (subtelna tekstura aluminium via pseudo-elementy/gradienty)
-- Klasa `.brushed-metal` — nakładka z repeating-linear-gradient symulująca szczotkowane aluminium (półprzezroczyste paski pod kątem)
+### 1. `src/components/studio/MatchCard.tsx` — PlayerPanel
 
-### 2. `src/components/studio/RankIcon.tsx` — powiększone ikony + animacja
-- Nowy rozmiar `xl`: 96px (główny element wizualny karty)
-- Animacja `pulse-glow` — pulsujący box-shadow / drop-shadow w kolorze rangi
-- Label rangi pod ikoną w foncie Rajdhani
+**Usunięcie tekstury**: Usunąć klasę `brushed-metal` z paneli.
 
-### 3. `src/components/studio/MatchCard.tsx` — kompletny redesign PlayerPanel
-- **Tekstura**: Nakładka szczotkowanego aluminium (CSS gradient) na istniejące kolory drużyn
-- **Efekty dymne**: Pseudo-elementy z radial-gradient + animacją drift, symulujące dymne smugi w kolorze drużyny za ikoną rangi
-- **Nowa hierarchia (góra→dół)**:
-  1. **Nick** — poziomo u góry, font Rajdhani bold, duży i wyraźny
-  2. **Ikona rangi** — centrum karty, rozmiar xl (96px), z animacją pulsowania
-  3. **Nazwa rangi** — pod ikoną, Rajdhani uppercase
-  4. **MMR** — subtelny pasek na dole, mała czcionka mono
-- Usunięcie pionowego writing-mode dla nicku
-- Powiększenie paneli z 140×280 na ~160×320 dla lepszych proporcji
-- Font Rajdhani dla nagłówka (Round/BO) i nazw drużyn
-- VERSUS w foncie Rajdhani
+**Nick wyśrodkowany względem górnej krawędzi**: Ponieważ karta ma `clipPath: polygon(15% 0, 100% 0, 85% 100%, 0 100%)`, górna krawędź zaczyna się od 15% — nick musi być wyśrodkowany względem zakresu 15%-100% (środek ~57.5% od lewej), co wymaga przesunięcia `padding-left` lub odpowiedniego offsetu.
 
-### 4. Efekt dymny — implementacja CSS
-- 2-3 warstwy `radial-gradient` z różnym opacity i pozycją
-- Animacja `smoke-drift` przesuwająca gradienty w górę/w bok
-- Kolory dopasowane do strony (niebieski / pomarańczowy)
+**MMR jako "Hero Element"**: Duży pionowy tekst MMR zajmujący ~70% wysokości karty:
+- `writing-mode: vertical-rl` z obrotem liter
+- Font Rajdhani/Inter Black, bardzo duży (~80-100px)
+- `mix-blend-mode: overlay`, `opacity: 0.35`
+- Ciemniejszy odcień koloru drużyny — efekt "wytłoczenia"
+- Pozycja absolutna za ikoną rangi (warstwa tła)
+
+**Premium detale**:
+- `border: 1px solid rgba(255,255,255,0.1)`
+- `box-shadow` glow w kolorze drużyny (niebieski/pomarańczowy)
+- `transform: skewX(-5deg)` na całej karcie (zawartość wewnątrz counter-skew `skewX(5deg)`)
+- `backdrop-filter: blur(10px)` (glassmorphism)
+
+**Nazwy drużyn**: Białe (`text-white`), przesunięte niżej pod karty z większym `mt`, wycentrowane pod odpowiednimi grupami kart (nie justify-between na pełnej szerokości).
+
+**Round index**: Zweryfikować `match.round_index + 1` — wartość pochodzi z API i jest 0-indexed, więc +1 jest poprawne.
+
+### 2. `src/components/studio/MatchCard.tsx` — TbdPanel
+- Analogiczne zmiany: skew, border, bez tekstury.
+
+### 3. `src/index.css` — ewentualne drobne poprawki
+- Usunięcie `.brushed-metal` jeśli nie jest już potrzebna nigdzie indziej (sprawdzę użycia).
+
+## Hierarchia warstw w karcie (z-index, od tyłu):
+1. Gradient tła drużyny
+2. Smoke layers (animowane)
+3. **MMR hero text** (pionowy, blend overlay, opacity 0.35)
+4. Nick (góra), Ikona rangi (środek), Nazwa rangi (pod ikoną)
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/index.css` | Import Rajdhani, keyframes animacji, klasa brushed-metal |
-| `src/components/studio/RankIcon.tsx` | Rozmiar `xl`, animacja pulse-glow |
-| `src/components/studio/MatchCard.tsx` | Redesign PlayerPanel: hierarchia, tekstura, dym, font |
+| `src/components/studio/MatchCard.tsx` | Usunięcie tekstury, MMR hero, skew, glassmorphism, białe nazwy drużyn, centrowanie nicku |
+| `src/index.css` | Opcjonalnie usunięcie `.brushed-metal` jeśli nieużywana |
 
