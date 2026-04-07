@@ -1,46 +1,88 @@
 
 
-# Plan: Przeźroczystość OBS + Overlay ostatnich 10 meczów
+# Plan: Panel sterowania overlay'em w przeglądarce
 
-## Problem 1: Brak przeźroczystości w OBS
+## Cel
 
-Globalny CSS ustawia `body` z ciemnym tłem (`--background: 220 16% 8%`). Strona `/studio/render` ma `background: transparent` na swoim divie, ale `body` i `html` nadal mają nieprzezroczyste tło. OBS Browser Source renderuje tło body.
+Dodać pionowy pasek przycisków (w stylu z referencji) bezpośrednio na stronie `/studio/render`, widoczny tylko w przeglądarce. Dzięki temu jeden link OBS obsługuje wszystkie tryby — przełączanie odbywa się z poziomu przeglądarki na komputerze streamera.
 
-**Rozwiązanie:** Dodać w `src/index.css` regułę celowaną na ścieżkę `/studio/render`, ale prościej — w `StudioRender.tsx` dodać `useEffect` ustawiający `document.body.style.background = 'transparent'` i `document.documentElement.style.background = 'transparent'` (cleanup przywraca oryginalne). To wystarczy, żeby OBS z włączonym chroma/alpha widział przezroczystość.
+## Kluczowa idea
 
-## Problem 2: Overlay "Ostatnie 10 meczów"
+Przyciski są widoczne w przeglądarce, ale **ukryte w OBS**. OBS Browser Source nie obsługuje interakcji — przyciski będą widoczne tylko gdy strona jest otwarta w normalnej przeglądarce. Można to osiągnąć dwojako:
+- Przycisk "Ukryj panel" chowający sidebar (domyślnie widoczny)
+- Lub: panel zawsze widoczny, ale pozycjonowany poza obszarem overlay'a (np. z lewej krawędzi)
 
-Nowy tryb `recent` w module Studio. Dane pobierane z API `mode=bracket` (pełna drabinka), filtrowane po `state === 'done'`, posortowane i obcięte do 10.
+**Rekomendacja:** Panel domyślnie widoczny z lewej strony ekranu z przyciskiem toggle do chowania. W OBS streamer otwiera stronę w przeglądarce (nie w OBS), przełącza tryb — state jest współdzielony przez URL/state.
 
-### Struktura tabeli (jeden wiersz = jeden mecz):
+**Lepsze podejście:** `mode` staje się stanem wewnętrznym komponentu (`useState`) zamiast parametru URL. Początkowa wartość pochodzi z URL, ale potem zmienia się przyciskami. Dzięki temu jeden link OBS = jeden Browser Source, a streamer steruje z przeglądarki... 
+
+Hmm, ale OBS Browser Source to osobna instancja — nie współdzieli stanu z przeglądarką. Trzeba inny mechanizm.
+
+**Rozwiązanie:** Użyć `BroadcastChannel` API — przeglądarka i OBS Browser Source na tej samej domenie współdzielą kanał. Streamer otwiera ten sam URL w przeglądarce, klika przyciski, a OBS Browser Source nasłuchuje na `BroadcastChannel` i zmienia tryb.
+
+**Problem:** OBS Browser Source to Chromium, ale izolowany — `BroadcastChannel` nie działa między OBS a normalną przeglądarką.
+
+**Najlepsze rozwiązanie:** Panel przycisków jest częścią overlay'a — widoczny na stronie renderowej. W OBS streamer może z nim nie interagować, ale może otworzyć tę samą stronę w przeglądarce i użyć mechanizmu synchronizacji (np. przez Supabase Realtime lub localStorage polling). Ale to komplikuje.
+
+**Najprostsze rozwiązanie:** Przyciski są na stronie `/studio/render`, po lewej stronie. Streamer dodaje do OBS **ten sam URL** jako Browser Source. Osobno otwiera ten URL w przeglądarce. Synchronizacja trybu między nimi odbywa się przez **Supabase Realtime** — klik w przeglądarce zapisuje nowy tryb do tabeli/kanału, OBS Browser Source nasłuchuje i się przełącza.
+
+**Jeszcze prostsze:** Skoro streamer ma już `/studio` (panel konfiguracyjny) — wystarczy że z `/studio` wysyła komendy do `/studio/render` (OBS). Ale to wymaga kanału komunikacji.
+
+**Najprostsze pragmatyczne:** Przyciski renderują się bezpośrednio na overlay'u. W OBS nie przeszkadzają bo streamer może je schować (toggle). Ale interakcja w OBS jest ograniczona... Streamer może klikać w OBS Browser Source jeśli włączy "Interact" w OBS!
+
+**Finalne podejście:** Dodać sidebar z przyciskami na `/studio/render`. Streamer w OBS używa "Interact" do klikania. Mode staje się stanem wewnętrznym. Sidebar jest chowany przyciskiem toggle.
+
+## Zmiany
+
+### 1. Usunięcie trybu `next_match`
+
+- `StudioMode` → `'next_3' | 'bracket' | 'recent'`
+- Domyślny tryb: `next_3`
+- Usunąć `next_match` z selektorów w `Studio.tsx`
+
+### 2. `StudioRender.tsx` — mode jako stan wewnętrzny + sidebar
+
+- `mode` inicjalizowany z URL params, ale potem zarządzany przez `useState`
+- Dodać stan `sidebarOpen` (domyślnie `true`)
+- Sidebar z lewej strony: 3 przyciski pionowo (jak na referencji)
+  - **Następne mecze** → `next_3`
+  - **Drabinka** → `bracket`
+  - **Zakończone mecze** → `recent`
+- Aktywny przycisk podświetlony (jasnoniebieski, jak na screenie)
+- Przycisk toggle (strzałka) do chowania/pokazywania panelu
+- Styl: ciemne tło, zaokrąglone rogi po prawej, przezroczysty gdy schowany
+
+### 3. `Studio.tsx` — uproszczenie
+
+- Usunąć opcję `next_match` z selecta
+- URL generowany bez `mode` (lub z domyślnym `next_3`) — mode sterowany z overlay'a
+
+### 4. Wizualny styl sidebara (na podstawie screena)
 
 ```text
-[SEED_A] | NAZWA_DRUŻYNY_A | WYNIK (np. 2:1) | NAZWA_DRUŻYNY_B | [SEED_B]
-                            | Runda X Mecz Y  |
+┌──────────────┐
+│   NASTĘPNE   │  ← aktywny: jasnoniebieski bg
+│    MECZE     │
+├──────────────┤
+│   DRABINKA   │  ← nieaktywny: ciemny bg
+├──────────────┤
+│  ZAKOŃCZONE  │
+│    MECZE     │
+└──────────────┤
+         [◀]   │  ← toggle button
 ```
 
-- Wynik serii centralnie, pod nim od razu numer rundy/meczu
-- Drużyna A (niebieska) po lewej, drużyna B (pomarańczowa) po prawej
-- Seed wyświetlany jako `#3` jeśli dostępny
-- Wiersz zwycięzcy podświetlony (bold + kolor drużyny)
-- Styl: glassmorphism, font esports, przezroczyste tło (OBS-ready)
+- Szerokość: ~180px
+- Pozycja: fixed, lewa krawędź, wycentrowany pionowo
+- Font: uppercase, bold, mały rozmiar
+- Animacja slide in/out
 
-### Zmiany w plikach:
+## Pliki
 
 | Plik | Zmiana |
 |------|--------|
-| `src/types/studio.ts` | Dodać `'recent'` do `StudioMode` |
-| `src/hooks/useStudioData.ts` | Dla `mode === 'recent'`: wywołać API z `bracket`, filtrować `state === 'done'`, sortować po `round_index` desc, slice 10 |
-| `src/components/studio/RecentMatchesTable.tsx` | **Nowy plik** — tabela 10 ostatnich meczów w stylu esportowym |
-| `src/pages/StudioRender.tsx` | 1) `useEffect` ustawiający `body`/`html` background na `transparent` (fix OBS). 2) Renderować `RecentMatchesTable` gdy `mode === 'recent'` |
-| `src/index.css` | Ewentualnie dodać utility `.studio-transparent` wymuszające przezroczystość na body |
-
-### Szczegóły RecentMatchesTable
-
-- Każdy wiersz: flex row z 5 kolumnami (seed_a, team_a, score+round, team_b, seed_b)
-- Kolumna centralna: wynik `score_a : score_b` (większy font), pod spodem `Runda X Mecz Y` (mniejszy font, muted)
-- Nazwy drużyn: blue po lewej wyrównana do prawej, orange po prawej wyrównana do lewej
-- Zwycięzca: `font-bold text-white`, przegrany: `text-slate-500`
-- Tło wierszy: subtelny glass (`rgba(10,15,30,0.6)`) z borderem `rgba(255,255,255,0.05)`
-- Przezroczyste tło kontenera (OBS-ready)
+| `src/types/studio.ts` | Usunąć `'next_match'` z `StudioMode` |
+| `src/pages/StudioRender.tsx` | Mode jako stan, sidebar z 3 przyciskami, toggle |
+| `src/pages/Studio.tsx` | Usunąć opcję next_match, uprościć |
+| `src/hooks/useStudioData.ts` | Dostosować logikę do braku `next_match` |
 
