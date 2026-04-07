@@ -20,7 +20,7 @@ function Header() {
     >
       {/* Team A side */}
       <div
-        className="flex-1 flex items-center justify-end gap-4 px-5 py-2.5"
+        className="flex-1 flex items-center justify-end gap-4 px-4 py-1.5"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span className="font-esports text-[10px] uppercase tracking-[0.25em] text-slate-500 w-8 text-center">
@@ -49,7 +49,7 @@ function Header() {
 
       {/* Team B side */}
       <div
-        className="flex-1 flex items-center justify-start gap-4 px-5 py-2.5"
+        className="flex-1 flex items-center justify-start gap-4 px-4 py-1.5"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span className="font-esports text-[10px] uppercase tracking-[0.25em] text-slate-500 w-16 text-left">
@@ -70,7 +70,7 @@ function SeedBadge({ seed }: { seed?: number }) {
   if (seed == null) return <div className="w-8" />;
   return (
     <div
-      className="w-7 h-7 flex items-center justify-center font-esports text-xs font-bold shrink-0"
+      className="w-6 h-6 flex items-center justify-center font-esports text-[10px] font-bold shrink-0"
       style={{
         background: 'rgba(255,255,255,0.07)',
         border: '1px solid rgba(255,255,255,0.1)',
@@ -117,7 +117,7 @@ function MatchRow({
     >
       {/* Team A side */}
       <div
-        className="flex-1 flex items-center justify-end gap-3 px-5 py-3 min-w-0"
+        className="flex-1 flex items-center justify-end gap-2 px-4 py-1.5 min-w-0"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <SeedBadge seed={match.team_a?.seed} />
@@ -170,7 +170,7 @@ function MatchRow({
         />
 
         <span
-          className="font-esports text-xl font-bold tracking-widest"
+          className="font-esports text-base font-bold tracking-widest"
           style={{ color: 'hsl(210, 20%, 95%)' }}
         >
           {match.score_a} : {match.score_b}
@@ -195,7 +195,7 @@ function MatchRow({
 
       {/* Team B side */}
       <div
-        className="flex-1 flex items-center justify-start gap-3 px-5 py-3 min-w-0"
+        className="flex-1 flex items-center justify-start gap-2 px-4 py-1.5 min-w-0"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span
@@ -233,7 +233,7 @@ export function RecentMatchesTable({ matches }: RecentMatchesTableProps) {
 
   return (
     <div
-      className="flex flex-col gap-1.5 p-6 w-full max-w-[1100px] mx-auto"
+      className="flex flex-col gap-1 p-4 w-full max-w-[1100px] mx-auto"
       style={{
         backdropFilter: 'blur(16px)',
       }}
