@@ -118,28 +118,30 @@ export default function StudioRender() {
         </div>
       )}
 
-      {/* Content */}
-      {mode === 'bracket' ? (
-        <BracketView matches={matches} />
-      ) : mode === 'recent' ? (
-        <RecentMatchesTable matches={matches} />
-      ) : (
-        <div className="flex flex-col gap-4 p-4">
-          <AnimatePresence mode="wait">
-            {matches[activeIndex] && (
-              <motion.div
-                key={matches[activeIndex].match_id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.5 }}
-              >
-                <MatchCard match={matches[activeIndex]} gameMode={gameMode} />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
+      {/* Content — offset when sidebar is visible */}
+      <div style={{ marginLeft: !params.get('obs') ? 190 : 0 }}>
+        {mode === 'bracket' ? (
+          <BracketView matches={matches} />
+        ) : mode === 'recent' ? (
+          <RecentMatchesTable matches={matches} />
+        ) : (
+          <div className="flex flex-col gap-4 p-4">
+            <AnimatePresence mode="wait">
+              {matches[activeIndex] && (
+                <motion.div
+                  key={matches[activeIndex].match_id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <MatchCard match={matches[activeIndex]} gameMode={gameMode} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
