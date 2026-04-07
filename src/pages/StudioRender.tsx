@@ -6,7 +6,6 @@ import { MatchCard } from '@/components/studio/MatchCard';
 import { BracketView } from '@/components/studio/BracketView';
 import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
 import type { StudioMode } from '@/types/studio';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const VALID_KEY = 'kXS6cVkTpJM2Qti';
 const ROTATE_INTERVAL = 6000;
