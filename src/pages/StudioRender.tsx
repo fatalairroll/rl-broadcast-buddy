@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStudioData } from '@/hooks/useStudioData';
@@ -6,18 +6,28 @@ import { MatchCard } from '@/components/studio/MatchCard';
 import { BracketView } from '@/components/studio/BracketView';
 import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
 import type { StudioMode } from '@/types/studio';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const VALID_KEY = 'kXS6cVkTpJM2Qti';
 const ROTATE_INTERVAL = 6000;
 
+const MODES: { key: StudioMode; label: string }[] = [
+  { key: 'next_3', label: 'Następne mecze' },
+  { key: 'bracket', label: 'Drabinka' },
+  { key: 'recent', label: 'Zakończone mecze' },
+];
+
 export default function StudioRender() {
   const [params] = useSearchParams();
   const tournamentId = params.get('tournament_id') ?? '';
-  const mode = (params.get('mode') ?? 'next_match') as StudioMode;
-  const count = Number(params.get('count') ?? '1');
+  const initialMode = (params.get('mode') ?? 'next_3') as StudioMode;
+  const count = Number(params.get('count') ?? '3');
   const key = params.get('key') ?? '';
 
   const authorized = key === VALID_KEY;
+
+  const [mode, setMode] = useState<StudioMode>(initialMode);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { tournament, matches, isLoading, error } = useStudioData({
     tournamentId,
@@ -28,8 +38,7 @@ export default function StudioRender() {
   });
 
   const [activeIndex, setActiveIndex] = useState(0);
-
-  const shouldRotate = matches.length > 1;
+  const shouldRotate = matches.length > 1 && mode === 'next_3';
 
   useEffect(() => {
     if (!shouldRotate) return;
@@ -39,10 +48,9 @@ export default function StudioRender() {
     return () => clearInterval(timer);
   }, [shouldRotate, matches.length]);
 
-  // Reset index when matches change
   useEffect(() => {
     setActiveIndex(0);
-  }, [matches.length]);
+  }, [matches.length, mode]);
 
   // Force transparent background for OBS
   useEffect(() => {
@@ -69,6 +77,93 @@ export default function StudioRender() {
 
   return (
     <div className="min-h-screen" style={{ background: 'transparent' }}>
+      {/* Sidebar */}
+      <div
+        className="fixed top-1/2 left-0 z-50 flex -translate-y-1/2 transition-transform duration-300"
+        style={{ transform: `translateY(-50%) translateX(${sidebarOpen ? '0' : '-100%'})` }}
+      >
+        <div
+          className="flex flex-col overflow-hidden"
+          style={{
+            width: 180,
+            background: 'rgba(20, 23, 30, 0.95)',
+            borderRadius: '0 12px 12px 0',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderLeft: 'none',
+          }}
+        >
+          {MODES.map((m) => {
+            const active = mode === m.key;
+            return (
+              <button
+                key={m.key}
+                onClick={() => setMode(m.key)}
+                className="transition-colors duration-200"
+                style={{
+                  padding: '16px 12px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase' as const,
+                  textAlign: 'center' as const,
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: active ? '#00A3FF' : 'transparent',
+                  color: active ? '#FFFFFF' : '#94A3B8',
+                }}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Toggle button */}
+        <button
+          onClick={() => setSidebarOpen((o) => !o)}
+          className="self-center transition-colors duration-200"
+          style={{
+            width: 28,
+            height: 48,
+            background: 'rgba(20, 23, 30, 0.95)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderLeft: 'none',
+            borderRadius: '0 8px 8px 0',
+            color: '#94A3B8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <ChevronLeft size={16} />
+        </button>
+      </div>
+
+      {/* Collapsed toggle */}
+      {!sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="fixed top-1/2 left-0 z-50 -translate-y-1/2 transition-colors duration-200"
+          style={{
+            width: 28,
+            height: 48,
+            background: 'rgba(20, 23, 30, 0.95)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderLeft: 'none',
+            borderRadius: '0 8px 8px 0',
+            color: '#94A3B8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          <ChevronRight size={16} />
+        </button>
+      )}
+
+      {/* Content */}
       {mode === 'bracket' ? (
         <BracketView matches={matches} />
       ) : mode === 'recent' ? (
