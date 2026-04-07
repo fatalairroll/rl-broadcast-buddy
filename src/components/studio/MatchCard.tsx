@@ -65,23 +65,21 @@ function SmokeLayer({ side }: { side: 'a' | 'b' }) {
 function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
   if (mmr == null) return null;
   const color = side === 'a' ? 'rgba(37,99,235,0.9)' : 'rgba(249,115,22,0.9)';
-  const digits = String(mmr).length;
-  // Center vertically for short MMR values, align to bottom for 4+ digits
-  const alignItems = digits < 4 ? 'center' : 'flex-end';
   return (
     <div
       className="absolute pointer-events-none z-[2]"
       style={{
-        top: '15%',
+        top: '48px',
         bottom: 0,
         left: 0,
         right: 0,
         display: 'flex',
-        alignItems,
+        flexDirection: 'column',
+        alignItems: 'center',
         justifyContent: 'center',
-        paddingBottom: digits < 4 ? '0' : '4px',
         mixBlendMode: 'overlay',
         opacity: 0.25,
+        overflow: 'hidden',
       }}
     >
       <span
@@ -90,7 +88,7 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
           fontSize: '98px',
-          lineHeight: 1,
+          lineHeight: 0.85,
           letterSpacing: '0.03em',
           color,
         }}
@@ -233,7 +231,6 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
 function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: number }) {
   return (
     <div className="relative flex items-center justify-center gap-0 mb-8">
-      {/* Glowing line behind */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[1px]"
         style={{
@@ -241,7 +238,6 @@ function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: numbe
           boxShadow: '0 0 8px rgba(37,99,235,0.3), 0 0 8px rgba(249,115,22,0.3)',
         }}
       />
-      {/* Drip lines down */}
       <div
         className="absolute left-[10%] top-1/2 w-[1px] h-6"
         style={{ background: 'linear-gradient(180deg, rgba(37,99,235,0.5), transparent)' }}
@@ -251,7 +247,6 @@ function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: numbe
         style={{ background: 'linear-gradient(180deg, rgba(249,115,22,0.5), transparent)' }}
       />
 
-      {/* Round info — glass trapezoid left */}
       <div
         className="relative z-10 px-5 py-2 font-esports text-[11px] font-bold text-white/70 uppercase tracking-[0.2em]"
         style={{
@@ -262,10 +257,9 @@ function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: numbe
           clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
         }}
       >
-        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Round {roundIndex + 1}</span>
+        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Runda {roundIndex + 1}</span>
       </div>
 
-      {/* NEXT MATCH — center banner */}
       <div
         className="relative z-20 px-8 py-2.5 mx-1"
         style={{
@@ -278,11 +272,10 @@ function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: numbe
           className="font-esports text-sm font-black uppercase tracking-[0.25em] text-black"
           style={{ transform: 'skewX(15deg)', display: 'block' }}
         >
-          Next Match
+          Wkrótce
         </span>
       </div>
 
-      {/* Best of info — glass trapezoid right */}
       <div
         className="relative z-10 px-5 py-2 font-esports text-[11px] font-bold text-white/70 uppercase tracking-[0.2em]"
         style={{
@@ -293,7 +286,7 @@ function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: numbe
           clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
         }}
       >
-        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Best of {bestOf}</span>
+        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Format BO{bestOf}</span>
       </div>
     </div>
   );
@@ -313,15 +306,17 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
       <HeaderPanel roundIndex={match.round_index} bestOf={match.best_of} />
 
       {/* Players + VERSUS */}
-      <div className="flex items-end justify-center">
-        {/* Team A wrapper — flex-end aligns banner to right edge of cards */}
+      <div className="flex items-stretch justify-center">
+        {/* Team A wrapper — banner sticks to bottom via mt-auto */}
         <div className="team-blue-wrapper flex flex-col items-end">
           <div className="flex" style={{ marginRight: '-8px' }}>
             {match.team_a?.players.map((p, i) => (
               <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="a" index={i} />
             )) ?? <TbdPanel side="a" />}
           </div>
-          <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
+          <div style={{ marginTop: 'auto' }}>
+            <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
+          </div>
         </div>
 
         {/* VERSUS */}
@@ -339,14 +334,16 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
           </span>
         </motion.div>
 
-        {/* Team B wrapper — flex-start aligns banner to left edge of cards */}
+        {/* Team B wrapper — banner sticks to bottom via mt-auto */}
         <div className="team-orange-wrapper flex flex-col items-start">
           <div className="flex" style={{ marginLeft: '-8px' }}>
             {match.team_b?.players.map((p, i) => (
               <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="b" index={i + 2} />
             )) ?? <TbdPanel side="b" />}
           </div>
-          <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" />
+          <div style={{ marginTop: 'auto' }}>
+            <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" />
+          </div>
         </div>
       </div>
     </motion.div>
