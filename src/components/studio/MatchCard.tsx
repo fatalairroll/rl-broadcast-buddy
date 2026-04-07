@@ -237,7 +237,7 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
   );
 }
 
-function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: number }) {
+function HeaderPanel({ roundIndex, matchIndex, bestOf }: { roundIndex: number; matchIndex?: number; bestOf: number }) {
   return (
     <div className="relative flex items-center justify-center gap-0 mb-8">
       <div
@@ -266,7 +266,7 @@ function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: numbe
           clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
         }}
       >
-        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Runda {roundIndex}</span>
+        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Runda {roundIndex}{matchIndex != null ? ` Mecz ${matchIndex}` : ''}</span>
       </div>
 
       <div
@@ -312,7 +312,7 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
       className="p-6"
     >
       {/* Header */}
-      <HeaderPanel roundIndex={match.round_index} bestOf={match.best_of} />
+      <HeaderPanel roundIndex={match.round_index} matchIndex={match.match_index} bestOf={match.best_of} />
 
       {/* Players + VERSUS */}
       <div className="flex items-stretch justify-center">
