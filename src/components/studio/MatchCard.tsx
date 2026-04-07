@@ -216,8 +216,8 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
     ? { paddingRight: '20px' }
     : { paddingLeft: '20px' };
   const margin = side === 'a'
-    ? { marginRight: `${SKEW_OFFSET}px`, alignSelf: 'flex-end' as const }
-    : { marginLeft: `${SKEW_OFFSET}px`, alignSelf: 'flex-start' as const };
+    ? { marginRight: '8px', alignSelf: 'flex-end' as const }
+    : { marginLeft: '-32px', alignSelf: 'flex-start' as const };
 
   return (
     <div
@@ -266,7 +266,7 @@ function HeaderPanel({ roundIndex, bestOf }: { roundIndex: number; bestOf: numbe
           clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
         }}
       >
-        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Runda {roundIndex + 1}</span>
+        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Runda {roundIndex}</span>
       </div>
 
       <div
