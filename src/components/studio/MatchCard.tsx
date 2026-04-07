@@ -67,9 +67,8 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
   const color = side === 'a' ? 'rgba(30,64,175,0.9)' : 'rgba(154,52,18,0.9)';
   return (
     <div
-      className="absolute left-0 right-0 bottom-0 flex items-center justify-center pointer-events-none z-[2]"
+      className="absolute inset-0 flex items-center justify-center pointer-events-none z-[2]"
       style={{
-        top: '45%',
         mixBlendMode: 'overlay',
         opacity: 0.4,
       }}
@@ -81,7 +80,7 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
           textOrientation: 'mixed',
           fontSize: '90px',
           lineHeight: 1,
-          letterSpacing: '0.3em',
+          letterSpacing: '0.05em',
           color,
         }}
       >
@@ -140,10 +139,10 @@ function PlayerPanel({
 
       {/* Content — counter-skew to keep text upright */}
       <div
-        className="absolute inset-0 flex flex-col items-center py-5 px-4 z-10"
+        className="absolute inset-0 flex flex-col items-center justify-between py-5 px-4 z-10"
         style={{ transform: 'skewX(5deg)' }}
       >
-        {/* Nick at top */}
+        {/* Nick at top — centered relative to top edge (15%-100% range, center ~57.5%) */}
         <div className="w-full text-center" style={{ paddingLeft: '7.5%' }}>
           <span
             className="font-esports font-bold text-white text-sm uppercase tracking-wider drop-shadow-md leading-tight block truncate"
@@ -153,10 +152,19 @@ function PlayerPanel({
           </span>
         </div>
 
-        {/* Rank icon — just below nick, no label */}
-        <div className="mt-2 flex items-center justify-center">
-          <RankIcon rank={rank} size="xl" glowColor={glowColor} />
+        {/* Rank icon — center */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-2">
+          <RankIcon rank={rank} size="xl" showLabel glowColor={glowColor} />
         </div>
+
+        {/* MMR value at bottom */}
+        {mmr != null && (
+          <div className="w-full text-center">
+            <span className="text-[10px] text-white/50 font-mono tracking-wider">
+              {mmr} MMR
+            </span>
+          </div>
+        )}
       </div>
     </motion.div>
   );
