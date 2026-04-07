@@ -70,7 +70,7 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
       className="absolute inset-0 flex items-center justify-center pointer-events-none z-[2]"
       style={{
         mixBlendMode: 'overlay',
-        opacity: 0.1,
+        opacity: 0.25,
       }}
     >
       <span
@@ -158,9 +158,17 @@ function PlayerPanel({
           </span>
         </div>
 
-        {/* Rank icon — center */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-          <RankIcon rank={rank} size="xl" glowColor={glowColor} />
+        {/* Rank icon — shifted up-left to reveal MMR digits */}
+        <div className="flex-1 flex flex-col items-center justify-center -mt-6 -ml-2">
+          <div
+            className="relative rounded-full p-3"
+            style={{
+              background: 'rgba(0,0,0,0.3)',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            <RankIcon rank={rank} size="xl" glowColor={glowColor} />
+          </div>
         </div>
       </div>
     </motion.div>
@@ -184,6 +192,24 @@ function TbdPanel({ side }: { side: 'a' | 'b' }) {
       }}
     >
       <span style={{ transform: 'skewX(5deg)' }}>TBD</span>
+    </div>
+  );
+}
+
+function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
+  const neonColor = side === 'a' ? 'rgba(37,99,235,0.5)' : 'rgba(249,115,22,0.5)';
+  return (
+    <div
+      className="px-6 py-1.5 font-esports text-sm font-bold text-white uppercase tracking-[0.15em] text-center"
+      style={{
+        background: 'rgba(0,0,0,0.5)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        transform: 'skewX(-5deg)',
+        boxShadow: `0 4px 15px ${neonColor}`,
+      }}
+    >
+      <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{name}</span>
     </div>
   );
 }
@@ -250,18 +276,14 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
         </div>
       </div>
 
-      {/* Team names — white, tight under cards */}
-      <div className="flex items-center justify-center gap-6 mt-2">
-        <div className="flex-1 text-center">
-          <span className="font-esports text-sm font-bold text-white uppercase tracking-wider">
-            {match.team_a?.name ?? 'TBD'}
-          </span>
+      {/* Team name banners — skewed glass bars with neon glow */}
+      <div className="flex items-start justify-center gap-6 mt-1">
+        <div className="flex-1 flex justify-center">
+          <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
         </div>
         <div className="w-16" />
-        <div className="flex-1 text-center">
-          <span className="font-esports text-sm font-bold text-white uppercase tracking-wider">
-            {match.team_b?.name ?? 'TBD'}
-          </span>
+        <div className="flex-1 flex justify-center">
+          <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" />
         </div>
       </div>
     </motion.div>
