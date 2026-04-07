@@ -67,7 +67,9 @@ export function useStudioData({
 
       // Limit to requested count for next_match modes
       if (mode === 'next_3') {
-        resultMatches = resultMatches.slice(0, count);
+        resultMatches = resultMatches
+          .filter((m) => m.state === 'scheduled')
+          .slice(0, count);
       }
 
       setMatches(resultMatches);
