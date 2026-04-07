@@ -77,8 +77,7 @@ export default function StudioRender() {
     <div className="min-h-screen" style={{ background: 'transparent' }}>
       {/* Sidebar */}
       <div
-        className="fixed top-1/2 left-0 z-50 flex -translate-y-1/2 transition-transform duration-300"
-        style={{ transform: `translateY(-50%) translateX(${sidebarOpen ? '0' : '-100%'})` }}
+        className="fixed top-1/2 left-0 z-50 flex -translate-y-1/2"
       >
         <div
           className="flex flex-col overflow-hidden"
@@ -115,51 +114,7 @@ export default function StudioRender() {
             );
           })}
         </div>
-
-        {/* Toggle button */}
-        <button
-          onClick={() => setSidebarOpen((o) => !o)}
-          className="self-center transition-colors duration-200"
-          style={{
-            width: 28,
-            height: 48,
-            background: 'rgba(20, 23, 30, 0.95)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderLeft: 'none',
-            borderRadius: '0 8px 8px 0',
-            color: '#94A3B8',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-          }}
-        >
-          <ChevronLeft size={16} />
-        </button>
       </div>
-
-      {/* Collapsed toggle */}
-      {!sidebarOpen && (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="fixed top-1/2 left-0 z-50 -translate-y-1/2 transition-colors duration-200"
-          style={{
-            width: 28,
-            height: 48,
-            background: 'rgba(20, 23, 30, 0.95)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderLeft: 'none',
-            borderRadius: '0 8px 8px 0',
-            color: '#94A3B8',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-          }}
-        >
-          <ChevronRight size={16} />
-        </button>
-      )}
 
       {/* Content */}
       {mode === 'bracket' ? (
