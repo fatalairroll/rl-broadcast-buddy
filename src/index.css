@@ -153,32 +153,6 @@
     font-family: 'Rajdhani', 'Inter', sans-serif;
   }
 
-  .brushed-metal {
-    position: relative;
-  }
-
-  .brushed-metal::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      repeating-linear-gradient(
-        105deg,
-        rgba(255, 255, 255, 0.03) 0px,
-        rgba(255, 255, 255, 0.03) 1px,
-        transparent 1px,
-        transparent 4px
-      ),
-      repeating-linear-gradient(
-        75deg,
-        rgba(255, 255, 255, 0.02) 0px,
-        rgba(255, 255, 255, 0.02) 1px,
-        transparent 1px,
-        transparent 6px
-      );
-    mix-blend-mode: overlay;
-  }
 
   .animate-pulse-glow {
     animation: pulse-glow 2.5s ease-in-out infinite;

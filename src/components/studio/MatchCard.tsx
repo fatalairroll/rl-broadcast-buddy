@@ -62,6 +62,34 @@ function SmokeLayer({ side }: { side: 'a' | 'b' }) {
   );
 }
 
+function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
+  if (mmr == null) return null;
+  const color = side === 'a' ? 'rgba(30,64,175,0.9)' : 'rgba(154,52,18,0.9)';
+  return (
+    <div
+      className="absolute inset-0 flex items-center justify-center pointer-events-none z-[2]"
+      style={{
+        mixBlendMode: 'overlay',
+        opacity: 0.4,
+      }}
+    >
+      <span
+        className="font-esports font-black select-none"
+        style={{
+          writingMode: 'vertical-rl',
+          textOrientation: 'mixed',
+          fontSize: '90px',
+          lineHeight: 1,
+          letterSpacing: '0.05em',
+          color,
+        }}
+      >
+        {mmr}
+      </span>
+    </div>
+  );
+}
+
 function PlayerPanel({
   player,
   gameMode,
@@ -83,25 +111,39 @@ function PlayerPanel({
       : 'linear-gradient(180deg, #F97316, #C2410C)';
 
   const glowColor = side === 'a' ? '#3B82F6' : '#F97316';
+  const boxGlow =
+    side === 'a'
+      ? '0 0 20px rgba(59,130,246,0.4), 0 0 40px rgba(59,130,246,0.15)'
+      : '0 0 20px rgba(249,115,22,0.4), 0 0 40px rgba(249,115,22,0.15)';
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.12, ease: 'easeOut' }}
-      className="relative w-[160px] h-[320px] overflow-hidden brushed-metal"
+      className="relative w-[160px] h-[320px] overflow-hidden"
       style={{
         background: gradient,
         clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        boxShadow: boxGlow,
+        transform: 'skewX(-5deg)',
+        backdropFilter: 'blur(10px)',
       }}
     >
       {/* Smoke effects */}
       <SmokeLayer side={side} />
 
-      {/* Content with hierarchy: Nick → Rank Icon → Rank Name → MMR */}
-      <div className="absolute inset-0 flex flex-col items-center justify-between py-5 px-4 z-10">
-        {/* Nick at top */}
-        <div className="w-full text-center">
+      {/* MMR hero watermark */}
+      <MmrHeroText mmr={mmr} side={side} />
+
+      {/* Content — counter-skew to keep text upright */}
+      <div
+        className="absolute inset-0 flex flex-col items-center justify-between py-5 px-4 z-10"
+        style={{ transform: 'skewX(5deg)' }}
+      >
+        {/* Nick at top — centered relative to top edge (15%-100% range, center ~57.5%) */}
+        <div className="w-full text-center" style={{ paddingLeft: '7.5%' }}>
           <span
             className="font-esports font-bold text-white text-sm uppercase tracking-wider drop-shadow-md leading-tight block truncate"
             title={displayName}
@@ -110,12 +152,12 @@ function PlayerPanel({
           </span>
         </div>
 
-        {/* Rank icon — center, enlarged */}
+        {/* Rank icon — center */}
         <div className="flex-1 flex flex-col items-center justify-center gap-2">
           <RankIcon rank={rank} size="xl" showLabel glowColor={glowColor} />
         </div>
 
-        {/* MMR bar at bottom */}
+        {/* MMR value at bottom */}
         {mmr != null && (
           <div className="w-full text-center">
             <span className="text-[10px] text-white/50 font-mono tracking-wider">
@@ -140,9 +182,12 @@ function TbdPanel({ side }: { side: 'a' | 'b' }) {
       style={{
         background: gradient,
         clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        transform: 'skewX(-5deg)',
+        backdropFilter: 'blur(10px)',
       }}
     >
-      TBD
+      <span style={{ transform: 'skewX(5deg)' }}>TBD</span>
     </div>
   );
 }
@@ -209,14 +254,19 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
         </div>
       </div>
 
-      {/* Team names bar */}
-      <div className="flex items-center justify-between mt-4 px-4">
-        <span className="font-esports text-sm font-bold text-blue-400 uppercase tracking-wider">
-          {match.team_a?.name ?? 'TBD'}
-        </span>
-        <span className="font-esports text-sm font-bold text-orange-400 uppercase tracking-wider">
-          {match.team_b?.name ?? 'TBD'}
-        </span>
+      {/* Team names — white, centered under card groups */}
+      <div className="flex items-center justify-center gap-6 mt-8">
+        <div className="flex-1 text-center">
+          <span className="font-esports text-sm font-bold text-white uppercase tracking-wider">
+            {match.team_a?.name ?? 'TBD'}
+          </span>
+        </div>
+        <div className="w-16" /> {/* spacer for VS column */}
+        <div className="flex-1 text-center">
+          <span className="font-esports text-sm font-bold text-white uppercase tracking-wider">
+            {match.team_b?.name ?? 'TBD'}
+          </span>
+        </div>
       </div>
     </motion.div>
   );
