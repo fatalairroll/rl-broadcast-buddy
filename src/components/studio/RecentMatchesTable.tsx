@@ -11,7 +11,7 @@ const UNSKEW = 15;
 function Header() {
   return (
     <div
-      className="flex items-stretch overflow-hidden mb-1"
+      className="flex items-stretch overflow-hidden mb-0.5"
       style={{
         transform: `skewX(${SKEW}deg)`,
         background: 'rgba(10, 15, 28, 0.95)',
@@ -20,7 +20,7 @@ function Header() {
     >
       {/* Team A side */}
       <div
-        className="flex-1 flex items-center justify-end gap-4 px-4 py-1.5"
+        className="flex-1 flex items-center justify-end gap-4 px-4 py-1"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span className="font-esports text-[10px] uppercase tracking-[0.25em] text-slate-500 w-8 text-center">
@@ -49,7 +49,7 @@ function Header() {
 
       {/* Team B side */}
       <div
-        className="flex-1 flex items-center justify-start gap-4 px-4 py-1.5"
+        className="flex-1 flex items-center justify-start gap-4 px-4 py-1"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span className="font-esports text-[10px] uppercase tracking-[0.25em] text-slate-500 w-16 text-left">
@@ -70,7 +70,7 @@ function SeedBadge({ seed }: { seed?: number }) {
   if (seed == null) return <div className="w-8" />;
   return (
     <div
-      className="w-6 h-6 flex items-center justify-center font-esports text-[10px] font-bold shrink-0"
+      className="w-5 h-5 flex items-center justify-center font-esports text-[9px] font-bold shrink-0"
       style={{
         background: 'rgba(255,255,255,0.07)',
         border: '1px solid rgba(255,255,255,0.1)',
@@ -122,7 +122,7 @@ function MatchRow({
       >
         <SeedBadge seed={match.team_a?.seed} />
         <span
-          className="font-esports text-sm uppercase tracking-wider truncate flex-1 text-right"
+          className="font-esports text-xs uppercase tracking-wider truncate flex-1 text-right"
           style={{
             color: '#ffffff',
             fontWeight: 500,
@@ -131,7 +131,7 @@ function MatchRow({
           {match.team_a?.name ?? 'TBD'}
         </span>
         <span
-          className="font-mono text-xs shrink-0 w-16 text-right"
+          className="font-mono text-[10px] shrink-0 w-14 text-right"
           style={{ color: 'rgba(255,255,255,0.4)' }}
         >
           {match.team_a?.avg_mmr ?? '—'}
@@ -142,7 +142,7 @@ function MatchRow({
       <div
         className="shrink-0 flex flex-col items-center justify-center relative"
         style={{
-          width: 100,
+          width: 85,
           background: 'rgba(8, 12, 24, 0.95)',
           transform: `skewX(${UNSKEW}deg)`,
         }}
@@ -167,7 +167,7 @@ function MatchRow({
         />
 
         <span
-          className="font-esports text-base font-bold tracking-widest"
+          className="font-esports text-sm font-bold tracking-widest"
           style={{ color: 'hsl(210, 20%, 95%)' }}
         >
           {match.score_a} : {match.score_b}
@@ -196,13 +196,13 @@ function MatchRow({
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span
-          className="font-mono text-xs shrink-0 w-16 text-left"
+          className="font-mono text-[10px] shrink-0 w-14 text-left"
           style={{ color: 'rgba(255,255,255,0.4)' }}
         >
           {match.team_b?.avg_mmr ?? '—'}
         </span>
         <span
-          className="font-esports text-sm uppercase tracking-wider truncate flex-1 text-left"
+          className="font-esports text-xs uppercase tracking-wider truncate flex-1 text-left"
           style={{
             color: '#ffffff',
             fontWeight: 500,
@@ -227,7 +227,7 @@ export function RecentMatchesTable({ matches }: RecentMatchesTableProps) {
 
   return (
     <div
-      className="flex flex-col gap-1 p-4 w-full max-w-[1100px] mx-auto"
+      className="flex flex-col gap-0.5 p-3 w-full max-w-[1100px] mx-auto"
       style={{
         backdropFilter: 'blur(16px)',
       }}
