@@ -69,13 +69,14 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
     <div
       className="absolute pointer-events-none z-[2]"
       style={{
-        top: '15%',
+        top: '12%',
         bottom: 0,
         left: 0,
         right: 0,
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         justifyContent: 'center',
+        paddingBottom: '4px',
         mixBlendMode: 'overlay',
         opacity: 0.25,
       }}
@@ -85,9 +86,9 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
-          fontSize: '72px',
+          fontSize: '100px',
           lineHeight: 1,
-          letterSpacing: '0.05em',
+          letterSpacing: '0.03em',
           color,
         }}
       >
@@ -200,10 +201,10 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
     side === 'a'
       ? 'linear-gradient(90deg, transparent, rgba(37,99,235,0.4) 40%, rgba(37,99,235,0.6))'
       : 'linear-gradient(270deg, transparent, rgba(249,115,22,0.4) 40%, rgba(249,115,22,0.6))';
-  const textAlign = side === 'a' ? 'right' : 'left';
+  const textAlign = side === 'a' ? ('right' as const) : ('left' as const);
   return (
     <div
-      className="w-full py-1.5 px-4 font-esports text-sm font-bold text-white uppercase tracking-[0.15em]"
+      className="py-1.5 px-4 font-esports text-sm font-bold text-white uppercase tracking-[0.15em]"
       style={{
         background: gradient,
         transform: 'skewX(-5deg)',
@@ -245,13 +246,16 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
         </span>
       </div>
 
-      {/* Players + VERSUS */}
-      <div className="flex items-center justify-center">
-        {/* Team A panels */}
-        <div className="flex" style={{ gap: '-10px', marginRight: '-8px' }}>
-          {match.team_a?.players.map((p, i) => (
-            <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="a" index={i} />
-          )) ?? <TbdPanel side="a" />}
+      {/* Players + VERSUS + Banners */}
+      <div className="flex items-start justify-center">
+        {/* Team A column */}
+        <div className="flex flex-col items-stretch">
+          <div className="flex" style={{ marginRight: '-8px' }}>
+            {match.team_a?.players.map((p, i) => (
+              <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="a" index={i} />
+            )) ?? <TbdPanel side="a" />}
+          </div>
+          <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
         </div>
 
         {/* VERSUS */}
@@ -259,7 +263,7 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="mx-3 flex items-center justify-center z-10"
+          className="mx-3 flex items-center justify-center z-10 self-center"
         >
           <span
             className="font-esports text-white/80 font-bold text-4xl uppercase tracking-[0.3em]"
@@ -269,21 +273,13 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
           </span>
         </motion.div>
 
-        {/* Team B panels */}
-        <div className="flex" style={{ gap: '-10px', marginLeft: '-8px' }}>
-          {match.team_b?.players.map((p, i) => (
-            <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="b" index={i + 2} />
-          )) ?? <TbdPanel side="b" />}
-        </div>
-      </div>
-
-      {/* Team name banners — gradient bars aligned to inner card edges */}
-      <div className="flex items-start justify-center mt-0">
-        <div className="flex-1">
-          <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
-        </div>
-        <div className="w-16" />
-        <div className="flex-1">
+        {/* Team B column */}
+        <div className="flex flex-col items-stretch">
+          <div className="flex" style={{ marginLeft: '-8px' }}>
+            {match.team_b?.players.map((p, i) => (
+              <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="b" index={i + 2} />
+            )) ?? <TbdPanel side="b" />}
+          </div>
           <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" />
         </div>
       </div>
