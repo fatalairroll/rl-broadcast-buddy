@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap');
 
 @layer base {
   :root {
@@ -149,12 +149,83 @@
     text-shadow: 0 0 10px currentColor;
   }
 
+  .font-esports {
+    font-family: 'Rajdhani', 'Inter', sans-serif;
+  }
+
+  .brushed-metal {
+    position: relative;
+  }
+
+  .brushed-metal::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(
+        105deg,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px,
+        transparent 4px
+      ),
+      repeating-linear-gradient(
+        75deg,
+        rgba(255, 255, 255, 0.02) 0px,
+        rgba(255, 255, 255, 0.02) 1px,
+        transparent 1px,
+        transparent 6px
+      );
+    mix-blend-mode: overlay;
+  }
+
   .animate-pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite;
+    animation: pulse-glow 2.5s ease-in-out infinite;
   }
 
   @keyframes pulse-glow {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+    0%, 100% {
+      filter: drop-shadow(0 0 6px currentColor);
+      transform: scale(1);
+    }
+    50% {
+      filter: drop-shadow(0 0 20px currentColor) drop-shadow(0 0 40px currentColor);
+      transform: scale(1.04);
+    }
+  }
+
+  .animate-smoke-drift {
+    animation: smoke-drift 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes smoke-drift {
+    0% {
+      opacity: 0.3;
+      transform: translateY(10%) scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: translateY(-5%) scale(1.1);
+    }
+    100% {
+      opacity: 0.3;
+      transform: translateY(5%) scale(0.95);
+    }
+  }
+
+  .animate-smoke-drift-alt {
+    animation: smoke-drift-alt 10s ease-in-out infinite alternate;
+  }
+
+  @keyframes smoke-drift-alt {
+    0% {
+      opacity: 0.2;
+      transform: translate(-10%, 5%) scale(1.05);
+    }
+    100% {
+      opacity: 0.4;
+      transform: translate(10%, -10%) scale(0.9);
+    }
   }
 }
