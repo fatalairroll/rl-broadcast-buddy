@@ -67,8 +67,15 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
   const color = side === 'a' ? 'rgba(37,99,235,0.9)' : 'rgba(249,115,22,0.9)';
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center pointer-events-none z-[2]"
+      className="absolute pointer-events-none z-[2]"
       style={{
+        top: '15%',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         mixBlendMode: 'overlay',
         opacity: 0.25,
       }}
@@ -78,7 +85,7 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
         style={{
           writingMode: 'vertical-rl',
           textOrientation: 'mixed',
-          fontSize: '90px',
+          fontSize: '72px',
           lineHeight: 1,
           letterSpacing: '0.05em',
           color,
@@ -158,17 +165,9 @@ function PlayerPanel({
           </span>
         </div>
 
-        {/* Rank icon — shifted up-left to reveal MMR digits */}
+        {/* Rank icon — shifted up-left, no circle shadow */}
         <div className="flex-1 flex flex-col items-center justify-center -mt-6 -ml-2">
-          <div
-            className="relative rounded-full p-3"
-            style={{
-              background: 'rgba(0,0,0,0.3)',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            <RankIcon rank={rank} size="xl" glowColor={glowColor} />
-          </div>
+          <RankIcon rank={rank} size="xl" glowColor={glowColor} />
         </div>
       </div>
     </motion.div>
@@ -197,16 +196,18 @@ function TbdPanel({ side }: { side: 'a' | 'b' }) {
 }
 
 function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
-  const neonColor = side === 'a' ? 'rgba(37,99,235,0.5)' : 'rgba(249,115,22,0.5)';
+  const gradient =
+    side === 'a'
+      ? 'linear-gradient(90deg, transparent, rgba(37,99,235,0.4) 40%, rgba(37,99,235,0.6))'
+      : 'linear-gradient(270deg, transparent, rgba(249,115,22,0.4) 40%, rgba(249,115,22,0.6))';
+  const textAlign = side === 'a' ? 'right' : 'left';
   return (
     <div
-      className="px-6 py-1.5 font-esports text-sm font-bold text-white uppercase tracking-[0.15em] text-center"
+      className="w-full py-1.5 px-4 font-esports text-sm font-bold text-white uppercase tracking-[0.15em]"
       style={{
-        background: 'rgba(0,0,0,0.5)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: gradient,
         transform: 'skewX(-5deg)',
-        boxShadow: `0 4px 15px ${neonColor}`,
+        textAlign,
       }}
     >
       <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{name}</span>
@@ -276,13 +277,13 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
         </div>
       </div>
 
-      {/* Team name banners — skewed glass bars with neon glow */}
-      <div className="flex items-start justify-center gap-6 mt-1">
-        <div className="flex-1 flex justify-center">
+      {/* Team name banners — gradient bars aligned to inner card edges */}
+      <div className="flex items-start justify-center mt-0">
+        <div className="flex-1">
           <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
         </div>
         <div className="w-16" />
-        <div className="flex-1 flex justify-center">
+        <div className="flex-1">
           <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" />
         </div>
       </div>

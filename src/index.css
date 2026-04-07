@@ -155,17 +155,17 @@
 
 
   .animate-pulse-glow {
-    animation: pulse-glow 4s ease-in-out infinite;
+    animation: pulse-glow 5s ease-in-out infinite;
   }
 
   @keyframes pulse-glow {
     0%, 100% {
-      filter: drop-shadow(0 0 3px currentColor);
+      filter: drop-shadow(0 0 2px currentColor);
       transform: scale(1);
     }
     50% {
-      filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 16px currentColor);
-      transform: scale(1.02);
+      filter: drop-shadow(0 0 5px currentColor) drop-shadow(0 0 10px currentColor);
+      transform: scale(1.01);
     }
   }
 
