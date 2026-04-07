@@ -75,46 +75,48 @@ export default function StudioRender() {
 
   return (
     <div className="min-h-screen" style={{ background: 'transparent' }}>
-      {/* Sidebar */}
-      <div
-        className="fixed top-1/2 left-0 z-50 flex -translate-y-1/2"
-      >
+      {/* Sidebar — hidden from OBS via ?obs=1 param, visible only in browser */}
+      {!params.get('obs') && (
         <div
-          className="flex flex-col overflow-hidden"
-          style={{
-            width: 180,
-            background: 'rgba(20, 23, 30, 0.95)',
-            borderRadius: '0 12px 12px 0',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderLeft: 'none',
-          }}
+          className="fixed top-1/2 left-0 z-50 flex -translate-y-1/2"
         >
-          {MODES.map((m) => {
-            const active = mode === m.key;
-            return (
-              <button
-                key={m.key}
-                onClick={() => setMode(m.key)}
-                className="transition-colors duration-200"
-                style={{
-                  padding: '16px 12px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase' as const,
-                  textAlign: 'center' as const,
-                  cursor: 'pointer',
-                  border: 'none',
-                  background: active ? '#00A3FF' : 'transparent',
-                  color: active ? '#FFFFFF' : '#94A3B8',
-                }}
-              >
-                {m.label}
-              </button>
-            );
-          })}
+          <div
+            className="flex flex-col overflow-hidden"
+            style={{
+              width: 180,
+              background: 'rgba(20, 23, 30, 0.95)',
+              borderRadius: '0 12px 12px 0',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderLeft: 'none',
+            }}
+          >
+            {MODES.map((m) => {
+              const active = mode === m.key;
+              return (
+                <button
+                  key={m.key}
+                  onClick={() => setMode(m.key)}
+                  className="transition-colors duration-200"
+                  style={{
+                    padding: '16px 12px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase' as const,
+                    textAlign: 'center' as const,
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: active ? '#00A3FF' : 'transparent',
+                    color: active ? '#FFFFFF' : '#94A3B8',
+                  }}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content */}
       {mode === 'bracket' ? (
