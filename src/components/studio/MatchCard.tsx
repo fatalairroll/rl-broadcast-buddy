@@ -147,27 +147,34 @@ function PlayerPanel({
       {/* MMR hero watermark */}
       <MmrHeroText mmr={mmr} side={side} />
 
-      {/* Content — counter-skew to keep text upright */}
+      {/* Nick bar — sits inside the skewed card, aligned to right edge */}
       <div
-        className="absolute inset-0 flex flex-col items-center justify-between py-5 px-4 z-10"
-        style={{ transform: 'skewX(5deg)' }}
+        className="absolute top-0 left-0 right-0 z-20 flex items-center justify-center"
+        style={{
+          height: '48px',
+          background: 'rgba(0,0,0,0.5)',
+          paddingLeft: '15%',
+        }}
       >
-        {/* Nick — dark bar at top, centered relative to visible edge */}
-        <div
-          className="w-full text-center py-2"
-          style={{ paddingLeft: '15%', background: 'rgba(0,0,0,0.4)' }}
+        <span
+          className="font-esports font-bold text-white uppercase drop-shadow-md block truncate text-center w-full px-2"
+          style={{
+            letterSpacing: '0.12em',
+            fontSize: '11px',
+            transform: 'skewX(5deg)',
+          }}
+          title={displayName}
         >
-          <span
-            className="font-esports font-bold text-white text-sm uppercase drop-shadow-md leading-tight block truncate"
-            style={{ letterSpacing: '0.15em' }}
-            title={displayName}
-          >
-            {displayName}
-          </span>
-        </div>
+          {displayName}
+        </span>
+      </div>
 
-        {/* Rank icon — shifted up-left, no circle shadow */}
-        <div className="flex-1 flex flex-col items-center justify-center -mt-6 -ml-2">
+      {/* Rank icon — center, counter-skewed */}
+      <div
+        className="absolute inset-0 flex items-center justify-center z-10"
+        style={{ transform: 'skewX(5deg)', paddingTop: '24px' }}
+      >
+        <div className="-mt-4 -ml-2">
           <RankIcon rank={rank} size="xl" glowColor={glowColor} />
         </div>
       </div>
@@ -197,18 +204,25 @@ function TbdPanel({ side }: { side: 'a' | 'b' }) {
 }
 
 function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
-  const gradient =
+  const bg =
     side === 'a'
-      ? 'linear-gradient(90deg, transparent, rgba(37,99,235,0.4) 40%, rgba(37,99,235,0.6))'
-      : 'linear-gradient(270deg, transparent, rgba(249,115,22,0.4) 40%, rgba(249,115,22,0.6))';
+      ? 'linear-gradient(90deg, transparent 0%, rgba(37,99,235,0.5) 30%, rgba(37,99,235,0.7) 100%)'
+      : 'linear-gradient(270deg, transparent 0%, rgba(249,115,22,0.5) 30%, rgba(249,115,22,0.7) 100%)';
   const textAlign = side === 'a' ? ('right' as const) : ('left' as const);
+  // Offset banner to align with inner card edges:
+  // Card clipPath bottom: left=0%, right=85% (136px of 160px)
+  // For 2 cards (320px): Team A right edge at ~296px, Team B left edge at ~24px
+  const margin = side === 'a'
+    ? { marginRight: '24px' }
+    : { marginLeft: '24px' };
   return (
     <div
-      className="py-1.5 px-4 font-esports text-sm font-bold text-white uppercase tracking-[0.15em]"
+      className="py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
       style={{
-        background: gradient,
+        background: bg,
         transform: 'skewX(-5deg)',
         textAlign,
+        ...margin,
       }}
     >
       <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{name}</span>
