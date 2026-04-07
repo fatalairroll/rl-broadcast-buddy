@@ -1,48 +1,34 @@
 
 
-# Plan: Redesign kart graczy — MMR hero, skew, glassmorphism
+# Plan: Glassmorphism + refaktoryzacja kart graczy
 
-## Zmiany
+## Zmiany w `src/components/studio/MatchCard.tsx`
 
-### 1. `src/components/studio/MatchCard.tsx` — PlayerPanel
+### PlayerPanel — nowy styl glassmorphism
+- **Tło**: Zamienić kolorowe gradienty na ciemne, półprzezroczyste (`rgba(10,15,30,0.75)` dla A, `rgba(30,15,10,0.75)` dla B) z silnym `backdrop-filter: blur(10px)`
+- **Ramka**: `border: 1px solid rgba(255,255,255,0.1)` (już jest)
+- **Box-shadow**: Delikatny glow w kolorze drużyny — `#2563eb` (A) / `#f97316` (B)
+- **MMR hero**: Zmniejszyć opacity z 0.4 → 0.1, zachować `mix-blend-mode: overlay`
 
-**Usunięcie tekstury**: Usunąć klasę `brushed-metal` z paneli.
+### Nick — ciemniejszy pasek u góry
+- Dodać ciemny pasek (`bg-black/40`) na pełną szerokość u góry karty
+- Biały, gruby font bezszeryfowy (Inter/Rajdhani bold), duży `letter-spacing: 0.15em`
+- Wyśrodkowany z offsetem 15% (clip-path)
 
-**Nick wyśrodkowany względem górnej krawędzi**: Ponieważ karta ma `clipPath: polygon(15% 0, 100% 0, 85% 100%, 0 100%)`, górna krawędź zaczyna się od 15% — nick musi być wyśrodkowany względem zakresu 15%-100% (środek ~57.5% od lewej), co wymaga przesunięcia `padding-left` lub odpowiedniego offsetu.
+### Ikona rangi — centrum
+- Bez zmian w rozmiarze (96px xl), bez pochylenia
+- Zachować `pulse-glow` animację z `glowColor` w kolorze drużyny
 
-**MMR jako "Hero Element"**: Duży pionowy tekst MMR zajmujący ~70% wysokości karty:
-- `writing-mode: vertical-rl` z obrotem liter
-- Font Rajdhani/Inter Black, bardzo duży (~80-100px)
-- `mix-blend-mode: overlay`, `opacity: 0.35`
-- Ciemniejszy odcień koloru drużyny — efekt "wytłoczenia"
-- Pozycja absolutna za ikoną rangi (warstwa tła)
+### Akcenty kolorystyczne
+- Lewe karty: subtelne niebieskie akcenty (border-top lub gradient accent strip)
+- Prawe karty: pomarańczowe akcenty
+- Box-shadow glow w odpowiednim kolorze
 
-**Premium detale**:
-- `border: 1px solid rgba(255,255,255,0.1)`
-- `box-shadow` glow w kolorze drużyny (niebieski/pomarańczowy)
-- `transform: skewX(-5deg)` na całej karcie (zawartość wewnątrz counter-skew `skewX(5deg)`)
-- `backdrop-filter: blur(10px)` (glassmorphism)
+### TbdPanel — analogiczne zmiany glassmorphism
 
-**Nazwy drużyn**: Białe (`text-white`), przesunięte niżej pod karty z większym `mt`, wycentrowane pod odpowiednimi grupami kart (nie justify-between na pełnej szerokości).
-
-**Round index**: Zweryfikować `match.round_index + 1` — wartość pochodzi z API i jest 0-indexed, więc +1 jest poprawne.
-
-### 2. `src/components/studio/MatchCard.tsx` — TbdPanel
-- Analogiczne zmiany: skew, border, bez tekstury.
-
-### 3. `src/index.css` — ewentualne drobne poprawki
-- Usunięcie `.brushed-metal` jeśli nie jest już potrzebna nigdzie indziej (sprawdzę użycia).
-
-## Hierarchia warstw w karcie (z-index, od tyłu):
-1. Gradient tła drużyny
-2. Smoke layers (animowane)
-3. **MMR hero text** (pionowy, blend overlay, opacity 0.35)
-4. Nick (góra), Ikona rangi (środek), Nazwa rangi (pod ikoną)
-
-## Pliki do zmiany
+## Pliki
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/studio/MatchCard.tsx` | Usunięcie tekstury, MMR hero, skew, glassmorphism, białe nazwy drużyn, centrowanie nicku |
-| `src/index.css` | Opcjonalnie usunięcie `.brushed-metal` jeśli nieużywana |
+| `src/components/studio/MatchCard.tsx` | Glassmorphism tło, ciemny pasek nicku, MMR opacity 0.1, kolorowe akcenty |
 
