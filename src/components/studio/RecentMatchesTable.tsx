@@ -117,7 +117,7 @@ function MatchRow({
     >
       {/* Team A side */}
       <div
-        className="flex-1 flex items-center justify-end gap-2 px-4 py-1.5 min-w-0"
+        className="flex-1 flex items-center justify-end gap-2 px-3 py-1 min-w-0"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <SeedBadge seed={match.team_a?.seed} />
@@ -192,7 +192,7 @@ function MatchRow({
 
       {/* Team B side */}
       <div
-        className="flex-1 flex items-center justify-start gap-2 px-4 py-1.5 min-w-0"
+        className="flex-1 flex items-center justify-start gap-2 px-3 py-1 min-w-0"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span
