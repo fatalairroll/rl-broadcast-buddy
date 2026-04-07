@@ -64,13 +64,13 @@ function SmokeLayer({ side }: { side: 'a' | 'b' }) {
 
 function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
   if (mmr == null) return null;
-  const color = side === 'a' ? 'rgba(30,64,175,0.9)' : 'rgba(154,52,18,0.9)';
+  const color = side === 'a' ? 'rgba(37,99,235,0.9)' : 'rgba(249,115,22,0.9)';
   return (
     <div
       className="absolute inset-0 flex items-center justify-center pointer-events-none z-[2]"
       style={{
         mixBlendMode: 'overlay',
-        opacity: 0.4,
+        opacity: 0.1,
       }}
     >
       <span
@@ -105,16 +105,17 @@ function PlayerPanel({
   const rank = resolveRank(player, gameMode);
   const displayName = player.nick_in_game ?? player.nick;
 
-  const gradient =
+  const glassBg =
     side === 'a'
-      ? 'linear-gradient(180deg, #2563EB, #1E40AF)'
-      : 'linear-gradient(180deg, #F97316, #C2410C)';
+      ? 'rgba(10,15,30,0.75)'
+      : 'rgba(30,15,10,0.75)';
 
-  const glowColor = side === 'a' ? '#3B82F6' : '#F97316';
+  const glowColor = side === 'a' ? '#2563eb' : '#f97316';
   const boxGlow =
     side === 'a'
-      ? '0 0 20px rgba(59,130,246,0.4), 0 0 40px rgba(59,130,246,0.15)'
-      : '0 0 20px rgba(249,115,22,0.4), 0 0 40px rgba(249,115,22,0.15)';
+      ? '0 0 25px rgba(37,99,235,0.3), 0 0 50px rgba(37,99,235,0.1)'
+      : '0 0 25px rgba(249,115,22,0.3), 0 0 50px rgba(249,115,22,0.1)';
+  const accentColor = side === 'a' ? '#2563eb' : '#f97316';
 
   return (
     <motion.div
@@ -123,9 +124,10 @@ function PlayerPanel({
       transition={{ duration: 0.5, delay: index * 0.12, ease: 'easeOut' }}
       className="relative w-[160px] h-[320px] overflow-hidden"
       style={{
-        background: gradient,
+        background: glassBg,
         clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
         border: '1px solid rgba(255,255,255,0.1)',
+        borderTop: `2px solid ${accentColor}`,
         boxShadow: boxGlow,
         transform: 'skewX(-5deg)',
         backdropFilter: 'blur(10px)',
@@ -142,10 +144,14 @@ function PlayerPanel({
         className="absolute inset-0 flex flex-col items-center justify-between py-5 px-4 z-10"
         style={{ transform: 'skewX(5deg)' }}
       >
-        {/* Nick at top — centered relative to visible top edge (clipPath 15%-100%) */}
-        <div className="w-full text-center" style={{ paddingLeft: '15%' }}>
+        {/* Nick — dark bar at top, centered relative to visible edge */}
+        <div
+          className="w-full text-center py-2"
+          style={{ paddingLeft: '15%', background: 'rgba(0,0,0,0.4)' }}
+        >
           <span
-            className="font-esports font-bold text-white text-sm uppercase tracking-wider drop-shadow-md leading-tight block truncate"
+            className="font-esports font-bold text-white text-sm uppercase drop-shadow-md leading-tight block truncate"
+            style={{ letterSpacing: '0.15em' }}
             title={displayName}
           >
             {displayName}
@@ -162,18 +168,17 @@ function PlayerPanel({
 }
 
 function TbdPanel({ side }: { side: 'a' | 'b' }) {
-  const gradient =
-    side === 'a'
-      ? 'linear-gradient(180deg, #2563EB33, #1E40AF33)'
-      : 'linear-gradient(180deg, #F9731633, #C2410C33)';
+  const glassBg = side === 'a' ? 'rgba(10,15,30,0.6)' : 'rgba(30,15,10,0.6)';
+  const accentColor = side === 'a' ? '#2563eb' : '#f97316';
 
   return (
     <div
       className="w-[160px] h-[320px] flex items-center justify-center text-white/30 text-sm font-esports font-bold uppercase"
       style={{
-        background: gradient,
+        background: glassBg,
         clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
         border: '1px solid rgba(255,255,255,0.1)',
+        borderTop: `2px solid ${accentColor}`,
         transform: 'skewX(-5deg)',
         backdropFilter: 'blur(10px)',
       }}
