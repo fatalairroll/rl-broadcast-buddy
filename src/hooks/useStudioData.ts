@@ -45,15 +45,28 @@ export function useStudioData({
       }
 
       // Map mode + count to API mode
-      let apiMode = mode;
+      let apiMode: string = mode;
       if (mode === 'next_match' && count > 1) {
         apiMode = 'next_3';
+      }
+      if (mode === 'recent') {
+        apiMode = 'bracket';
       }
 
       const res = await fetchMatches(tournamentId, apiMode);
       setTournament(res.tournament);
 
       let resultMatches = res.matches ?? [];
+
+      if (mode === 'recent') {
+        resultMatches = resultMatches
+          .filter((m) => m.state === 'done')
+          .sort((a, b) => {
+            if (b.round_index !== a.round_index) return b.round_index - a.round_index;
+            return (b.match_index ?? 0) - (a.match_index ?? 0);
+          })
+          .slice(0, 10);
+      }
 
       // Limit to requested count for next_match modes
       if (mode === 'next_match' || mode === 'next_3') {

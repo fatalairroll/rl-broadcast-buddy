@@ -34,7 +34,7 @@ export interface MatchData {
   round_index: number;
   match_index?: number;
   best_of: number;
-  state: 'scheduled' | 'in_progress' | 'finished';
+  state: 'scheduled' | 'in_progress' | 'finished' | 'live' | 'done';
   score_a: number;
   score_b: number;
   winner_team_id: string | null;
@@ -56,4 +56,4 @@ export interface MatchResponse {
   matches: MatchData[];
 }
 
-export type StudioMode = 'next_match' | 'next_3' | 'bracket';
+export type StudioMode = 'next_match' | 'next_3' | 'bracket' | 'recent';

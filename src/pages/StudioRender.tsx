@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useStudioData } from '@/hooks/useStudioData';
 import { MatchCard } from '@/components/studio/MatchCard';
 import { BracketView } from '@/components/studio/BracketView';
+import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
 import type { StudioMode } from '@/types/studio';
 
 const VALID_KEY = 'kXS6cVkTpJM2Qti';
@@ -43,6 +44,18 @@ export default function StudioRender() {
     setActiveIndex(0);
   }, [matches.length]);
 
+  // Force transparent background for OBS
+  useEffect(() => {
+    const prevBody = document.body.style.background;
+    const prevHtml = document.documentElement.style.background;
+    document.body.style.background = 'transparent';
+    document.documentElement.style.background = 'transparent';
+    return () => {
+      document.body.style.background = prevBody;
+      document.documentElement.style.background = prevHtml;
+    };
+  }, []);
+
   if (!authorized) return null;
   if (isLoading) return null;
 
@@ -58,6 +71,8 @@ export default function StudioRender() {
     <div className="min-h-screen" style={{ background: 'transparent' }}>
       {mode === 'bracket' ? (
         <BracketView matches={matches} />
+      ) : mode === 'recent' ? (
+        <RecentMatchesTable matches={matches} />
       ) : (
         <div className="flex flex-col gap-4 p-4">
           <AnimatePresence mode="wait">
