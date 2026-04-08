@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { MatchData, PlayerData } from '@/types/studio';
 import { RankIcon } from './RankIcon';
 import { getRankFromMmr, normalizeRankName, isValidRank } from '@/lib/rank-utils';
@@ -6,6 +6,7 @@ import { getRankFromMmr, normalizeRankName, isValidRank } from '@/lib/rank-utils
 interface MatchCardProps {
   match: MatchData;
   gameMode: string;
+  upcomingMatches?: MatchData[];
 }
 
 function getMmrForMode(player: PlayerData, mode: string): number | null {
@@ -142,13 +143,9 @@ function PlayerPanel({
         backdropFilter: 'blur(10px)',
       }}
     >
-      {/* Smoke effects */}
       <SmokeLayer side={side} />
-
-      {/* MMR hero watermark */}
       <MmrHeroText mmr={mmr} side={side} />
 
-      {/* Nick bar — sits inside the skewed card, aligned to right edge */}
       <div
         className="absolute top-0 left-0 right-0 z-20 flex items-center justify-center"
         style={{
@@ -170,7 +167,6 @@ function PlayerPanel({
         </span>
       </div>
 
-      {/* Rank icon — center, counter-skewed */}
       <div
         className="absolute inset-0 flex items-center justify-center z-10"
         style={{ transform: 'skewX(5deg)', paddingTop: '24px' }}
@@ -204,8 +200,6 @@ function TbdPanel({ side }: { side: 'a' | 'b' }) {
   );
 }
 
-const SKEW_OFFSET = 28; // 320 * tan(5°) ≈ 28px
-
 function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
   const bg =
     side === 'a'
@@ -233,6 +227,52 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
       }}
     >
       <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{name}</span>
+    </div>
+  );
+}
+
+function UpcomingQueue({ matches, side }: { matches: MatchData[]; side: 'a' | 'b' }) {
+  const opacities = [0.8, 0.6, 0.4, 0.25];
+  const textAlign = side === 'a' ? ('right' as const) : ('left' as const);
+  const padding = side === 'a'
+    ? { paddingRight: '20px' }
+    : { paddingLeft: '20px' };
+  const margin = side === 'a'
+    ? { marginRight: '18px', alignSelf: 'flex-end' as const }
+    : { marginLeft: '-12px', alignSelf: 'flex-start' as const };
+
+  if (matches.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-[2px]">
+      <AnimatePresence mode="popLayout">
+        {matches.slice(0, 4).map((m, i) => {
+          const teamName = side === 'a' ? (m.team_a?.name ?? 'TBD') : (m.team_b?.name ?? 'TBD');
+          return (
+            <motion.div
+              key={m.match_id}
+              layout
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: opacities[i] ?? 0.2, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+              className="font-esports text-xs font-bold text-white/90 uppercase tracking-[0.12em]"
+              style={{
+                width: '450px',
+                padding: '5px 20px',
+                background: 'rgba(10,15,25,0.7)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                transform: 'skewX(-5deg)',
+                textAlign,
+                ...padding,
+                ...margin,
+              }}
+            >
+              <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{teamName}</span>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </div>
   );
 }
@@ -301,7 +341,7 @@ function HeaderPanel({ roundIndex, matchIndex, bestOf }: { roundIndex: number; m
   );
 }
 
-export function MatchCard({ match, gameMode }: MatchCardProps) {
+export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardProps) {
   return (
     <motion.div
       layout
@@ -316,7 +356,7 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
 
       {/* Players + VERSUS */}
       <div className="flex items-stretch justify-center">
-        {/* Team A wrapper — banner sticks to bottom via mt-auto */}
+        {/* Team A wrapper */}
         <div className="team-blue-wrapper flex flex-col items-end">
           <div className="flex" style={{ marginRight: '-8px' }}>
             {match.team_a?.players.map((p, i) => (
@@ -325,6 +365,7 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
           </div>
           <div style={{ marginTop: 'auto' }}>
             <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
+            <UpcomingQueue matches={upcomingMatches} side="a" />
           </div>
         </div>
 
@@ -343,7 +384,7 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
           </span>
         </motion.div>
 
-        {/* Team B wrapper — banner sticks to bottom via mt-auto */}
+        {/* Team B wrapper */}
         <div className="team-orange-wrapper flex flex-col items-start">
           <div className="flex" style={{ marginLeft: '-8px' }}>
             {match.team_b?.players.map((p, i) => (
@@ -352,6 +393,7 @@ export function MatchCard({ match, gameMode }: MatchCardProps) {
           </div>
           <div style={{ marginTop: 'auto' }}>
             <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" />
+            <UpcomingQueue matches={upcomingMatches} side="b" />
           </div>
         </div>
       </div>
