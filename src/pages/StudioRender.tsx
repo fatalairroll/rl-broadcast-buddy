@@ -38,9 +38,13 @@ export default function StudioRender() {
   // Queue-based rotation for next_3
   const [queue, setQueue] = useState<MatchData[]>([]);
 
-  // Sync queue when matches change from API
+  // Sync queue only when match list actually changes (avoid resetting timer)
   useEffect(() => {
-    setQueue(matches);
+    const newIds = matches.map(m => m.match_id).join(',');
+    const curIds = queue.map(m => m.match_id).join(',');
+    if (newIds !== curIds) {
+      setQueue(matches);
+    }
   }, [matches]);
 
   // Rotate queue every 6s
