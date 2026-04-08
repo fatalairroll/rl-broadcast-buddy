@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       }
 
       const res = await fetch(
-        `${GATEWAY_URL}/helix/polls?broadcaster_id=${BROADCASTER_ID}&id=${pollId}`,
+        `${GATEWAY_URL}/polls?broadcaster_id=${BROADCASTER_ID}&id=${pollId}`,
         { method: 'GET', headers: gatewayHeaders },
       );
 
