@@ -379,7 +379,6 @@ export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardPr
           </div>
           <div style={{ marginTop: 'auto' }}>
             <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
-            <UpcomingQueue matches={upcomingMatches} side="a" />
           </div>
         </div>
 
@@ -407,10 +406,12 @@ export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardPr
           </div>
           <div style={{ marginTop: 'auto' }}>
             <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" />
-            <UpcomingQueue matches={upcomingMatches} side="b" />
           </div>
         </div>
       </div>
+
+      {/* Upcoming matches queue */}
+      <UpcomingQueue matches={upcomingMatches} />
     </motion.div>
   );
 }
