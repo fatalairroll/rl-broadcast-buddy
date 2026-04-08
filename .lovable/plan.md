@@ -1,85 +1,39 @@
 
 
-# Plan: Dynamiczna kolejka meczów (Carousel) w widoku Next Matches
+# Plan: Napraw timing rotacji i przeprojektuj wiersze kolejki
 
-## Opis
+## Problem z timingiem
 
-Przebudowa widoku "Następne mecze" z prostej rotacji pojedynczych kart na system carousel, gdzie aktywny mecz (index 0) wyświetla pełną grafikę (karty zawodników, rangi, banery drużyn), a pod banerami drużyn wyświetla się pionowa lista nadchodzących meczów (index 1+) w formie mniejszych pasków z nazwami drużyn.
+API polluje co 5s i za każdym razem wywołuje `setQueue(matches)`, co resetuje kolejkę i przerywa 6-sekundowy cykl rotacji. Rozwiązanie: porównywać nowe dane z istniejącą kolejką i aktualizować tylko gdy lista meczów faktycznie się zmieni (np. nowe match_id).
 
-## Architektura
+## Nowy styl wierszy kolejki
 
-```text
-┌──────────────────────────────────────────────────┐
-│              HeaderPanel (Runda, BO)             │
-├──────────────────────────────────────────────────┤
-│   [PlayerA1][PlayerA2]   VS   [PlayerB1][PlayerB2]│
-│                                                    │
-│   ┌── TEAM A BANNER ──┐    ┌── TEAM B BANNER ──┐  │
-│   │   Team Volt        │    │   Wiejskie Skór.  │  │
-│   ├────────────────────┤    ├────────────────────┤  │
-│   │ Next: Team X    80%│    │ Next: Team Y    80%│  │
-│   │ Next: Team Z    60%│    │ Next: Team W    60%│  │
-│   │ Next: Team Q    40%│    │ Next: Team R    40%│  │
-│   └────────────────────┘    └────────────────────┘  │
-└──────────────────────────────────────────────────┘
-```
+Zamiast prostych szarych pasków z nazwą drużyny, wiersze kolejki będą miały styl zbliżony do RecentMatchesTable:
+- Ciemne tło gradientowe
+- Na środku: numer rundy i meczu (np. "R2 M3") oddzielony pionowymi neonowymi paskami (niebieski/pomarańczowy)
+- Skew `-5deg` (taki sam jak banery drużyn w aktywnym meczu, NIE -15deg jak w zakończonych)
+- Malejące opacity dla kolejnych wierszy
 
 ## Zmiany w plikach
 
 ### 1. `src/pages/StudioRender.tsx`
-- Usunąć obecny system `activeIndex` z prostą rotacją
-- Zarządzać kolejką jako `useState<MatchData[]>` — co 6s przesunąć element [0] na koniec tablicy
-- Przekazać `queuedMatches` (index 1+) do `MatchCard` jako nowy prop
+- Zmienić sync queue: zamiast `setQueue(matches)` przy każdym renderze, porównywać `matches` po match_id i aktualizować tylko gdy lista się zmieni (nowe mecze lub zmiana kolejności)
+- Dzięki temu interval 6s nie będzie przerywany przez polling API
 
-### 2. `src/components/studio/MatchCard.tsx`
-- Dodać prop `upcomingMatches: MatchData[]`
-- Stworzyć nowy komponent `UpcomingQueue` — lista pasków pod banerem każdej drużyny
-- Paski mają:
-  - Tę samą szerokość (450px) i kąt nachylenia (`skewX(-5deg)`) co baner główny
-  - Wysokość o 30% mniejszą niż baner
-  - Ciemniejsze, półprzezroczyste tło
-  - Malejące opacity: 80% → 60% → 40% dla kolejnych wpisów
-  - Wyrównanie: blue (prawa krawędź) = `marginRight: 18px`, orange (lewa) = `marginLeft: -12px` (jak baner)
-- Animacja przejścia: `AnimatePresence` z `layout` + slide-up dla zmiany kolejki
-- Karty zawodników: fade-out → podmiana danych → fade-in przy zmianie aktywnego meczu
+### 2. `src/components/studio/MatchCard.tsx` — komponent `UpcomingQueue`
+Przebudować wiersze kolejki z prostych pasków na mini-wersje stylu RecentMatchesTable:
 
-### 3. Logika rotacji (StudioRender)
-```typescript
-const [queue, setQueue] = useState<MatchData[]>(matches);
-
-useEffect(() => { setQueue(matches); }, [matches]);
-
-useEffect(() => {
-  if (queue.length <= 1) return;
-  const timer = setInterval(() => {
-    setQueue(prev => [...prev.slice(1), prev[0]]);
-  }, 6000);
-  return () => clearInterval(timer);
-}, [queue.length]);
+```text
+┌─────────────────────────────────────────────────┐
+│  Team A name  │▌R2 M3▐│  Team B name            │
+└─────────────────────────────────────────────────┘
 ```
 
-### 4. Komponent UpcomingQueue
-```typescript
-function UpcomingQueue({ matches, side }: { matches: MatchData[]; side: 'a' | 'b' }) {
-  const opacities = [0.8, 0.6, 0.4, 0.25];
-  return (
-    <AnimatePresence mode="popLayout">
-      {matches.map((m, i) => (
-        <motion.div
-          key={m.match_id}
-          layout
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: opacities[i] ?? 0.2, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          // pasek: 450px, skewX(-5deg), 30% niższy, ciemne tło
-        >
-          {side === 'a' ? m.team_a?.name : m.team_b?.name}
-        </motion.div>
-      ))}
-    </AnimatePresence>
-  );
-}
-```
-
-Wyrównanie pionowe: offset `tan(5°) * height` zapewni, że paski zaczynają się od dolnej krawędzi nachylonego banera.
+- Tło: `linear-gradient(90deg, rgba(15,23,42,0.9), rgba(30,41,59,0.7))`
+- Centralny blok z numerem rundy/meczu, neonowe paski (3px) blue/orange po bokach
+- Nazwy drużyn po obu stronach (A = prawo, B = lewo)
+- Skew: `-5deg` (jak TeamBanner), tekst unskewed `skewX(5deg)`
+- Szerokość: dopasowana do szerokości obu wrapperów drużyn (pełna szerokość)
+- Opacity: 0.8, 0.6, 0.4, 0.25 dla kolejnych wierszy
+- Animacja: zachować obecny `AnimatePresence` z slide-up
 
