@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
       console.log('Creating poll:', JSON.stringify(pollPayload));
 
-      const res = await fetch(`${GATEWAY_URL}/helix/polls`, {
+      const res = await fetch(`${GATEWAY_URL}/polls`, {
         method: 'POST',
         headers: gatewayHeaders,
         body: JSON.stringify(pollPayload),
