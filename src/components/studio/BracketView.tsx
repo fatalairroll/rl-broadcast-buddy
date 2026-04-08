@@ -199,7 +199,7 @@ export function BracketView({ matches }: BracketViewProps) {
                 }}
               >
                 <span style={{ display: 'inline-block', transform: `skewX(${UNSKEW}deg)` }}>
-                  Runda {roundIdx + 1}{boInfo}
+                  Runda {roundIdx}{boInfo}
                 </span>
               </div>
 
@@ -249,6 +249,7 @@ function BracketMatchCard({
         className="flex items-center justify-between px-2.5 py-1.5"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
+        <div className="shrink-0" style={{ width: 4, height: 20, background: '#2563eb', borderRadius: 1 }} />
         <span
           className="font-esports text-xs uppercase tracking-wider truncate"
           style={{ color: '#ffffff', fontWeight: 700, opacity: bWon ? 0.4 : 1 }}
@@ -278,6 +279,7 @@ function BracketMatchCard({
         className="flex items-center justify-between px-2.5 py-1.5"
         style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
+        <div className="shrink-0" style={{ width: 4, height: 20, background: '#f97316', borderRadius: 1 }} />
         <span
           className="font-esports text-xs uppercase tracking-wider truncate"
           style={{ color: '#ffffff', fontWeight: 700, opacity: aWon ? 0.4 : 1 }}

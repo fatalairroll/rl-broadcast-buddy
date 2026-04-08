@@ -69,6 +69,10 @@ export function useStudioData({
       if (mode === 'next_3') {
         resultMatches = resultMatches
           .filter((m) => m.state === 'scheduled')
+          .sort((a, b) => {
+            if (a.round_index !== b.round_index) return a.round_index - b.round_index;
+            return (a.match_index ?? 0) - (b.match_index ?? 0);
+          })
           .slice(0, count);
       }
 
