@@ -1,42 +1,52 @@
 
 
-# Plan: Drzewko turniejowe (Bracket View) w stylu RLCS
+# Plan: Dynamiczne ukrywanie zakończonych rund w drabince
 
-## Cel
+## Plik: `src/components/studio/BracketView.tsx`
 
-Przebudowa `BracketView` z prostego layoutu kolumnowego na pełne drzewko turniejowe z łącznikami SVG, pochylonymi blokami meczów i stylem spójnym z tabelą zakończonych meczów.
+### 1. Filtrowanie zakończonych rund
 
-## Zmiany — `src/components/studio/BracketView.tsx`
+Po zgrupowaniu i posortowaniu rund, znaleźć indeks pierwszej rundy, w której istnieje co najmniej jeden mecz bez stanu `finished`/`done`:
 
-Pełne przepisanie komponentu. Nowa struktura:
+```ts
+const firstVisibleIdx = sortedRounds.findIndex(([, ms]) =>
+  ms.some(m => m.state !== 'finished' && m.state !== 'done')
+);
+const startIdx = firstVisibleIdx === -1 ? sortedRounds.length - 1 : firstVisibleIdx;
+const visibleRounds = sortedRounds.slice(startIdx);
+```
 
-### Blok meczu (`BracketMatchCard`)
-- Kontener z `skewX(-7deg)`, `backdrop-filter: blur(12px)`, ciemne tło gradientowe
-- **Górny pasek** — Team A: biały font-esports, `border-left: 3px solid #2563eb` (niebieski)
-- **Dolny pasek** — Team B: biały font-esports, `border-left: 3px solid #f97316` (pomarańczowy)
-- **Centralny element wyniku** pomiędzy teamami — pionowy blok z neonowymi paskami (niebieski/pomarańczowy) i wynikiem `score_a : score_b`, identyczny styl jak w `RecentMatchesTable`
-- Drużyna która odpadła (przegrała) — `opacity: 0.4` na nazwie
-- Mecz live — czerwony border + shadow
+Zamienić `sortedRounds` na `visibleRounds` w renderze kolumn i w `calcLines`.
 
-### Layout drabinki
-- Rundy rozmieszczone w kolumnach od lewej do prawej
-- Nagłówek rundy: `skewX(-7deg)`, font-esports, uppercase, tracking
-- Mecze w każdej rundzie wycentrowane pionowo z rosnącym `gap` (podwajany z każdą rundą) aby wizualnie tworzyć drzewko
-- Kontener główny: `overflow-x-auto` dla przewijalności horyzontalnej
+### 2. Zachowanie symetrii drzewa
 
-### Łączniki SVG
-- Warstwa SVG `position: absolute` nad całym drzewkiem
-- Po renderze: obliczenie pozycji bloków meczów przez `useRef` + `useEffect`
-- Linia od środka prawej krawędzi meczu → do środka lewej krawędzi meczu w następnej rundzie
-- Kolor linii: kolor drużyny zwycięzcy (#2563eb lub #f97316), szary gdy mecz nie rozegrany
-- Efekt glow: `filter: drop-shadow(0 0 4px color)`
-- Kształt: łamana linia (horizontal → vertical → horizontal) rysowana `<path>` z zaokrągleniami
+Gap dla widocznych rund musi uwzględniać ich oryginalną pozycję w drzewie, nie pozycję w przefiltrowanej tablicy:
 
-### Technikalia
-- `useRef` na kontenerze + refs na każdy blok meczu (Map po `match_id`)
-- `useEffect` + `ResizeObserver` do przeliczenia pozycji łączników
-- Logika łączenia: mecz w rundzie N łączy się z meczem w rundzie N+1 na podstawie `match_index` (mecze 0,1 → mecz 0 w następnej rundzie, mecze 2,3 → mecz 1 itd.)
+```ts
+// ri to indeks w visibleRounds, ale gap bazuje na oryginalnym indeksie rundy
+const originalRoundPosition = startIdx + localIdx;
+const gap = 16 * Math.pow(2, originalRoundPosition);
+```
 
-## Pliki do edycji
-- `src/components/studio/BracketView.tsx` — pełne przepisanie
+Dzięki temu mecze zachowują właściwe rozmieszczenie pionowe nawet po ukryciu wcześniejszych rund.
+
+### 3. Łączniki SVG tylko od widocznych rund
+
+W `calcLines` iterować po `visibleRounds` zamiast `sortedRounds` — linie będą rysowane tylko między widocznymi meczami.
+
+### 4. Komunikat "Poprzednie rundy zakończone"
+
+Jeśli `startIdx > 0`, wyrenderować przed pierwszą widoczną kolumną pionowy pasek:
+- Obrócony tekst (`writing-mode: vertical-rl`, `transform: rotate(180deg)`)
+- Treść: `POPRZEDNIE RUNDY ZAKOŃCZONE`
+- Styl: `font-esports`, `text-[9px]`, `uppercase`, `tracking-[0.3em]`, `rgba(255,255,255,0.3)`, lewa krawędź `1px solid rgba(255,255,255,0.08)`
+
+### 5. Płynny autoscroll w pionie
+
+Dodać `useEffect` z logiką autoscrollu:
+- Po renderze sprawdzić `scrollHeight > clientHeight` kontenera
+- Jeśli tak — uruchomić `requestAnimationFrame` loop scrollujący w dół z prędkością ~0.3px/frame
+- Po dotarciu do dołu — odwrócić kierunek (ping-pong)
+- Owinąć kontener główny w dodatkowy div z `overflow-y: hidden` (żeby scroll nie był widoczny dla widza) i programowo kontrolować `scrollTop`
+- Cleanup na unmount
 
