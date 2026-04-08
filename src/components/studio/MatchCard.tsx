@@ -377,7 +377,10 @@ function HeaderPanel({ roundIndex, matchIndex, bestOf }: { roundIndex: number; m
   );
 }
 
-export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardProps) {
+export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults }: MatchCardProps) {
+  const activePollKey = `Runda ${match.round_index} Mecz ${match.match_index ?? '?'}`;
+  const activePollPct = pollResults?.[activePollKey];
+
   return (
     <motion.div
       layout
@@ -400,7 +403,7 @@ export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardPr
             )) ?? <TbdPanel side="a" />}
           </div>
           <div style={{ marginTop: 'auto' }}>
-            <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
+            <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" pollPct={activePollPct} />
           </div>
         </div>
 
@@ -433,7 +436,7 @@ export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardPr
       </div>
 
       {/* Upcoming matches queue */}
-      <UpcomingQueue matches={upcomingMatches} />
+      <UpcomingQueue matches={upcomingMatches} pollResults={pollResults} />
     </motion.div>
   );
 }
