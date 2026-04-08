@@ -239,7 +239,7 @@ function TeamBanner({ name, side, pollPct }: { name: string; side: 'a' | 'b'; po
       <div className="flex items-center">
         <div
           className="flex items-center gap-1 text-white font-esports font-bold text-base uppercase tracking-[0.15em] shrink-0"
-          style={{ marginRight: '8px', transform: 'skewX(-5deg)' }}
+          style={{ marginRight: '8px', transform: 'skewX(-5deg)', textShadow: '0 1px 4px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.4)', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}
         >
           <BarChart3 size={16} />
           <span>{pollPct}%</span>
@@ -294,7 +294,7 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
       <div className="flex items-center">
         <div
           className="flex items-center gap-1 text-white font-esports font-bold text-base uppercase tracking-[0.15em] shrink-0"
-          style={{ marginRight: '8px', transform: 'skewX(-5deg)' }}
+          style={{ marginRight: '8px', transform: 'skewX(-5deg)', textShadow: '0 1px 4px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.4)', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}
         >
           <BarChart3 size={16} />
           <span>{pollPct}%</span>
