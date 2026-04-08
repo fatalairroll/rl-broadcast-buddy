@@ -1,26 +1,18 @@
 
 
-# Plan: Intensywność MMR + poprawka liczby meczów w kolejce
+# Plan: Dodanie cienia do ikony i % wyników ankiety
 
-## 1. Zwiększenie intensywności cyfr MMR — `src/components/studio/MatchCard.tsx`
+## Zmiana
 
-W komponencie `MmrHeroText` (linia 68-103):
-- Zmienić `opacity: 0.45` na wartość zależną od `side`:
-  - Drużyna niebieska (`side === 'a'`): `0.45 * 1.35 = 0.61`
-  - Drużyna pomarańczowa (`side === 'b'`): `0.45 * 1.20 = 0.54`
+**Plik:** `src/components/studio/MatchCard.tsx`
 
-## 2. Usunięcie malejącej opacity w kolejnych meczach — `src/components/studio/MatchCard.tsx`
+Dodać `textShadow` i `filter: drop-shadow` do dwóch elementów zawierających ikonę `BarChart3` i procent:
 
-W komponencie `UpcomingQueue` (linia 310-336):
-- Usunąć tablicę `opacities` i zastosowanie `opacities[i]` w `animate`
-- Zmienić `animate={{ opacity: opacities[i] ?? 0.2, y: 0 }}` na `animate={{ opacity: 1, y: 0 }}`
+1. **TeamBanner** (linia 241-242) — dodać do stylu:
+   - `textShadow: '0 1px 4px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.4)'`
+   - `filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))'`
 
-## 3. Poprawka liczby wyświetlanych meczów — `src/components/studio/MatchCard.tsx`
+2. **UpcomingQueueRow** (linia 296-297) — identyczny styl jak wyżej.
 
-- Usunąć `matches.slice(0, 4)` (linia 318) — renderować wszystkie mecze z tablicy `matches` bez ograniczenia
-- Liczba meczów jest już kontrolowana przez parametr `count` w URL i filtrowanie w `useStudioData`
-
-## 4. Poprawka domyślnej wartości count — `src/pages/StudioRender.tsx`
-
-- Parametr `count` na linii 28 domyślnie wynosi `3` — jeśli użytkownik ustawił 5 w URL (`?count=5`), to działa poprawnie. Problem mógł wynikać z kombinacji `slice(0,4)` w UpcomingQueue + count=5 daje max 4 upcoming, ale jeśli API zwraca mniej scheduled meczów, widać mniej. Usunięcie slice rozwiąże problem.
+Cień obejmie zarówno ikonę SVG (przez `drop-shadow`), jak i tekst procentowy (przez `textShadow`).
 
