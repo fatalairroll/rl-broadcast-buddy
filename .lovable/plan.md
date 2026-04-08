@@ -1,30 +1,21 @@
 
 
-# Plan: Napraw timing rotacji i dopasuj styl kolejnych meczów
+# Plan: Dopasuj szerokość pasków kolejnych meczów do banerów drużyn
 
-## Problem z timingiem
+## Problem
 
-**Root cause**: Po rotacji kolejki zmienia się kolejność `match_id` w `queue`. Kiedy API polluje co 5s, porównanie `newIds !== curIds` daje `true` (bo kolejność się zmieniła), więc `setQueue(matches)` resetuje kolejkę i timer. Rozwiązanie: porównywać **posortowane** ID zamiast w kolejności.
+Paski kolejnych meczów (`UpcomingQueueRow`) rozciągają się na pełną szerokość kontenera, zamiast być wyrównane do krawędzi banerów drużyn w meczu głównym. Lewa krawędź powinna pokrywać się z lewą krawędzią niebieskiego banera, a prawa z prawą krawędzią pomarańczowego banera.
 
-## Styl kolejnych meczów
+## Rozwiązanie
 
-Obecne wiersze kolejki (`UpcomingQueueRow`) mają za mały padding i brak stałej szerokości. Powinny mieć:
-- Tę samą wysokość co `TeamBanner` (`py-2 px-5`)
-- Tę samą szerokość (dopasowaną do pełnej szerokości obu wrapperów drużyn)
-- Ten sam `skewX(-5deg)` z unskewed tekstem
+### `src/components/studio/MatchCard.tsx`
 
-## Zmiany
+Każdy baner drużyny ma `width: 450px`. Między nimi jest sekcja VS (~48px z mx-3 i tekstem). Łącznie: ~948px.
 
-### 1. `src/pages/StudioRender.tsx` — naprawa timingu
-- Linia 43-44: zmienić porównanie ID z kolejnościowego na posortowane:
-  ```
-  const newIds = matches.map(m => m.match_id).sort().join(',');
-  const curIds = queue.map(m => m.match_id).sort().join(',');
-  ```
-- Dzięki temu rotacja kolejki nie triggeruje resetu, bo zbiór ID się nie zmienia
+Zmiany w `UpcomingQueue`:
+- Ustawić kontener kolejki na `display: flex, justify-content: center` (wycentrowany jak reszta)
+- Nadać wierszom stałą szerokość równą sumie obu banerów + gap VS (~948px)
+- Dostosować marginesy tak, aby krawędzie pasków pokrywały się z krawędziami banerów (uwzględniając offset skew i margines banerów: `marginRight: 18px` dla A, `marginLeft: -12px` dla B)
 
-### 2. `src/components/studio/MatchCard.tsx` — styl `UpcomingQueueRow`
-- Zwiększyć padding wiersza z `6px 0` do `py-2 px-5` (jak TeamBanner)
-- Zachować `skewX(-5deg)` (już jest)
-- Dopasować font i tracking do TeamBanner (`text-base font-bold tracking-[0.15em]`)
+Konkretnie: szerokość wiersza = `450 + 450 + 48 = 948px`, wycentrowana, z przesunięciem `marginLeft: ~3px` (kompensacja asymetrycznych marginesów banerów: 18px vs -12px daje offset ~3px w prawo).
 
