@@ -57,3 +57,5 @@ export interface MatchResponse {
 }
 
 export type StudioMode = 'next_3' | 'bracket' | 'recent';
+
+export type PollResults = Record<string, number>;

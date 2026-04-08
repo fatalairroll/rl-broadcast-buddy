@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import type { MatchData, PlayerData } from '@/types/studio';
+import { BarChart3 } from 'lucide-react';
+import type { MatchData, PlayerData, PollResults } from '@/types/studio';
 import { RankIcon } from './RankIcon';
 import { getRankFromMmr, normalizeRankName, isValidRank } from '@/lib/rank-utils';
 
@@ -7,6 +8,7 @@ interface MatchCardProps {
   match: MatchData;
   gameMode: string;
   upcomingMatches?: MatchData[];
+  pollResults?: PollResults;
 }
 
 function getMmrForMode(player: PlayerData, mode: string): number | null {
@@ -200,7 +202,7 @@ function TbdPanel({ side }: { side: 'a' | 'b' }) {
   );
 }
 
-function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
+function TeamBanner({ name, side, pollPct }: { name: string; side: 'a' | 'b'; pollPct?: number }) {
   const bg =
     side === 'a'
       ? 'linear-gradient(90deg, transparent 0%, rgba(37,99,235,0.5) 30%, rgba(37,99,235,0.7) 100%)'
@@ -226,12 +228,20 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
         ...margin,
       }}
     >
-      <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{name}</span>
+      <span style={{ transform: 'skewX(5deg)', display: 'flex', alignItems: 'center', justifyContent: side === 'a' ? 'flex-end' : 'flex-start', gap: '8px' }}>
+        {side === 'a' && pollPct != null && (
+          <span className="flex items-center gap-1" style={{ color: '#60a5fa', textShadow: '0 0 8px rgba(37,99,235,0.6)' }}>
+            <BarChart3 size={14} />
+            <span style={{ fontSize: '12px' }}>{pollPct}%</span>
+          </span>
+        )}
+        {name}
+      </span>
     </div>
   );
 }
 
-function UpcomingQueueRow({ match }: { match: MatchData }) {
+function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: number }) {
   const teamA = match.team_a?.name ?? 'TBD';
   const teamB = match.team_b?.name ?? 'TBD';
 
@@ -247,7 +257,13 @@ function UpcomingQueueRow({ match }: { match: MatchData }) {
         marginLeft: '-2px',
       }}
     >
-      <div className="flex-1 text-right pr-3" style={{ transform: 'skewX(5deg)' }}>
+      <div className="flex-1 text-right pr-3 flex items-center justify-end gap-2" style={{ transform: 'skewX(5deg)' }}>
+        {pollPct != null && (
+          <span className="flex items-center gap-1" style={{ color: '#60a5fa', textShadow: '0 0 8px rgba(37,99,235,0.6)', fontSize: '11px' }}>
+            <BarChart3 size={12} />
+            {pollPct}%
+          </span>
+        )}
         {teamA}
       </div>
 
@@ -269,7 +285,7 @@ function UpcomingQueueRow({ match }: { match: MatchData }) {
   );
 }
 
-function UpcomingQueue({ matches }: { matches: MatchData[] }) {
+function UpcomingQueue({ matches, pollResults }: { matches: MatchData[]; pollResults?: PollResults }) {
   const opacities = [0.8, 0.6, 0.4, 0.25];
 
   if (matches.length === 0) return null;
@@ -277,18 +293,21 @@ function UpcomingQueue({ matches }: { matches: MatchData[] }) {
   return (
     <div className="flex flex-col items-center gap-[2px] mt-1" style={{ marginLeft: '3px' }}>
       <AnimatePresence mode="popLayout">
-        {matches.slice(0, 4).map((m, i) => (
-          <motion.div
-            key={m.match_id}
-            layout
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: opacities[i] ?? 0.2, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-          >
-            <UpcomingQueueRow match={m} />
-          </motion.div>
-        ))}
+        {matches.slice(0, 4).map((m, i) => {
+          const pollKey = `Runda ${m.round_index} Mecz ${m.match_index ?? '?'}`;
+          return (
+            <motion.div
+              key={m.match_id}
+              layout
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: opacities[i] ?? 0.2, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+            >
+              <UpcomingQueueRow match={m} pollPct={pollResults?.[pollKey]} />
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
     </div>
   );
@@ -358,7 +377,10 @@ function HeaderPanel({ roundIndex, matchIndex, bestOf }: { roundIndex: number; m
   );
 }
 
-export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardProps) {
+export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults }: MatchCardProps) {
+  const activePollKey = `Runda ${match.round_index} Mecz ${match.match_index ?? '?'}`;
+  const activePollPct = pollResults?.[activePollKey];
+
   return (
     <motion.div
       layout
@@ -381,7 +403,7 @@ export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardPr
             )) ?? <TbdPanel side="a" />}
           </div>
           <div style={{ marginTop: 'auto' }}>
-            <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
+            <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" pollPct={activePollPct} />
           </div>
         </div>
 
@@ -414,7 +436,7 @@ export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardPr
       </div>
 
       {/* Upcoming matches queue */}
-      <UpcomingQueue matches={upcomingMatches} />
+      <UpcomingQueue matches={upcomingMatches} pollResults={pollResults} />
     </motion.div>
   );
 }

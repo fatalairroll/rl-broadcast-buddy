@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { BarChart3 } from 'lucide-react';
 import { useStudioData } from '@/hooks/useStudioData';
 import { MatchCard } from '@/components/studio/MatchCard';
 import { BracketView } from '@/components/studio/BracketView';
 import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
-import type { StudioMode, MatchData } from '@/types/studio';
+import { supabase } from '@/integrations/supabase/client';
+import type { StudioMode, MatchData, PollResults } from '@/types/studio';
 
 const VALID_KEY = 'kXS6cVkTpJM2Qti';
 const ROTATE_INTERVAL = 6000;
@@ -68,6 +70,80 @@ export default function StudioRender() {
     };
   }, []);
 
+  // --- Twitch Poll ---
+  const [activePollId, setActivePollId] = useState<string | null>(null);
+  const [pollResults, setPollResults] = useState<PollResults>({});
+  const [pollCreating, setPollCreating] = useState(false);
+  const [hoveredMode, setHoveredMode] = useState<string | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const createPoll = useCallback(async () => {
+    if (queue.length < 2) return;
+    setPollCreating(true);
+    try {
+      const matchesPayload = queue.map(m => ({
+        round_index: m.round_index,
+        match_index: m.match_index,
+      }));
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/twitch-poll`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matches: matchesPayload, duration: 120 }),
+        }
+      );
+      const data = await res.json();
+      if (data.poll_id) {
+        setActivePollId(data.poll_id);
+      } else {
+        console.error('Poll creation failed:', data);
+      }
+    } catch (err) {
+      console.error('Poll creation error:', err);
+    } finally {
+      setPollCreating(false);
+    }
+  }, [queue]);
+
+  // Poll results polling
+  useEffect(() => {
+    if (!activePollId) return;
+
+    const fetchResults = async () => {
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/twitch-poll?poll_id=${activePollId}`
+        );
+        const data = await res.json();
+        if (data.results) {
+          setPollResults(data.results);
+        }
+        if (data.status === 'TERMINATED' || data.status === 'ARCHIVED' || data.status === 'COMPLETED') {
+          // Stop polling
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+        }
+      } catch (err) {
+        console.error('Poll results error:', err);
+      }
+    };
+
+    fetchResults();
+    pollIntervalRef.current = setInterval(fetchResults, 5000);
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [activePollId]);
+
   if (!authorized) return null;
   if (isLoading) return null;
 
@@ -101,25 +177,62 @@ export default function StudioRender() {
             {MODES.map((m) => {
               const active = mode === m.key;
               return (
-                <button
+                <div
                   key={m.key}
-                  onClick={() => setMode(m.key)}
-                  className="transition-colors duration-200"
-                  style={{
-                    padding: '16px 12px',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase' as const,
-                    textAlign: 'center' as const,
-                    cursor: 'pointer',
-                    border: 'none',
-                    background: active ? '#00A3FF' : 'transparent',
-                    color: active ? '#FFFFFF' : '#94A3B8',
-                  }}
+                  className="relative"
+                  onMouseEnter={() => setHoveredMode(m.key)}
+                  onMouseLeave={() => setHoveredMode(null)}
                 >
-                  {m.label}
-                </button>
+                  <button
+                    onClick={() => setMode(m.key)}
+                    className="w-full transition-colors duration-200"
+                    style={{
+                      padding: '16px 12px',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase' as const,
+                      textAlign: 'center' as const,
+                      cursor: 'pointer',
+                      border: 'none',
+                      background: active ? '#00A3FF' : 'transparent',
+                      color: active ? '#FFFFFF' : '#94A3B8',
+                    }}
+                  >
+                    {m.label}
+                  </button>
+
+                  {/* Poll button — slides out on hover of "Następne mecze" */}
+                  {m.key === 'next_3' && hoveredMode === 'next_3' && mode === 'next_3' && (
+                    <motion.button
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        createPoll();
+                      }}
+                      disabled={pollCreating || queue.length < 2}
+                      className="absolute left-full top-0 h-full flex items-center gap-1.5 px-3 whitespace-nowrap transition-colors"
+                      style={{
+                        background: pollCreating ? 'rgba(20,23,30,0.8)' : 'rgba(37,99,235,0.9)',
+                        color: '#fff',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        borderLeft: 'none',
+                        borderRadius: '0 8px 8px 0',
+                        cursor: pollCreating ? 'wait' : 'pointer',
+                      }}
+                    >
+                      <BarChart3 size={14} />
+                      {pollCreating ? 'Tworzenie...' : 'Rozpocznij ankietę'}
+                    </motion.button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -147,6 +260,7 @@ export default function StudioRender() {
                     match={activeMatch}
                     gameMode={gameMode}
                     upcomingMatches={upcomingMatches}
+                    pollResults={Object.keys(pollResults).length > 0 ? pollResults : undefined}
                   />
                 </motion.div>
               )}
