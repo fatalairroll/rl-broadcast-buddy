@@ -215,7 +215,7 @@ function TeamBanner({ name, side, pollPct }: { name: string; side: 'a' | 'b'; po
     ? { marginRight: '18px', alignSelf: 'flex-end' as const }
     : { marginLeft: '-12px', alignSelf: 'flex-start' as const };
 
-  return (
+  const banner = (
     <div
       className="py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
       style={{
@@ -228,24 +228,35 @@ function TeamBanner({ name, side, pollPct }: { name: string; side: 'a' | 'b'; po
         ...margin,
       }}
     >
-      <span style={{ transform: 'skewX(5deg)', display: 'flex', alignItems: 'center', justifyContent: side === 'a' ? 'flex-end' : 'flex-start', gap: '8px' }}>
-        {side === 'a' && pollPct != null && (
-          <span className="flex items-center gap-1" style={{ color: '#60a5fa', textShadow: '0 0 8px rgba(37,99,235,0.6)' }}>
-            <BarChart3 size={14} />
-            <span style={{ fontSize: '12px' }}>{pollPct}%</span>
-          </span>
-        )}
+      <span style={{ transform: 'skewX(5deg)', display: 'block' }}>
         {name}
       </span>
     </div>
   );
+
+  if (side === 'a' && pollPct != null) {
+    return (
+      <div className="flex items-center">
+        <div
+          className="flex items-center gap-1 text-white font-esports font-bold text-base uppercase tracking-[0.15em] shrink-0"
+          style={{ marginRight: '8px', transform: 'skewX(-5deg)' }}
+        >
+          <BarChart3 size={16} />
+          <span>{pollPct}%</span>
+        </div>
+        {banner}
+      </div>
+    );
+  }
+
+  return banner;
 }
 
 function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: number }) {
   const teamA = match.team_a?.name ?? 'TBD';
   const teamB = match.team_b?.name ?? 'TBD';
 
-  return (
+  const row = (
     <div
       className="flex items-center font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
       style={{
@@ -257,13 +268,7 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
         marginLeft: '-2px',
       }}
     >
-      <div className="flex-1 text-right pr-3 flex items-center justify-end gap-2" style={{ transform: 'skewX(5deg)' }}>
-        {pollPct != null && (
-          <span className="flex items-center gap-1" style={{ color: '#60a5fa', textShadow: '0 0 8px rgba(37,99,235,0.6)', fontSize: '11px' }}>
-            <BarChart3 size={12} />
-            {pollPct}%
-          </span>
-        )}
+      <div className="flex-1 text-right pr-3" style={{ transform: 'skewX(5deg)' }}>
         {teamA}
       </div>
 
@@ -283,6 +288,23 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
       </div>
     </div>
   );
+
+  if (pollPct != null) {
+    return (
+      <div className="flex items-center">
+        <div
+          className="flex items-center gap-1 text-white font-esports font-bold text-base uppercase tracking-[0.15em] shrink-0"
+          style={{ marginRight: '8px', transform: 'skewX(-5deg)' }}
+        >
+          <BarChart3 size={16} />
+          <span>{pollPct}%</span>
+        </div>
+        {row}
+      </div>
+    );
+  }
+
+  return row;
 }
 
 function UpcomingQueue({ matches, pollResults }: { matches: MatchData[]; pollResults?: PollResults }) {
