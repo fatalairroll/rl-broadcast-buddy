@@ -1,38 +1,44 @@
 
 
-# Plan: Polerowanie wizualne drabinki turniejowej
+# Plan: Kolorowe kreseczki w drabince + poprawki numeracji i kolejności meczów
 
-## Plik: `src/components/studio/BracketView.tsx`
+## Problemy zidentyfikowane
 
-### 1. Usunięcie kolorowych kresek przy wyniku (linie 296-297)
-Usunąć dwa elementy `<div className="absolute left-0...">` (niebieska kreska) i `<div className="absolute right-0...">` (pomarańczowa kreska) z paska wyniku.
+1. **Numeracja rund zawyżona o 1** — linia 202: `Runda {roundIdx + 1}`, ale `roundIdx` pochodzi z API jako wartość 1-based, więc +1 daje błędny wynik. Poprawka: `Runda {roundIdx}`.
 
-### 2. Jednolite tło kafelków meczowych (linia 261)
-Zamienić gradient `linear-gradient(135deg, rgba(15,23,42,0.92)...)` na proste `rgba(0,0,0,0.6)`.
+2. **Next matches — brak sortowania** — kod filtruje mecze `scheduled` i bierze pierwsze N, ale nie sortuje ich po `round_index` → `match_index`. Mecze mogą trafiać w losowej kolejności z API. Poprawka: dodać `.sort()` przed `.slice(0, count)`.
 
-### 3. Usunięcie kolorowych border-left z pasków drużyn (linie 272, 306)
-Usunąć `borderLeft: 3px solid BLUE/ORANGE` z pasków Team A i Team B.
+3. **Next matches — count=3 domyślnie** — w `StudioRender.tsx` linia 25: `Number(params.get('count') ?? '3')`. Jeśli w konfiguracji ustawisz 5, to URL powinien mieć `count=5` i to zadziała. Ale warto sprawdzić czy URL jest generowany poprawnie (wygląda OK w `Studio.tsx`). Jeśli problem nadal występuje, to prawdopodobnie API zwraca za mało meczów ze statusem `scheduled`.
 
-### 4. Typografia — "Poprzednie rundy zakończone" (linia 198)
-Zmienić kolor z `rgba(255,255,255,0.3)` na `#ffffff` i dodać `textShadow: '0 1px 4px rgba(0,0,0,0.7)'`.
+4. **Kolorowe kreseczki** — dodanie niebieskiej/pomarańczowej pionowej kreseczki przy nazwach drużyn.
 
-### 5. Typografia — nagłówki rund (linie 214-225)
-- Kolor tekstu: biały (`#ffffff`), `fontWeight: 700`
-- Usunąć tło `rgba(255,255,255,0.04)` i `borderBottom`
-- Dodać `best_of` do tekstu: pobrać `best_of` z pierwszego meczu w rundzie i wyświetlić np. `RUNDA 4 BO3`
+## Zmiany
 
-### 6. Seedy — jaśniejszy kolor (linie 283, 317)
-Zmienić `rgba(255,255,255,0.3)` na `rgba(255,255,255,0.6)`.
+### Plik: `src/components/studio/BracketView.tsx`
 
-### 7. Zmniejszenie mb nagłówka rundy
-Zmienić `mb-2` na `mb-0.5` w nagłówku rundy.
+**A. Numeracja rund (linia 202)**
+- Zmienić `Runda {roundIdx + 1}` na `Runda {roundIdx}`
 
-### 8. Zmniejszenie gap między rundami (linia 161)
-Zmienić `gap-10` na `gap-5` w kontenerze flex.
+**B. Kolorowe kreseczki w `BracketMatchCard`**
+- W pasku Team A (linia 248-262): dodać `<div>` o szerokości 4px, wysokości 20px, tle `#2563eb`, z `transform: skewX(-7deg)` i `flex-shrink: 0`, umieszczony przed nazwą drużyny (wewnątrz unskewed diva, jako pierwszy element flex)
+- W pasku Team B (linia 277-291): identyczna kreseczka z kolorem `#f97316`
+- Kreseczki nie potrzebują osobnego skew bo są wewnątrz diva z `skewX(7deg)` (unskew) — cały kontener już ma skew, więc kreseczki będą naturalnie pochylone
 
-### 9. Łączniki SVG — subtelne białe linie (linie 169-178)
-- Kolor: zawsze `rgba(255,255,255,0.3)` (bez kolorów drużynowych)
-- Grubość: `strokeWidth={1}`
-- Usunąć glow/drop-shadow
-- Uprościć stałe — usunąć `glow` z `LineData`
+### Plik: `src/hooks/useStudioData.ts`
+
+**C. Sortowanie meczów w trybie next_3 (linia 69-72)**
+- Dodać sortowanie przed slice:
+```ts
+resultMatches = resultMatches
+  .filter((m) => m.state === 'scheduled')
+  .sort((a, b) => {
+    if (a.round_index !== b.round_index) return a.round_index - b.round_index;
+    return (a.match_index ?? 0) - (b.match_index ?? 0);
+  })
+  .slice(0, count);
+```
+
+## Pliki do edycji
+- `src/components/studio/BracketView.tsx`
+- `src/hooks/useStudioData.ts`
 
