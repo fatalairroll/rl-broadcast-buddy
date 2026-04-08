@@ -240,6 +240,7 @@ function UpcomingQueueRow({ match }: { match: MatchData }) {
     <div
       className="flex items-center font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
       style={{
+        width: '948px',
         transform: 'skewX(-5deg)',
         background: 'linear-gradient(90deg, rgba(15,23,42,0.92), rgba(20,28,50,0.85), rgba(30,20,15,0.92))',
         border: '1px solid rgba(255,255,255,0.06)',
