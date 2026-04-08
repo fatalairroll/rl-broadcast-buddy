@@ -240,6 +240,7 @@ function UpcomingQueueRow({ match }: { match: MatchData }) {
     <div
       className="flex items-center font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
       style={{
+        width: '948px',
         transform: 'skewX(-5deg)',
         background: 'linear-gradient(90deg, rgba(15,23,42,0.92), rgba(20,28,50,0.85), rgba(30,20,15,0.92))',
         border: '1px solid rgba(255,255,255,0.06)',
@@ -269,7 +270,7 @@ function UpcomingQueue({ matches }: { matches: MatchData[] }) {
   if (matches.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-[2px] mt-1">
+    <div className="flex flex-col items-center gap-[2px] mt-1" style={{ marginLeft: '3px' }}>
       <AnimatePresence mode="popLayout">
         {matches.slice(0, 4).map((m, i) => (
           <motion.div
