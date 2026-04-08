@@ -81,7 +81,7 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
         alignItems: 'center',
         justifyContent: 'center',
         mixBlendMode: 'overlay',
-        opacity: 0.45,
+        opacity: side === 'a' ? 0.61 : 0.54,
         overflow: 'hidden',
       }}
     >
@@ -308,21 +308,19 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
 }
 
 function UpcomingQueue({ matches, pollResults }: { matches: MatchData[]; pollResults?: PollResults }) {
-  const opacities = [0.8, 0.6, 0.4, 0.25];
-
   if (matches.length === 0) return null;
 
   return (
     <div className="flex flex-col items-center gap-[2px] mt-1" style={{ marginLeft: '3px' }}>
       <AnimatePresence mode="popLayout">
-        {matches.slice(0, 4).map((m, i) => {
+        {matches.map((m, i) => {
           const pollKey = `Runda ${m.round_index} Mecz ${m.match_index ?? '?'}`;
           return (
             <motion.div
               key={m.match_id}
               layout
               initial={{ opacity: 0, y: -16 }}
-              animate={{ opacity: opacities[i] ?? 0.2, y: 0 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -16 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
             >
