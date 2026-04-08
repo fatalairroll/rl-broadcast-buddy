@@ -165,8 +165,8 @@ export default function StudioRender() {
           className="fixed top-1/2 left-0 z-50 flex -translate-y-1/2"
         >
           <div
-            className="flex flex-col overflow-hidden"
-            style={{
+          className="flex flex-col"
+          style={{
               width: 180,
               background: 'rgba(20, 23, 30, 0.95)',
               borderRadius: '0 12px 12px 0',
@@ -203,35 +203,37 @@ export default function StudioRender() {
                   </button>
 
                   {/* Poll button — slides out on hover of "Następne mecze" */}
-                  {m.key === 'next_3' && hoveredMode === 'next_3' && mode === 'next_3' && (
-                    <motion.button
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ duration: 0.2 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        createPoll();
-                      }}
-                      disabled={pollCreating || queue.length < 2}
-                      className="absolute left-full top-0 h-full flex items-center gap-1.5 px-3 whitespace-nowrap transition-colors"
-                      style={{
-                        background: pollCreating ? 'rgba(20,23,30,0.8)' : 'rgba(37,99,235,0.9)',
-                        color: '#fff',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderLeft: 'none',
-                        borderRadius: '0 8px 8px 0',
-                        cursor: pollCreating ? 'wait' : 'pointer',
-                      }}
-                    >
-                      <BarChart3 size={14} />
-                      {pollCreating ? 'Tworzenie...' : 'Rozpocznij ankietę'}
-                    </motion.button>
-                  )}
+                  <AnimatePresence>
+                    {m.key === 'next_3' && hoveredMode === 'next_3' && mode === 'next_3' && (
+                      <motion.button
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ duration: 0.2 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          createPoll();
+                        }}
+                        disabled={pollCreating || queue.length < 2}
+                        className="absolute left-full top-0 h-full flex items-center gap-1.5 px-3 whitespace-nowrap transition-colors"
+                        style={{
+                          background: pollCreating ? 'rgba(20,23,30,0.8)' : 'rgba(37,99,235,0.9)',
+                          color: '#fff',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          borderLeft: 'none',
+                          borderRadius: '0 8px 8px 0',
+                          cursor: pollCreating ? 'wait' : 'pointer',
+                        }}
+                      >
+                        <BarChart3 size={16} />
+                        <span>Rozpocznij ankietę</span>
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}
