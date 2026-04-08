@@ -101,38 +101,64 @@ export function BracketView({ matches }: BracketViewProps) {
     return () => ro.disconnect();
   }, [calcLines]);
 
-  // --- Time-based autoscroll ---
+  // --- Time-based autoscroll with overflow detection ---
   useEffect(() => {
     const outer = outerRef.current;
     if (!outer) return;
 
     let rafId: number;
-    let startTime: number | null = null;
-    let direction = 1;
     let running = true;
+    let phase: 'pause-top' | 'scrolling-down' | 'pause-bottom' | 'scrolling-up' = 'pause-top';
+    let phaseStart: number | null = null;
+    const PAUSE_MS = 2000; // pause at top/bottom
 
     const step = (timestamp: number) => {
       if (!running) return;
       const maxScroll = outer.scrollHeight - outer.clientHeight;
       if (maxScroll <= 0) {
+        outer.scrollTop = 0;
         rafId = requestAnimationFrame(step);
         return;
       }
 
-      if (startTime === null) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-      const pxPerMs = maxScroll / SCROLL_CYCLE_MS;
-      const delta = pxPerMs * 16; // ~16ms per frame
+      if (phaseStart === null) phaseStart = timestamp;
+      const elapsed = timestamp - phaseStart;
 
-      outer.scrollTop += delta * direction;
-      if (outer.scrollTop >= maxScroll) {
-        outer.scrollTop = maxScroll;
-        direction = -1;
-        startTime = timestamp;
-      } else if (outer.scrollTop <= 0) {
-        outer.scrollTop = 0;
-        direction = 1;
-        startTime = timestamp;
+      switch (phase) {
+        case 'pause-top':
+          outer.scrollTop = 0;
+          if (elapsed >= PAUSE_MS) {
+            phase = 'scrolling-down';
+            phaseStart = timestamp;
+          }
+          break;
+        case 'scrolling-down': {
+          const progress = Math.min(elapsed / SCROLL_CYCLE_MS, 1);
+          outer.scrollTop = progress * maxScroll;
+          if (progress >= 1) {
+            outer.scrollTop = maxScroll;
+            phase = 'pause-bottom';
+            phaseStart = timestamp;
+          }
+          break;
+        }
+        case 'pause-bottom':
+          outer.scrollTop = maxScroll;
+          if (elapsed >= PAUSE_MS) {
+            phase = 'scrolling-up';
+            phaseStart = timestamp;
+          }
+          break;
+        case 'scrolling-up': {
+          const progress = Math.min(elapsed / SCROLL_CYCLE_MS, 1);
+          outer.scrollTop = maxScroll * (1 - progress);
+          if (progress >= 1) {
+            outer.scrollTop = 0;
+            phase = 'pause-top';
+            phaseStart = timestamp;
+          }
+          break;
+        }
       }
 
       rafId = requestAnimationFrame(step);
@@ -140,7 +166,7 @@ export function BracketView({ matches }: BracketViewProps) {
 
     const timeout = setTimeout(() => {
       rafId = requestAnimationFrame(step);
-    }, 1500);
+    }, 500);
 
     return () => {
       running = false;
