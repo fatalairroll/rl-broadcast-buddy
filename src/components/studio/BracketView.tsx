@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import type { MatchData } from '@/types/studio';
 
 interface BracketViewProps {
@@ -10,6 +10,7 @@ const UNSKEW = 7;
 const BLUE = '#2563eb';
 const ORANGE = '#f97316';
 const GRAY = 'rgba(255,255,255,0.12)';
+const SCROLL_SPEED = 0.3;
 
 interface LineData {
   id: string;
@@ -19,33 +20,44 @@ interface LineData {
 }
 
 export function BracketView({ matches }: BracketViewProps) {
+  const outerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [lines, setLines] = useState<LineData[]>([]);
 
   // Group by round
-  const rounds = new Map<number, MatchData[]>();
-  matches.forEach((m) => {
-    const arr = rounds.get(m.round_index) ?? [];
-    arr.push(m);
-    rounds.set(m.round_index, arr);
-  });
+  const sortedRounds = useMemo(() => {
+    const rounds = new Map<number, MatchData[]>();
+    matches.forEach((m) => {
+      const arr = rounds.get(m.round_index) ?? [];
+      arr.push(m);
+      rounds.set(m.round_index, arr);
+    });
+    const sorted = [...rounds.entries()].sort(([a], [b]) => a - b);
+    sorted.forEach(([, roundMatches]) => {
+      roundMatches.sort((a, b) => (a.match_index ?? 0) - (b.match_index ?? 0));
+    });
+    return sorted;
+  }, [matches]);
 
-  const sortedRounds = [...rounds.entries()].sort(([a], [b]) => a - b);
+  // Find first visible round (first with unfinished match)
+  const startIdx = useMemo(() => {
+    const idx = sortedRounds.findIndex(([, ms]) =>
+      ms.some(m => m.state !== 'finished' && m.state !== 'done')
+    );
+    return idx === -1 ? Math.max(0, sortedRounds.length - 1) : idx;
+  }, [sortedRounds]);
 
-  // Sort matches within each round by match_index
-  sortedRounds.forEach(([, roundMatches]) => {
-    roundMatches.sort((a, b) => (a.match_index ?? 0) - (b.match_index ?? 0));
-  });
+  const visibleRounds = useMemo(() => sortedRounds.slice(startIdx), [sortedRounds, startIdx]);
 
   const calcLines = useCallback(() => {
     if (!containerRef.current) return;
     const containerRect = containerRef.current.getBoundingClientRect();
     const newLines: LineData[] = [];
 
-    for (let ri = 0; ri < sortedRounds.length - 1; ri++) {
-      const [, currentRoundMatches] = sortedRounds[ri];
-      const [, nextRoundMatches] = sortedRounds[ri + 1];
+    for (let ri = 0; ri < visibleRounds.length - 1; ri++) {
+      const [, currentRoundMatches] = visibleRounds[ri];
+      const [, nextRoundMatches] = visibleRounds[ri + 1];
 
       for (let mi = 0; mi < currentRoundMatches.length; mi++) {
         const match = currentRoundMatches[mi];
@@ -67,10 +79,8 @@ export function BracketView({ matches }: BracketViewProps) {
         const endY = toRect.top + (isUpper ? toRect.height * 0.3 : toRect.height * 0.7) - containerRect.top;
 
         const midX = startX + (endX - startX) / 2;
-
         const d = `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
 
-        // Determine color
         let color = GRAY;
         let glow = false;
         if (match.state === 'finished' || match.state === 'done') {
@@ -88,7 +98,7 @@ export function BracketView({ matches }: BracketViewProps) {
     }
 
     setLines(newLines);
-  }, [sortedRounds]);
+  }, [visibleRounds]);
 
   useEffect(() => {
     calcLines();
@@ -96,6 +106,42 @@ export function BracketView({ matches }: BracketViewProps) {
     if (containerRef.current) ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, [calcLines]);
+
+  // Autoscroll ping-pong
+  useEffect(() => {
+    const outer = outerRef.current;
+    if (!outer) return;
+
+    let rafId: number;
+    let direction = 1;
+    let running = true;
+
+    const checkAndScroll = () => {
+      if (!running) return;
+      const maxScroll = outer.scrollHeight - outer.clientHeight;
+      if (maxScroll <= 0) {
+        rafId = requestAnimationFrame(checkAndScroll);
+        return;
+      }
+
+      outer.scrollTop += SCROLL_SPEED * direction;
+      if (outer.scrollTop >= maxScroll) direction = -1;
+      if (outer.scrollTop <= 0) direction = 1;
+
+      rafId = requestAnimationFrame(checkAndScroll);
+    };
+
+    // Delay start to allow layout
+    const timeout = setTimeout(() => {
+      rafId = requestAnimationFrame(checkAndScroll);
+    }, 1000);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(rafId);
+      clearTimeout(timeout);
+    };
+  }, [visibleRounds]);
 
   const setMatchRef = useCallback((matchId: string, el: HTMLDivElement | null) => {
     if (el) {
@@ -107,58 +153,88 @@ export function BracketView({ matches }: BracketViewProps) {
 
   return (
     <div
-      ref={containerRef}
-      className="relative flex items-start gap-10 overflow-x-auto p-6"
-      style={{ minHeight: 400 }}
+      ref={outerRef}
+      style={{ overflow: 'hidden', height: '100vh' }}
     >
-      {/* SVG connector layer */}
-      <svg
-        className="absolute inset-0 pointer-events-none"
-        style={{ width: '100%', height: '100%', overflow: 'visible' }}
+      <div
+        ref={containerRef}
+        className="relative flex items-start gap-10 p-6"
+        style={{ minHeight: 400, overflowX: 'auto' }}
       >
-        {lines.map((line) => (
-          <path
-            key={line.id}
-            d={line.d}
-            fill="none"
-            stroke={line.color}
-            strokeWidth={2}
-            style={line.glow ? { filter: `drop-shadow(0 0 4px ${line.color}) drop-shadow(0 0 8px ${line.color})` } : undefined}
-          />
-        ))}
-      </svg>
+        {/* SVG connector layer */}
+        <svg
+          className="absolute inset-0 pointer-events-none"
+          style={{ width: '100%', height: '100%', overflow: 'visible' }}
+        >
+          {lines.map((line) => (
+            <path
+              key={line.id}
+              d={line.d}
+              fill="none"
+              stroke={line.color}
+              strokeWidth={2}
+              style={line.glow ? { filter: `drop-shadow(0 0 4px ${line.color}) drop-shadow(0 0 8px ${line.color})` } : undefined}
+            />
+          ))}
+        </svg>
 
-      {/* Round columns */}
-      {sortedRounds.map(([roundIdx, roundMatches], ri) => {
-        // Increase gap exponentially to create tree shape
-        const gap = 16 * Math.pow(2, ri);
-        return (
-          <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ gap, minWidth: 200 }}>
-            {/* Round header */}
-            <div
-              className="font-esports text-[10px] uppercase tracking-[0.25em] mb-2 px-3 py-1"
+        {/* "Previous rounds finished" indicator */}
+        {startIdx > 0 && (
+          <div
+            className="flex items-center justify-center shrink-0 self-stretch"
+            style={{
+              writingMode: 'vertical-rl',
+              transform: 'rotate(180deg)',
+              borderLeft: '1px solid rgba(255,255,255,0.08)',
+              paddingLeft: 8,
+              paddingRight: 8,
+            }}
+          >
+            <span
+              className="font-esports uppercase"
               style={{
-                transform: `skewX(${SKEW}deg)`,
-                color: 'rgba(255,255,255,0.5)',
-                background: 'rgba(255,255,255,0.04)',
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                fontSize: 9,
+                letterSpacing: '0.3em',
+                color: 'rgba(255,255,255,0.3)',
+                whiteSpace: 'nowrap',
               }}
             >
-              <span style={{ display: 'inline-block', transform: `skewX(${UNSKEW}deg)` }}>
-                Runda {roundIdx + 1}
-              </span>
-            </div>
-
-            {roundMatches.map((match) => (
-              <BracketMatchCard
-                key={match.match_id}
-                match={match}
-                refCallback={(el) => setMatchRef(match.match_id, el)}
-              />
-            ))}
+              Poprzednie rundy zakończone
+            </span>
           </div>
-        );
-      })}
+        )}
+
+        {/* Round columns */}
+        {visibleRounds.map(([roundIdx, roundMatches], ri) => {
+          const originalPosition = startIdx + ri;
+          const gap = 16 * Math.pow(2, originalPosition);
+          return (
+            <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ gap, minWidth: 200 }}>
+              <div
+                className="font-esports text-[10px] uppercase tracking-[0.25em] mb-2 px-3 py-1"
+                style={{
+                  transform: `skewX(${SKEW}deg)`,
+                  color: 'rgba(255,255,255,0.5)',
+                  background: 'rgba(255,255,255,0.04)',
+                  borderBottom: '1px solid rgba(255,255,255,0.08)',
+                }}
+              >
+                <span style={{ display: 'inline-block', transform: `skewX(${UNSKEW}deg)` }}>
+                  Runda {roundIdx + 1}
+                </span>
+              </div>
+
+              {roundMatches.map((match) => (
+                <BracketMatchCard
+                  key={match.match_id}
+                  match={match}
+                  refCallback={(el) => setMatchRef(match.match_id, el)}
+                />
+              ))}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -190,7 +266,6 @@ function BracketMatchCard({
         width: 200,
       }}
     >
-      {/* Team A */}
       <div
         className="flex items-center justify-between px-2.5 py-1.5"
         style={{
@@ -200,11 +275,7 @@ function BracketMatchCard({
       >
         <span
           className="font-esports text-xs uppercase tracking-wider truncate"
-          style={{
-            color: '#ffffff',
-            fontWeight: 700,
-            opacity: bWon ? 0.4 : 1,
-          }}
+          style={{ color: '#ffffff', fontWeight: 700, opacity: bWon ? 0.4 : 1 }}
         >
           {match.team_a?.name ?? 'TBD'}
         </span>
@@ -215,7 +286,6 @@ function BracketMatchCard({
         )}
       </div>
 
-      {/* Score divider */}
       <div
         className="relative flex items-center justify-center py-0.5"
         style={{
@@ -223,33 +293,13 @@ function BracketMatchCard({
           transform: `skewX(${UNSKEW}deg)`,
         }}
       >
-        {/* Blue neon stripe left */}
-        <div
-          className="absolute left-0 top-0 bottom-0"
-          style={{
-            width: 2,
-            background: BLUE,
-            boxShadow: `0 0 6px rgba(37,99,235,0.8), 0 0 12px rgba(37,99,235,0.4)`,
-          }}
-        />
-        {/* Orange neon stripe right */}
-        <div
-          className="absolute right-0 top-0 bottom-0"
-          style={{
-            width: 2,
-            background: ORANGE,
-            boxShadow: `0 0 6px rgba(249,115,22,0.8), 0 0 12px rgba(249,115,22,0.4)`,
-          }}
-        />
-        <span
-          className="font-esports text-xs font-bold tracking-widest"
-          style={{ color: 'hsl(210, 20%, 95%)' }}
-        >
+        <div className="absolute left-0 top-0 bottom-0" style={{ width: 2, background: BLUE, boxShadow: `0 0 6px rgba(37,99,235,0.8), 0 0 12px rgba(37,99,235,0.4)` }} />
+        <div className="absolute right-0 top-0 bottom-0" style={{ width: 2, background: ORANGE, boxShadow: `0 0 6px rgba(249,115,22,0.8), 0 0 12px rgba(249,115,22,0.4)` }} />
+        <span className="font-esports text-xs font-bold tracking-widest" style={{ color: 'hsl(210, 20%, 95%)' }}>
           {match.score_a} : {match.score_b}
         </span>
       </div>
 
-      {/* Team B */}
       <div
         className="flex items-center justify-between px-2.5 py-1.5"
         style={{
@@ -259,11 +309,7 @@ function BracketMatchCard({
       >
         <span
           className="font-esports text-xs uppercase tracking-wider truncate"
-          style={{
-            color: '#ffffff',
-            fontWeight: 700,
-            opacity: aWon ? 0.4 : 1,
-          }}
+          style={{ color: '#ffffff', fontWeight: 700, opacity: aWon ? 0.4 : 1 }}
         >
           {match.team_b?.name ?? 'TBD'}
         </span>
