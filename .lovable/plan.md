@@ -1,44 +1,104 @@
 
 
-# Plan: Kolorowe kreseczki w drabince + poprawki numeracji i kolejności meczów
+# Plan: Przebudowa BracketView — symetria, glassmorphism, łączniki
 
-## Problemy zidentyfikowane
+## Plik: `src/components/studio/BracketView.tsx` — pełne przepisanie
 
-1. **Numeracja rund zawyżona o 1** — linia 202: `Runda {roundIdx + 1}`, ale `roundIdx` pochodzi z API jako wartość 1-based, więc +1 daje błędny wynik. Poprawka: `Runda {roundIdx}`.
-
-2. **Next matches — brak sortowania** — kod filtruje mecze `scheduled` i bierze pierwsze N, ale nie sortuje ich po `round_index` → `match_index`. Mecze mogą trafiać w losowej kolejności z API. Poprawka: dodać `.sort()` przed `.slice(0, count)`.
-
-3. **Next matches — count=3 domyślnie** — w `StudioRender.tsx` linia 25: `Number(params.get('count') ?? '3')`. Jeśli w konfiguracji ustawisz 5, to URL powinien mieć `count=5` i to zadziała. Ale warto sprawdzić czy URL jest generowany poprawnie (wygląda OK w `Studio.tsx`). Jeśli problem nadal występuje, to prawdopodobnie API zwraca za mało meczów ze statusem `scheduled`.
-
-4. **Kolorowe kreseczki** — dodanie niebieskiej/pomarańczowej pionowej kreseczki przy nazwach drużyn.
-
-## Zmiany
-
-### Plik: `src/components/studio/BracketView.tsx`
-
-**A. Numeracja rund (linia 202)**
-- Zmienić `Runda {roundIdx + 1}` na `Runda {roundIdx}`
-
-**B. Kolorowe kreseczki w `BracketMatchCard`**
-- W pasku Team A (linia 248-262): dodać `<div>` o szerokości 4px, wysokości 20px, tle `#2563eb`, z `transform: skewX(-7deg)` i `flex-shrink: 0`, umieszczony przed nazwą drużyny (wewnątrz unskewed diva, jako pierwszy element flex)
-- W pasku Team B (linia 277-291): identyczna kreseczka z kolorem `#f97316`
-- Kreseczki nie potrzebują osobnego skew bo są wewnątrz diva z `skewX(7deg)` (unskew) — cały kontener już ma skew, więc kreseczki będą naturalnie pochylone
-
-### Plik: `src/hooks/useStudioData.ts`
-
-**C. Sortowanie meczów w trybie next_3 (linia 69-72)**
-- Dodać sortowanie przed slice:
+### Stałe
 ```ts
-resultMatches = resultMatches
-  .filter((m) => m.state === 'scheduled')
-  .sort((a, b) => {
-    if (a.round_index !== b.round_index) return a.round_index - b.round_index;
-    return (a.match_index ?? 0) - (b.match_index ?? 0);
-  })
-  .slice(0, count);
+const MATCH_HEIGHT = 72;
+const BASE_GAP = 8;
+const H_GAP = 60;        // stały odstęp poziomy między kolumnami
+const SCROLL_SPEED = 0.15;
+const LINE_COLOR = 'rgba(255,255,255,0.2)';
+const LINE_WIDTH = 1.5;
+const SKEW = -7;
+const UNSKEW = 7;
+const CARD_WIDTH = 200;
 ```
+
+### 1. Niezależna matematyka symetrii
+
+Wysokość kontenera obliczana na podstawie **absolutnego** numeru rundy w turnieju (`originalPosition = startIdx + ri`), nie względnego `ri`:
+
+```ts
+function getContainerHeight(absoluteRoundIndex: number): number {
+  if (absoluteRoundIndex === 0) return MATCH_HEIGHT;
+  return 2 * getContainerHeight(absoluteRoundIndex - 1) + BASE_GAP;
+}
+```
+
+Pierwsza widoczna runda (ri=0) używa `getContainerHeight(startIdx)` — jeśli startIdx=2, kontenery są już duże, zachowując proporcje jakby rundy 0-1 istniały.
+
+Każdy mecz opakowany w:
+```tsx
+<div style={{ height: containerHeight, display: 'flex', alignItems: 'center' }}>
+  <BracketMatchCard ... />
+</div>
+```
+
+Kolumny rund: `flex-col` bez gap (gap zakodowany w wysokości kontenerów).
+
+### 2. Poziome SVG i stały H_GAP
+
+- Kontener flex z `gap: H_GAP` (60px) między kolumnami rund
+- SVG warstwa absolutna z `z-index: 0`
+- Łamane linie H→V→H: z prawej krawędzi meczu (środek Y) do lewej krawędzi meczu w rundzie N+1 (środek Y)
+- `stroke: rgba(255,255,255,0.2)`, `strokeWidth: 1.5`, `fill: none`
+- endY bez offsetu 0.3/0.7 — mecze wyśrodkowane, linia idzie do środka
+
+### 3. Z-Index
+
+- SVG warstwa: `z-index: 0`
+- Kafelki meczów: `position: relative; z-index: 1` — blur tła kafelka nie rozmywa linii SVG pod spodem
+
+### 4. Safe Area (padding)
+
+- Kontener drabinki: `padding: 24px 40px` — dodatkowy lewy/prawy padding (40px) zapobiega ucinaniu pochylonych krawędzi skew
+
+### 5. Kreseczki kolorystyczne — poza divem unskew
+
+Przenieść kreseczki **przed** div z `skewX(UNSKEW)`. Kreseczka jest bezpośrednim dzieckiem skewed karty, więc naturalnie dziedziczy pochylenie `-7deg`:
+
+```tsx
+<div ref={refCallback} style={{ transform: `skewX(${SKEW}deg)`, ... position: 'relative', zIndex: 1 }}>
+  {/* Team A row */}
+  <div className="flex items-center">
+    <div style={{ width: 4, height: 20, background: '#2563eb', flexShrink: 0 }} />
+    <div style={{ transform: `skewX(${UNSKEW}deg)` }} className="flex items-center justify-between flex-1 px-2.5 py-1.5">
+      <span className="ml-2 ...">TEAM NAME</span>
+      <span>#seed</span>
+    </div>
+  </div>
+  {/* Score bar */}
+  ...
+  {/* Team B row */}
+  <div className="flex items-center">
+    <div style={{ width: 4, height: 20, background: '#f97316', flexShrink: 0 }} />
+    <div style={{ transform: `skewX(${UNSKEW}deg)` }} className="...">
+      ...
+    </div>
+  </div>
+</div>
+```
+
+### 6. Glassmorphism
+
+- `background: rgba(0, 0, 0, 0.75)`
+- `backdropFilter: blur(10px)`
+- `border: 0.5px solid rgba(255,255,255,0.15)`
+- Live: czerwona ramka + glow (zachowane)
+
+### 7. Typografia
+
+- `ml-2` (8px) gap między kreseczką a nazwą (wewnątrz unskewed diva)
+- Nazwy: `uppercase`, `font-bold` (zachowane)
+- Nagłówki rund: `mb-0`, biały, `Runda {roundIdx} BO{n}`
+
+### 8. Autoscroll
+
+`SCROLL_SPEED = 0.15` — cykl ~30-40s. Ping-pong RAF loop z 1s delay.
 
 ## Pliki do edycji
 - `src/components/studio/BracketView.tsx`
-- `src/hooks/useStudioData.ts`
 
