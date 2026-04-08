@@ -185,7 +185,7 @@ export function BracketView({ matches }: BracketViewProps) {
       ref={outerRef}
       style={{
         height: '100vh',
-        overflowY: 'auto',
+        overflowY: 'hidden',
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
       }}
