@@ -270,7 +270,7 @@ function UpcomingQueue({ matches }: { matches: MatchData[] }) {
   if (matches.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-[2px] mt-1">
+    <div className="flex flex-col items-center gap-[2px] mt-1" style={{ marginLeft: '3px' }}>
       <AnimatePresence mode="popLayout">
         {matches.slice(0, 4).map((m, i) => (
           <motion.div
