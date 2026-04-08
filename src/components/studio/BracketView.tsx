@@ -6,14 +6,19 @@ interface BracketViewProps {
 }
 
 const MATCH_HEIGHT = 72;
-const BASE_GAP = 8;
+const BASE_GAP = 12;
 const H_GAP = 60;
-const SCROLL_SPEED = 0.15;
+const SCROLL_CYCLE_MS = 30000; // 30s one-way
 const LINE_COLOR = 'rgba(255,255,255,0.2)';
 const LINE_WIDTH = 1.5;
 const SKEW = -7;
 const UNSKEW = 7;
 const CARD_WIDTH = 200;
+
+// Row heights inside the card must sum to MATCH_HEIGHT
+const TEAM_ROW_H = 28;
+const SCORE_ROW_H = 16;
+// TEAM_ROW_H * 2 + SCORE_ROW_H = 72 ✓
 
 interface LineData {
   id: string;
@@ -39,9 +44,7 @@ export function BracketView({ matches }: BracketViewProps) {
       rounds.set(m.round_index, arr);
     });
     const sorted = [...rounds.entries()].sort(([a], [b]) => a - b);
-    sorted.forEach(([, roundMatches]) => {
-      roundMatches.sort((a, b) => (a.match_index ?? 0) - (b.match_index ?? 0));
-    });
+    sorted.forEach(([, rm]) => rm.sort((a, b) => (a.match_index ?? 0) - (b.match_index ?? 0)));
     return sorted;
   }, [matches]);
 
@@ -54,6 +57,7 @@ export function BracketView({ matches }: BracketViewProps) {
 
   const visibleRounds = useMemo(() => sortedRounds.slice(startIdx), [sortedRounds, startIdx]);
 
+  // --- SVG lines ---
   const calcLines = useCallback(() => {
     if (!containerRef.current) return;
     const containerRect = containerRef.current.getBoundingClientRect();
@@ -65,8 +69,7 @@ export function BracketView({ matches }: BracketViewProps) {
 
       for (let mi = 0; mi < currentRoundMatches.length; mi++) {
         const match = currentRoundMatches[mi];
-        const nextMatchIdx = Math.floor(mi / 2);
-        const nextMatch = nextRoundMatches[nextMatchIdx];
+        const nextMatch = nextRoundMatches[Math.floor(mi / 2)];
         if (!nextMatch) continue;
 
         const fromEl = matchRefs.current.get(match.match_id);
@@ -80,14 +83,14 @@ export function BracketView({ matches }: BracketViewProps) {
         const startY = fromRect.top + fromRect.height / 2 - containerRect.top;
         const endX = toRect.left - containerRect.left;
         const endY = toRect.top + toRect.height / 2 - containerRect.top;
-
         const midX = startX + (endX - startX) / 2;
-        const d = `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
 
-        newLines.push({ id: `${match.match_id}->${nextMatch.match_id}`, d });
+        newLines.push({
+          id: `${match.match_id}->${nextMatch.match_id}`,
+          d: `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`,
+        });
       }
     }
-
     setLines(newLines);
   }, [visibleRounds]);
 
@@ -98,33 +101,46 @@ export function BracketView({ matches }: BracketViewProps) {
     return () => ro.disconnect();
   }, [calcLines]);
 
-  // Autoscroll ping-pong
+  // --- Time-based autoscroll ---
   useEffect(() => {
     const outer = outerRef.current;
     if (!outer) return;
 
     let rafId: number;
+    let startTime: number | null = null;
     let direction = 1;
     let running = true;
 
-    const checkAndScroll = () => {
+    const step = (timestamp: number) => {
       if (!running) return;
       const maxScroll = outer.scrollHeight - outer.clientHeight;
       if (maxScroll <= 0) {
-        rafId = requestAnimationFrame(checkAndScroll);
+        rafId = requestAnimationFrame(step);
         return;
       }
 
-      outer.scrollTop += SCROLL_SPEED * direction;
-      if (outer.scrollTop >= maxScroll) direction = -1;
-      if (outer.scrollTop <= 0) direction = 1;
+      if (startTime === null) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const pxPerMs = maxScroll / SCROLL_CYCLE_MS;
+      const delta = pxPerMs * 16; // ~16ms per frame
 
-      rafId = requestAnimationFrame(checkAndScroll);
+      outer.scrollTop += delta * direction;
+      if (outer.scrollTop >= maxScroll) {
+        outer.scrollTop = maxScroll;
+        direction = -1;
+        startTime = timestamp;
+      } else if (outer.scrollTop <= 0) {
+        outer.scrollTop = 0;
+        direction = 1;
+        startTime = timestamp;
+      }
+
+      rafId = requestAnimationFrame(step);
     };
 
     const timeout = setTimeout(() => {
-      rafId = requestAnimationFrame(checkAndScroll);
-    }, 1000);
+      rafId = requestAnimationFrame(step);
+    }, 1500);
 
     return () => {
       running = false;
@@ -134,37 +150,37 @@ export function BracketView({ matches }: BracketViewProps) {
   }, [visibleRounds]);
 
   const setMatchRef = useCallback((matchId: string, el: HTMLDivElement | null) => {
-    if (el) {
-      matchRefs.current.set(matchId, el);
-    } else {
-      matchRefs.current.delete(matchId);
-    }
+    if (el) matchRefs.current.set(matchId, el);
+    else matchRefs.current.delete(matchId);
   }, []);
 
   return (
-    <div ref={outerRef} style={{ overflow: 'hidden', height: '100vh' }}>
+    <div
+      ref={outerRef}
+      style={{
+        height: '100vh',
+        overflowY: 'auto',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+      }}
+      className="[&::-webkit-scrollbar]:hidden"
+    >
       <div
         ref={containerRef}
         className="relative flex items-start"
-        style={{ minHeight: 400, padding: '24px 40px', gap: H_GAP }}
+        style={{ padding: '24px 40px', gap: H_GAP }}
       >
-        {/* SVG connector layer — z-index 0 */}
+        {/* SVG connector layer */}
         <svg
           className="absolute inset-0 pointer-events-none"
           style={{ width: '100%', height: '100%', overflow: 'visible', zIndex: 0 }}
         >
           {lines.map((line) => (
-            <path
-              key={line.id}
-              d={line.d}
-              fill="none"
-              stroke={LINE_COLOR}
-              strokeWidth={LINE_WIDTH}
-            />
+            <path key={line.id} d={line.d} fill="none" stroke={LINE_COLOR} strokeWidth={LINE_WIDTH} />
           ))}
         </svg>
 
-        {/* "Previous rounds finished" indicator */}
+        {/* Previous rounds indicator */}
         {startIdx > 0 && (
           <div
             className="flex items-center justify-center shrink-0 self-stretch"
@@ -201,11 +217,12 @@ export function BracketView({ matches }: BracketViewProps) {
           return (
             <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ minWidth: CARD_WIDTH }}>
               <div
-                className="font-esports text-[10px] uppercase tracking-[0.25em] mb-0 px-3 py-1"
+                className="font-esports text-[10px] uppercase tracking-[0.25em] px-3 py-1"
                 style={{
                   transform: `skewX(${SKEW}deg)`,
                   color: '#ffffff',
                   fontWeight: 700,
+                  marginBottom: 4,
                 }}
               >
                 <span style={{ display: 'inline-block', transform: `skewX(${UNSKEW}deg)` }}>
@@ -213,19 +230,17 @@ export function BracketView({ matches }: BracketViewProps) {
                 </span>
               </div>
 
-              {roundMatches.map((match) => (
+              {roundMatches.map((match, mi) => (
                 <div
                   key={match.match_id}
                   style={{
                     height: containerHeight,
+                    marginTop: mi > 0 ? BASE_GAP : 0,
                     display: 'flex',
                     alignItems: 'center',
                   }}
                 >
-                  <BracketMatchCard
-                    match={match}
-                    refCallback={(el) => setMatchRef(match.match_id, el)}
-                  />
+                  <BracketMatchCard match={match} refCallback={(el) => setMatchRef(match.match_id, el)} />
                 </div>
               ))}
             </div>
@@ -261,16 +276,17 @@ function BracketMatchCard({
           : '0.5px solid rgba(255,255,255,0.15)',
         boxShadow: isLive ? '0 0 12px rgba(239,68,68,0.3), 0 0 24px rgba(239,68,68,0.15)' : undefined,
         width: CARD_WIDTH,
+        height: MATCH_HEIGHT,
         position: 'relative',
         zIndex: 1,
       }}
     >
-      {/* Team A row */}
-      <div className="flex items-center">
-        <div style={{ width: 4, height: 20, background: '#2563eb', flexShrink: 0 }} />
+      {/* Team A */}
+      <div className="flex items-center" style={{ height: TEAM_ROW_H }}>
+        <div style={{ width: 4, height: '100%', background: '#2563eb', flexShrink: 0 }} />
         <div
-          className="flex items-center justify-between flex-1 px-2.5 py-1.5"
-          style={{ transform: `skewX(${UNSKEW}deg)` }}
+          className="flex items-center justify-between flex-1 px-2.5"
+          style={{ transform: `skewX(${UNSKEW}deg)`, height: '100%' }}
         >
           <span
             className="font-esports text-xs uppercase tracking-wider truncate ml-2"
@@ -286,10 +302,11 @@ function BracketMatchCard({
         </div>
       </div>
 
-      {/* Score bar */}
+      {/* Score */}
       <div
-        className="relative flex items-center justify-center py-0.5"
+        className="relative flex items-center justify-center"
         style={{
+          height: SCORE_ROW_H,
           background: 'rgba(8, 12, 24, 0.95)',
           transform: `skewX(${UNSKEW}deg)`,
         }}
@@ -299,12 +316,12 @@ function BracketMatchCard({
         </span>
       </div>
 
-      {/* Team B row */}
-      <div className="flex items-center">
-        <div style={{ width: 4, height: 20, background: '#f97316', flexShrink: 0 }} />
+      {/* Team B */}
+      <div className="flex items-center" style={{ height: TEAM_ROW_H }}>
+        <div style={{ width: 4, height: '100%', background: '#f97316', flexShrink: 0 }} />
         <div
-          className="flex items-center justify-between flex-1 px-2.5 py-1.5"
-          style={{ transform: `skewX(${UNSKEW}deg)` }}
+          className="flex items-center justify-between flex-1 px-2.5"
+          style={{ transform: `skewX(${UNSKEW}deg)`, height: '100%' }}
         >
           <span
             className="font-esports text-xs uppercase tracking-wider truncate ml-2"
