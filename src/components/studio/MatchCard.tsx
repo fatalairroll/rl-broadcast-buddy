@@ -238,27 +238,24 @@ function UpcomingQueueRow({ match }: { match: MatchData }) {
 
   return (
     <div
-      className="flex items-center font-esports text-[11px] font-bold text-white uppercase tracking-[0.1em]"
+      className="flex items-center font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
       style={{
         transform: 'skewX(-5deg)',
         background: 'linear-gradient(90deg, rgba(15,23,42,0.92), rgba(20,28,50,0.85), rgba(30,20,15,0.92))',
         border: '1px solid rgba(255,255,255,0.06)',
-        padding: '6px 0',
+        padding: '8px 20px',
       }}
     >
-      {/* Team A name */}
       <div className="flex-1 text-right pr-3" style={{ transform: 'skewX(5deg)' }}>
         {teamA}
       </div>
 
-      {/* Central block with neon stripes */}
       <div className="flex items-center gap-0 shrink-0" style={{ transform: 'skewX(5deg)' }}>
         <div style={{ width: 3, height: 18, background: '#2563eb', boxShadow: '0 0 6px rgba(37,99,235,0.6)' }} />
         <span className="px-2 text-[10px] text-white/60 tracking-[0.15em]">{label}</span>
         <div style={{ width: 3, height: 18, background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.6)' }} />
       </div>
 
-      {/* Team B name */}
       <div className="flex-1 text-left pl-3" style={{ transform: 'skewX(5deg)' }}>
         {teamB}
       </div>
