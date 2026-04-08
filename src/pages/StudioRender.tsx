@@ -40,8 +40,8 @@ export default function StudioRender() {
 
   // Sync queue only when match list actually changes (avoid resetting timer)
   useEffect(() => {
-    const newIds = matches.map(m => m.match_id).join(',');
-    const curIds = queue.map(m => m.match_id).join(',');
+    const newIds = [...matches.map(m => m.match_id)].sort().join(',');
+    const curIds = [...queue.map(m => m.match_id)].sort().join(',');
     if (newIds !== curIds) {
       setQueue(matches);
     }
