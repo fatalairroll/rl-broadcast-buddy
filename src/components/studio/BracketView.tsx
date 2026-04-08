@@ -7,16 +7,12 @@ interface BracketViewProps {
 
 const SKEW = -7;
 const UNSKEW = 7;
-const BLUE = '#2563eb';
-const ORANGE = '#f97316';
-const GRAY = 'rgba(255,255,255,0.12)';
+const LINE_COLOR = 'rgba(255,255,255,0.3)';
 const SCROLL_SPEED = 0.3;
 
 interface LineData {
   id: string;
   d: string;
-  color: string;
-  glow: boolean;
 }
 
 export function BracketView({ matches }: BracketViewProps) {
@@ -25,7 +21,6 @@ export function BracketView({ matches }: BracketViewProps) {
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [lines, setLines] = useState<LineData[]>([]);
 
-  // Group by round
   const sortedRounds = useMemo(() => {
     const rounds = new Map<number, MatchData[]>();
     matches.forEach((m) => {
@@ -40,7 +35,6 @@ export function BracketView({ matches }: BracketViewProps) {
     return sorted;
   }, [matches]);
 
-  // Find first visible round (first with unfinished match)
   const startIdx = useMemo(() => {
     const idx = sortedRounds.findIndex(([, ms]) =>
       ms.some(m => m.state !== 'finished' && m.state !== 'done')
@@ -81,19 +75,7 @@ export function BracketView({ matches }: BracketViewProps) {
         const midX = startX + (endX - startX) / 2;
         const d = `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
 
-        let color = GRAY;
-        let glow = false;
-        if (match.state === 'finished' || match.state === 'done') {
-          if (match.winner_team_id === match.team_a?.team_id) {
-            color = BLUE;
-            glow = true;
-          } else if (match.winner_team_id === match.team_b?.team_id) {
-            color = ORANGE;
-            glow = true;
-          }
-        }
-
-        newLines.push({ id: `${match.match_id}->${nextMatch.match_id}`, d, color, glow });
+        newLines.push({ id: `${match.match_id}->${nextMatch.match_id}`, d });
       }
     }
 
@@ -131,7 +113,6 @@ export function BracketView({ matches }: BracketViewProps) {
       rafId = requestAnimationFrame(checkAndScroll);
     };
 
-    // Delay start to allow layout
     const timeout = setTimeout(() => {
       rafId = requestAnimationFrame(checkAndScroll);
     }, 1000);
@@ -152,13 +133,10 @@ export function BracketView({ matches }: BracketViewProps) {
   }, []);
 
   return (
-    <div
-      ref={outerRef}
-      style={{ overflow: 'hidden', height: '100vh' }}
-    >
+    <div ref={outerRef} style={{ overflow: 'hidden', height: '100vh' }}>
       <div
         ref={containerRef}
-        className="relative flex items-start gap-10 p-6"
+        className="relative flex items-start gap-5 p-6"
         style={{ minHeight: 400, overflowX: 'auto' }}
       >
         {/* SVG connector layer */}
@@ -171,9 +149,8 @@ export function BracketView({ matches }: BracketViewProps) {
               key={line.id}
               d={line.d}
               fill="none"
-              stroke={line.color}
-              strokeWidth={2}
-              style={line.glow ? { filter: `drop-shadow(0 0 4px ${line.color}) drop-shadow(0 0 8px ${line.color})` } : undefined}
+              stroke={LINE_COLOR}
+              strokeWidth={1}
             />
           ))}
         </svg>
@@ -195,7 +172,8 @@ export function BracketView({ matches }: BracketViewProps) {
               style={{
                 fontSize: 9,
                 letterSpacing: '0.3em',
-                color: 'rgba(255,255,255,0.3)',
+                color: '#ffffff',
+                textShadow: '0 1px 4px rgba(0,0,0,0.7)',
                 whiteSpace: 'nowrap',
               }}
             >
@@ -208,19 +186,20 @@ export function BracketView({ matches }: BracketViewProps) {
         {visibleRounds.map(([roundIdx, roundMatches], ri) => {
           const originalPosition = startIdx + ri;
           const gap = 16 * Math.pow(2, originalPosition);
+          const firstMatch = roundMatches[0];
+          const boInfo = firstMatch?.best_of ? ` BO${firstMatch.best_of}` : '';
           return (
             <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ gap, minWidth: 200 }}>
               <div
-                className="font-esports text-[10px] uppercase tracking-[0.25em] mb-2 px-3 py-1"
+                className="font-esports text-[10px] uppercase tracking-[0.25em] mb-0.5 px-3 py-1"
                 style={{
                   transform: `skewX(${SKEW}deg)`,
-                  color: 'rgba(255,255,255,0.5)',
-                  background: 'rgba(255,255,255,0.04)',
-                  borderBottom: '1px solid rgba(255,255,255,0.08)',
+                  color: '#ffffff',
+                  fontWeight: 700,
                 }}
               >
                 <span style={{ display: 'inline-block', transform: `skewX(${UNSKEW}deg)` }}>
-                  Runda {roundIdx + 1}
+                  Runda {roundIdx + 1}{boInfo}
                 </span>
               </div>
 
@@ -258,7 +237,7 @@ function BracketMatchCard({
       style={{
         transform: `skewX(${SKEW}deg)`,
         backdropFilter: 'blur(12px)',
-        background: 'linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(30,41,59,0.75) 100%)',
+        background: 'rgba(0,0,0,0.6)',
         border: isLive
           ? '1px solid rgba(239,68,68,0.6)'
           : '1px solid rgba(255,255,255,0.06)',
@@ -268,10 +247,7 @@ function BracketMatchCard({
     >
       <div
         className="flex items-center justify-between px-2.5 py-1.5"
-        style={{
-          borderLeft: `3px solid ${BLUE}`,
-          transform: `skewX(${UNSKEW}deg)`,
-        }}
+        style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span
           className="font-esports text-xs uppercase tracking-wider truncate"
@@ -280,7 +256,7 @@ function BracketMatchCard({
           {match.team_a?.name ?? 'TBD'}
         </span>
         {match.team_a?.seed != null && (
-          <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
             #{match.team_a.seed}
           </span>
         )}
@@ -293,8 +269,6 @@ function BracketMatchCard({
           transform: `skewX(${UNSKEW}deg)`,
         }}
       >
-        <div className="absolute left-0 top-0 bottom-0" style={{ width: 2, background: BLUE, boxShadow: `0 0 6px rgba(37,99,235,0.8), 0 0 12px rgba(37,99,235,0.4)` }} />
-        <div className="absolute right-0 top-0 bottom-0" style={{ width: 2, background: ORANGE, boxShadow: `0 0 6px rgba(249,115,22,0.8), 0 0 12px rgba(249,115,22,0.4)` }} />
         <span className="font-esports text-xs font-bold tracking-widest" style={{ color: 'hsl(210, 20%, 95%)' }}>
           {match.score_a} : {match.score_b}
         </span>
@@ -302,10 +276,7 @@ function BracketMatchCard({
 
       <div
         className="flex items-center justify-between px-2.5 py-1.5"
-        style={{
-          borderLeft: `3px solid ${ORANGE}`,
-          transform: `skewX(${UNSKEW}deg)`,
-        }}
+        style={{ transform: `skewX(${UNSKEW}deg)` }}
       >
         <span
           className="font-esports text-xs uppercase tracking-wider truncate"
@@ -314,7 +285,7 @@ function BracketMatchCard({
           {match.team_b?.name ?? 'TBD'}
         </span>
         {match.team_b?.seed != null && (
-          <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
             #{match.team_b.seed}
           </span>
         )}
