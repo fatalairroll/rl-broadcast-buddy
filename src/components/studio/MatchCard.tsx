@@ -234,17 +234,17 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
 function UpcomingQueueRow({ match }: { match: MatchData }) {
   const teamA = match.team_a?.name ?? 'TBD';
   const teamB = match.team_b?.name ?? 'TBD';
-  const label = `R${match.round_index}${match.match_index != null ? ` M${match.match_index}` : ''}`;
 
   return (
     <div
       className="flex items-center font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
       style={{
-        width: '948px',
+        width: '956px',
         transform: 'skewX(-5deg)',
         background: 'linear-gradient(90deg, rgba(15,23,42,0.92), rgba(20,28,50,0.85), rgba(30,20,15,0.92))',
         border: '1px solid rgba(255,255,255,0.06)',
         padding: '8px 20px',
+        marginLeft: '-2px',
       }}
     >
       <div className="flex-1 text-right pr-3" style={{ transform: 'skewX(5deg)' }}>
@@ -252,9 +252,14 @@ function UpcomingQueueRow({ match }: { match: MatchData }) {
       </div>
 
       <div className="flex items-center gap-0 shrink-0" style={{ transform: 'skewX(5deg)' }}>
-        <div style={{ width: 3, height: 18, background: '#2563eb', boxShadow: '0 0 6px rgba(37,99,235,0.6)' }} />
-        <span className="px-2 text-[10px] text-white/60 tracking-[0.15em]">{label}</span>
-        <div style={{ width: 3, height: 18, background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.6)' }} />
+        <div style={{ width: 3, height: 18, background: '#2563eb', boxShadow: '0 0 6px rgba(37,99,235,0.6)', transform: 'skewX(-5deg)' }} />
+        <div className="flex flex-col items-center px-2">
+          <span className="text-[10px] text-white/60 tracking-[0.15em] leading-tight">Runda {match.round_index}</span>
+          {match.match_index != null && (
+            <span className="text-[10px] text-white/60 tracking-[0.15em] leading-tight">Mecz {match.match_index}</span>
+          )}
+        </div>
+        <div style={{ width: 3, height: 18, background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.6)', transform: 'skewX(-5deg)' }} />
       </div>
 
       <div className="flex-1 text-left pl-3" style={{ transform: 'skewX(5deg)' }}>
