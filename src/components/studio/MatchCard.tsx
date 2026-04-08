@@ -231,47 +231,61 @@ function TeamBanner({ name, side }: { name: string; side: 'a' | 'b' }) {
   );
 }
 
-function UpcomingQueue({ matches, side }: { matches: MatchData[]; side: 'a' | 'b' }) {
+function UpcomingQueueRow({ match }: { match: MatchData }) {
+  const teamA = match.team_a?.name ?? 'TBD';
+  const teamB = match.team_b?.name ?? 'TBD';
+  const label = `R${match.round_index}${match.match_index != null ? ` M${match.match_index}` : ''}`;
+
+  return (
+    <div
+      className="flex items-center font-esports text-[11px] font-bold text-white uppercase tracking-[0.1em]"
+      style={{
+        transform: 'skewX(-5deg)',
+        background: 'linear-gradient(90deg, rgba(15,23,42,0.92), rgba(20,28,50,0.85), rgba(30,20,15,0.92))',
+        border: '1px solid rgba(255,255,255,0.06)',
+        padding: '6px 0',
+      }}
+    >
+      {/* Team A name */}
+      <div className="flex-1 text-right pr-3" style={{ transform: 'skewX(5deg)' }}>
+        {teamA}
+      </div>
+
+      {/* Central block with neon stripes */}
+      <div className="flex items-center gap-0 shrink-0" style={{ transform: 'skewX(5deg)' }}>
+        <div style={{ width: 3, height: 18, background: '#2563eb', boxShadow: '0 0 6px rgba(37,99,235,0.6)' }} />
+        <span className="px-2 text-[10px] text-white/60 tracking-[0.15em]">{label}</span>
+        <div style={{ width: 3, height: 18, background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.6)' }} />
+      </div>
+
+      {/* Team B name */}
+      <div className="flex-1 text-left pl-3" style={{ transform: 'skewX(5deg)' }}>
+        {teamB}
+      </div>
+    </div>
+  );
+}
+
+function UpcomingQueue({ matches }: { matches: MatchData[] }) {
   const opacities = [0.8, 0.6, 0.4, 0.25];
-  const textAlign = side === 'a' ? ('right' as const) : ('left' as const);
-  const padding = side === 'a'
-    ? { paddingRight: '20px' }
-    : { paddingLeft: '20px' };
-  const margin = side === 'a'
-    ? { marginRight: '18px', alignSelf: 'flex-end' as const }
-    : { marginLeft: '-12px', alignSelf: 'flex-start' as const };
 
   if (matches.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-[2px]">
+    <div className="flex flex-col gap-[2px] mt-1">
       <AnimatePresence mode="popLayout">
-        {matches.slice(0, 4).map((m, i) => {
-          const teamName = side === 'a' ? (m.team_a?.name ?? 'TBD') : (m.team_b?.name ?? 'TBD');
-          return (
-            <motion.div
-              key={m.match_id}
-              layout
-              initial={{ opacity: 0, y: -16 }}
-              animate={{ opacity: opacities[i] ?? 0.2, y: 0 }}
-              exit={{ opacity: 0, y: -16 }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="font-esports text-xs font-bold text-white/90 uppercase tracking-[0.12em]"
-              style={{
-                width: '450px',
-                padding: '5px 20px',
-                background: 'rgba(10,15,25,0.7)',
-                border: '1px solid rgba(255,255,255,0.05)',
-                transform: 'skewX(-5deg)',
-                textAlign,
-                ...padding,
-                ...margin,
-              }}
-            >
-              <span style={{ transform: 'skewX(5deg)', display: 'block' }}>{teamName}</span>
-            </motion.div>
-          );
-        })}
+        {matches.slice(0, 4).map((m, i) => (
+          <motion.div
+            key={m.match_id}
+            layout
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: opacities[i] ?? 0.2, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+          >
+            <UpcomingQueueRow match={m} />
+          </motion.div>
+        ))}
       </AnimatePresence>
     </div>
   );
@@ -365,7 +379,6 @@ export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardPr
           </div>
           <div style={{ marginTop: 'auto' }}>
             <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" />
-            <UpcomingQueue matches={upcomingMatches} side="a" />
           </div>
         </div>
 
@@ -393,10 +406,12 @@ export function MatchCard({ match, gameMode, upcomingMatches = [] }: MatchCardPr
           </div>
           <div style={{ marginTop: 'auto' }}>
             <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" />
-            <UpcomingQueue matches={upcomingMatches} side="b" />
           </div>
         </div>
       </div>
+
+      {/* Upcoming matches queue */}
+      <UpcomingQueue matches={upcomingMatches} />
     </motion.div>
   );
 }
