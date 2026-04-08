@@ -1,104 +1,42 @@
 
+Plan: poprawa drabinki tak, żeby nie nakładała meczów i zawsze przewijała się, gdy treść jest wyższa od ekranu.
 
-# Plan: Przebudowa BracketView — symetria, glassmorphism, łączniki
+1. Naprawa logiki pionowego układu
+- Zostawię liczenie wysokości kontenerów po absolutnym numerze rundy, żeby ukrycie wcześniejszych rund nie zmieniało geometrii.
+- Zmienię układ kolumn tak, aby każdy wrapper meczu miał:
+  - dynamiczną wysokość z `getContainerHeight(absoluteRoundIndex)`
+  - stały odstęp od poprzedniego wrappera (`marginTop: BASE_GAP` dla wszystkich poza pierwszym)
+- Dzięki temu odstępy między boxami będą zawsze stałe, a jednocześnie kolejne rundy pozostaną idealnie wyśrodkowane względem poprzednich.
+- To usunie obecny problem: brak realnego odstępu w kolumnach powoduje ściskanie i wizualne nakładanie się meczów.
 
-## Plik: `src/components/studio/BracketView.tsx` — pełne przepisanie
+2. Ustalenie rzeczywistej wysokości kafelka
+- Dopasuję sam `BracketMatchCard` do stałej wysokości zgodnej z matematyką layoutu (`MATCH_HEIGHT`).
+- Ujednolicę wysokości 3 pasów wewnątrz kafelka (team A / score / team B), żeby karta nie była wyższa niż zakłada algorytm.
+- To jest kluczowe przy dużej liczbie meczów: matematyka kontenerów musi odpowiadać realnemu DOM.
 
-### Stałe
-```ts
-const MATCH_HEIGHT = 72;
-const BASE_GAP = 8;
-const H_GAP = 60;        // stały odstęp poziomy między kolumnami
-const SCROLL_SPEED = 0.15;
-const LINE_COLOR = 'rgba(255,255,255,0.2)';
-const LINE_WIDTH = 1.5;
-const SKEW = -7;
-const UNSKEW = 7;
-const CARD_WIDTH = 200;
-```
+3. Naprawa autoscrolla
+- Zmienię zewnętrzny kontener na faktycznie przewijalny w pionie (`overflow-y: auto`, scrollbary ukryte wizualnie).
+- Zastąpię obecną prędkość „px na klatkę” ruchem liczonym względem czasu i wysokości treści:
+  - jeśli `maxScroll <= 0` → brak scrolla
+  - jeśli `maxScroll > 0` → pełny przejazd w dół w stałym czasie, potem płynny powrót
+- Dzięki temu scroll będzie zauważalny i przewidywalny niezależnie od wysokości drabinki. Obecnie jest zbyt wolny dla dużych układów i sprawia wrażenie, że nie działa.
 
-### 1. Niezależna matematyka symetrii
+4. Zachowanie łączników i warstw
+- Zostawię `H_GAP = 60` między kolumnami.
+- Linie SVG pozostaną absolutną warstwą `z-index: 0`, a kafelki `z-index: 1`.
+- Łączniki dalej będą szły od środka prawej krawędzi meczu do środka lewej krawędzi następnego meczu, w układzie H → V → H.
+- Po zmianie pionowego spacingu przeliczanie linii będzie dalej działało, ale na poprawnych pozycjach.
 
-Wysokość kontenera obliczana na podstawie **absolutnego** numeru rundy w turnieju (`originalPosition = startIdx + ri`), nie względnego `ri`:
+5. Bez zmian w stylistyce, tylko korekta geometrii
+- Zachowam glassmorphism, safe area, białe nagłówki rund i kolorowe kreseczki poza divem prostującym tekst.
+- Jeśli będzie trzeba, delikatnie zwiększę `BASE_GAP` (np. z 8 do 10–12), ale tylko po to, żeby przy dużej liczbie meczów boxy miały czytelny, stały oddech.
 
-```ts
-function getContainerHeight(absoluteRoundIndex: number): number {
-  if (absoluteRoundIndex === 0) return MATCH_HEIGHT;
-  return 2 * getContainerHeight(absoluteRoundIndex - 1) + BASE_GAP;
-}
-```
-
-Pierwsza widoczna runda (ri=0) używa `getContainerHeight(startIdx)` — jeśli startIdx=2, kontenery są już duże, zachowując proporcje jakby rundy 0-1 istniały.
-
-Każdy mecz opakowany w:
-```tsx
-<div style={{ height: containerHeight, display: 'flex', alignItems: 'center' }}>
-  <BracketMatchCard ... />
-</div>
-```
-
-Kolumny rund: `flex-col` bez gap (gap zakodowany w wysokości kontenerów).
-
-### 2. Poziome SVG i stały H_GAP
-
-- Kontener flex z `gap: H_GAP` (60px) między kolumnami rund
-- SVG warstwa absolutna z `z-index: 0`
-- Łamane linie H→V→H: z prawej krawędzi meczu (środek Y) do lewej krawędzi meczu w rundzie N+1 (środek Y)
-- `stroke: rgba(255,255,255,0.2)`, `strokeWidth: 1.5`, `fill: none`
-- endY bez offsetu 0.3/0.7 — mecze wyśrodkowane, linia idzie do środka
-
-### 3. Z-Index
-
-- SVG warstwa: `z-index: 0`
-- Kafelki meczów: `position: relative; z-index: 1` — blur tła kafelka nie rozmywa linii SVG pod spodem
-
-### 4. Safe Area (padding)
-
-- Kontener drabinki: `padding: 24px 40px` — dodatkowy lewy/prawy padding (40px) zapobiega ucinaniu pochylonych krawędzi skew
-
-### 5. Kreseczki kolorystyczne — poza divem unskew
-
-Przenieść kreseczki **przed** div z `skewX(UNSKEW)`. Kreseczka jest bezpośrednim dzieckiem skewed karty, więc naturalnie dziedziczy pochylenie `-7deg`:
-
-```tsx
-<div ref={refCallback} style={{ transform: `skewX(${SKEW}deg)`, ... position: 'relative', zIndex: 1 }}>
-  {/* Team A row */}
-  <div className="flex items-center">
-    <div style={{ width: 4, height: 20, background: '#2563eb', flexShrink: 0 }} />
-    <div style={{ transform: `skewX(${UNSKEW}deg)` }} className="flex items-center justify-between flex-1 px-2.5 py-1.5">
-      <span className="ml-2 ...">TEAM NAME</span>
-      <span>#seed</span>
-    </div>
-  </div>
-  {/* Score bar */}
-  ...
-  {/* Team B row */}
-  <div className="flex items-center">
-    <div style={{ width: 4, height: 20, background: '#f97316', flexShrink: 0 }} />
-    <div style={{ transform: `skewX(${UNSKEW}deg)` }} className="...">
-      ...
-    </div>
-  </div>
-</div>
-```
-
-### 6. Glassmorphism
-
-- `background: rgba(0, 0, 0, 0.75)`
-- `backdropFilter: blur(10px)`
-- `border: 0.5px solid rgba(255,255,255,0.15)`
-- Live: czerwona ramka + glow (zachowane)
-
-### 7. Typografia
-
-- `ml-2` (8px) gap między kreseczką a nazwą (wewnątrz unskewed diva)
-- Nazwy: `uppercase`, `font-bold` (zachowane)
-- Nagłówki rund: `mb-0`, biały, `Runda {roundIdx} BO{n}`
-
-### 8. Autoscroll
-
-`SCROLL_SPEED = 0.15` — cykl ~30-40s. Ping-pong RAF loop z 1s delay.
-
-## Pliki do edycji
+Plik do edycji
 - `src/components/studio/BracketView.tsx`
 
+Szczegóły techniczne
+- Obecny błąd nie wynika z samej idei `getContainerHeight`, tylko z tego, że:
+  1. kolumny nie mają realnego, stałego odstępu między wrapperami,
+  2. karta nie ma twardo wymuszonej wysokości zgodnej z `MATCH_HEIGHT`,
+  3. autoscroll używa stałej wartości na klatkę zamiast prędkości zależnej od wysokości treści.
+- Po poprawce geometria będzie spójna: matematyka layoutu = rzeczywisty rozmiar kart = poprawne scrollowanie.
