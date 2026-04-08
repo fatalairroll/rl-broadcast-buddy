@@ -5,14 +5,24 @@ interface BracketViewProps {
   matches: MatchData[];
 }
 
+const MATCH_HEIGHT = 72;
+const BASE_GAP = 8;
+const H_GAP = 60;
+const SCROLL_SPEED = 0.15;
+const LINE_COLOR = 'rgba(255,255,255,0.2)';
+const LINE_WIDTH = 1.5;
 const SKEW = -7;
 const UNSKEW = 7;
-const LINE_COLOR = 'rgba(255,255,255,0.3)';
-const SCROLL_SPEED = 0.3;
+const CARD_WIDTH = 200;
 
 interface LineData {
   id: string;
   d: string;
+}
+
+function getContainerHeight(absoluteRoundIndex: number): number {
+  if (absoluteRoundIndex === 0) return MATCH_HEIGHT;
+  return 2 * getContainerHeight(absoluteRoundIndex - 1) + BASE_GAP;
 }
 
 export function BracketView({ matches }: BracketViewProps) {
@@ -69,8 +79,7 @@ export function BracketView({ matches }: BracketViewProps) {
         const startX = fromRect.right - containerRect.left;
         const startY = fromRect.top + fromRect.height / 2 - containerRect.top;
         const endX = toRect.left - containerRect.left;
-        const isUpper = mi % 2 === 0;
-        const endY = toRect.top + (isUpper ? toRect.height * 0.3 : toRect.height * 0.7) - containerRect.top;
+        const endY = toRect.top + toRect.height / 2 - containerRect.top;
 
         const midX = startX + (endX - startX) / 2;
         const d = `M ${startX} ${startY} H ${midX} V ${endY} H ${endX}`;
@@ -136,13 +145,13 @@ export function BracketView({ matches }: BracketViewProps) {
     <div ref={outerRef} style={{ overflow: 'hidden', height: '100vh' }}>
       <div
         ref={containerRef}
-        className="relative flex items-start gap-5 p-6"
-        style={{ minHeight: 400, overflowX: 'auto' }}
+        className="relative flex items-start"
+        style={{ minHeight: 400, padding: '24px 40px', gap: H_GAP }}
       >
-        {/* SVG connector layer */}
+        {/* SVG connector layer — z-index 0 */}
         <svg
           className="absolute inset-0 pointer-events-none"
-          style={{ width: '100%', height: '100%', overflow: 'visible' }}
+          style={{ width: '100%', height: '100%', overflow: 'visible', zIndex: 0 }}
         >
           {lines.map((line) => (
             <path
@@ -150,7 +159,7 @@ export function BracketView({ matches }: BracketViewProps) {
               d={line.d}
               fill="none"
               stroke={LINE_COLOR}
-              strokeWidth={1}
+              strokeWidth={LINE_WIDTH}
             />
           ))}
         </svg>
@@ -184,14 +193,15 @@ export function BracketView({ matches }: BracketViewProps) {
 
         {/* Round columns */}
         {visibleRounds.map(([roundIdx, roundMatches], ri) => {
-          const originalPosition = startIdx + ri;
-          const gap = 16 * Math.pow(2, originalPosition);
+          const absolutePosition = startIdx + ri;
+          const containerHeight = getContainerHeight(absolutePosition);
           const firstMatch = roundMatches[0];
           const boInfo = firstMatch?.best_of ? ` BO${firstMatch.best_of}` : '';
+
           return (
-            <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ gap, minWidth: 200 }}>
+            <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ minWidth: CARD_WIDTH }}>
               <div
-                className="font-esports text-[10px] uppercase tracking-[0.25em] mb-0.5 px-3 py-1"
+                className="font-esports text-[10px] uppercase tracking-[0.25em] mb-0 px-3 py-1"
                 style={{
                   transform: `skewX(${SKEW}deg)`,
                   color: '#ffffff',
@@ -204,11 +214,19 @@ export function BracketView({ matches }: BracketViewProps) {
               </div>
 
               {roundMatches.map((match) => (
-                <BracketMatchCard
+                <div
                   key={match.match_id}
-                  match={match}
-                  refCallback={(el) => setMatchRef(match.match_id, el)}
-                />
+                  style={{
+                    height: containerHeight,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <BracketMatchCard
+                    match={match}
+                    refCallback={(el) => setMatchRef(match.match_id, el)}
+                  />
+                </div>
               ))}
             </div>
           );
@@ -236,33 +254,39 @@ function BracketMatchCard({
       className="relative overflow-hidden"
       style={{
         transform: `skewX(${SKEW}deg)`,
-        backdropFilter: 'blur(12px)',
-        background: 'rgba(0,0,0,0.6)',
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(10px)',
         border: isLive
           ? '1px solid rgba(239,68,68,0.6)'
-          : '1px solid rgba(255,255,255,0.06)',
+          : '0.5px solid rgba(255,255,255,0.15)',
         boxShadow: isLive ? '0 0 12px rgba(239,68,68,0.3), 0 0 24px rgba(239,68,68,0.15)' : undefined,
-        width: 200,
+        width: CARD_WIDTH,
+        position: 'relative',
+        zIndex: 1,
       }}
     >
-      <div
-        className="flex items-center justify-between px-2.5 py-1.5"
-        style={{ transform: `skewX(${UNSKEW}deg)` }}
-      >
-        <div className="shrink-0" style={{ width: 4, height: 20, background: '#2563eb', borderRadius: 1 }} />
-        <span
-          className="font-esports text-xs uppercase tracking-wider truncate"
-          style={{ color: '#ffffff', fontWeight: 700, opacity: bWon ? 0.4 : 1 }}
+      {/* Team A row */}
+      <div className="flex items-center">
+        <div style={{ width: 4, height: 20, background: '#2563eb', flexShrink: 0 }} />
+        <div
+          className="flex items-center justify-between flex-1 px-2.5 py-1.5"
+          style={{ transform: `skewX(${UNSKEW}deg)` }}
         >
-          {match.team_a?.name ?? 'TBD'}
-        </span>
-        {match.team_a?.seed != null && (
-          <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            #{match.team_a.seed}
+          <span
+            className="font-esports text-xs uppercase tracking-wider truncate ml-2"
+            style={{ color: '#ffffff', fontWeight: 700, opacity: bWon ? 0.4 : 1 }}
+          >
+            {match.team_a?.name ?? 'TBD'}
           </span>
-        )}
+          {match.team_a?.seed != null && (
+            <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              #{match.team_a.seed}
+            </span>
+          )}
+        </div>
       </div>
 
+      {/* Score bar */}
       <div
         className="relative flex items-center justify-center py-0.5"
         style={{
@@ -275,22 +299,25 @@ function BracketMatchCard({
         </span>
       </div>
 
-      <div
-        className="flex items-center justify-between px-2.5 py-1.5"
-        style={{ transform: `skewX(${UNSKEW}deg)` }}
-      >
-        <div className="shrink-0" style={{ width: 4, height: 20, background: '#f97316', borderRadius: 1 }} />
-        <span
-          className="font-esports text-xs uppercase tracking-wider truncate"
-          style={{ color: '#ffffff', fontWeight: 700, opacity: aWon ? 0.4 : 1 }}
+      {/* Team B row */}
+      <div className="flex items-center">
+        <div style={{ width: 4, height: 20, background: '#f97316', flexShrink: 0 }} />
+        <div
+          className="flex items-center justify-between flex-1 px-2.5 py-1.5"
+          style={{ transform: `skewX(${UNSKEW}deg)` }}
         >
-          {match.team_b?.name ?? 'TBD'}
-        </span>
-        {match.team_b?.seed != null && (
-          <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            #{match.team_b.seed}
+          <span
+            className="font-esports text-xs uppercase tracking-wider truncate ml-2"
+            style={{ color: '#ffffff', fontWeight: 700, opacity: aWon ? 0.4 : 1 }}
+          >
+            {match.team_b?.name ?? 'TBD'}
           </span>
-        )}
+          {match.team_b?.seed != null && (
+            <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              #{match.team_b.seed}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
