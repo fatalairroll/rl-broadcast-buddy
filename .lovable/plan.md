@@ -1,18 +1,22 @@
 
 
-## Plan: Zwiększenie kontrastu kart graczy i czytelności MMR
+## Plan: Poprawka wyświetlania prawidłowej liczby meczy w trybie "Next Matches"
 
-### Zmiany w `src/components/studio/MatchCard.tsx`
+### Problem
+Gdy tryb to `next_3`, hook wysyła do API `mode=next_3`, które prawdopodobnie zwraca z góry ograniczoną liczbę meczów (3). Parametr `count=5` z URL jest poprawnie odczytywany i przekazywany, ale API nie zwraca wystarczająco dużo danych do przycięcia.
 
-1. **Ciemniejsze tło karty** — w `PlayerPanel`, zmienić `glassBg` z `rgba(10,15,30,0.75)` / `rgba(30,15,10,0.75)` na wersje z wyższą opacity (~0.85), oraz nagłówek nicku z `rgba(0,0,0,0.5)` na `rgba(0,0,0,0.75)`.
+### Rozwiązanie
+**Plik: `src/hooks/useStudioData.ts`** — zmiana mapowania trybu API
 
-2. **Silniejszy blur** — w `PlayerPanel`, zmienić `backdropFilter: 'blur(10px)'` na `'blur(15px)'`.
+Dla trybu `next_3` wysyłać do API `mode=bracket` (tak jak już robi to tryb `recent`), dzięki czemu API zwróci **wszystkie** mecze turnieju. Filtrowanie po `state === 'scheduled'` i `.slice(0, count)` już działa poprawnie po stronie klienta.
 
-3. **MMR czytelniejszy** — w `MmrHeroText`:
-   - `mixBlendMode: 'overlay'` → `'normal'`
-   - `opacity` obu drużyn → `0.25`
-   - `color` → `#ffffff`
+Zmiana w liniach 47-51:
+```ts
+let apiMode: string = mode;
+if (mode === 'recent' || mode === 'next_3') {
+  apiMode = 'bracket';
+}
+```
 
-### Plik do edycji
-- `src/components/studio/MatchCard.tsx`
+Jedna linia warunku — reszta logiki bez zmian.
 
