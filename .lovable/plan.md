@@ -1,42 +1,33 @@
 
 
-## Plan: Naprawienie kolejności meczów w "Next Matches"
+## Plan: Przycisk "Przerzuć drużyny" w sekcji Kontrola meczu
 
-### Przyczyna problemu
-API zwraca pole `match_index` w kolejności **alfabetycznej** ID meczu, nie w kolejności drabinki:
-- M1 → match_index: 1
-- M10 → match_index: 2
-- M11 → match_index: 3
-- M2 → match_index: 9
-- M3 → match_index: 10
+### Co zostanie dodane
+Nowy przycisk w `MatchControls` (sekcja "Kontrola meczu" na dashboardzie), który zamienia miejscami wszystkie dane drużyny A i drużyny B w sesji.
 
-Dlatego overlay wybiera mecze 10, 11, 12 zamiast 2, 3, 4 — bo mają niższy `match_index`.
+### Działanie
+Po kliknięciu wywołuje `onUpdate` z zamienionymi polami:
+- `team_a_name` ↔ `team_b_name`
+- `team_a_color` ↔ `team_b_color`
+- `team_a_logo` ↔ `team_b_logo`
+- `team_a_id` ↔ `team_b_id`
+- `team_a_series_score` ↔ `team_b_series_score`
+- `team_a_game_score` ↔ `team_b_game_score`
 
-### Rozwiązanie
-Wyciągnąć **numer meczu** z `match_id` (np. `...-R1-M5` → 5) i sortować po nim zamiast po `match_index`.
+### Zmiana techniczna
 
-### Zmiana w `src/hooks/useStudioData.ts`
+**Plik: `src/components/dashboard/MatchControls.tsx`**
 
-Dodać funkcję pomocniczą:
-```ts
-function extractMatchNumber(matchId: string): number {
-  const m = matchId.match(/-M(\d+)$/);
-  return m ? parseInt(m[1], 10) : 0;
-}
+- Import `ArrowLeftRight` z lucide-react
+- Nowy przycisk w sekcji "Action Buttons" (obok Reset gry i Aktualizuj overlay):
+```tsx
+<Button variant="outline" size="sm" onClick={handleSwapTeams}>
+  <ArrowLeftRight className="mr-2 h-4 w-4" />
+  Przerzuć drużyny
+</Button>
 ```
+- Funkcja `handleSwapTeams` wywołuje `onUpdate` z zamienionymi wartościami wszystkich pól A↔B
 
-Zmienić sortowanie w trybie `next_3` (i opcjonalnie `recent`) z:
-```ts
-return (a.match_index ?? 0) - (b.match_index ?? 0);
-```
-na:
-```ts
-return extractMatchNumber(a.match_id) - extractMatchNumber(b.match_id);
-```
-
-### Plik do edycji
-- `src/hooks/useStudioData.ts`
-
-### Efekt
-Dla count=5 overlay pokaże mecze M2, M3, M4, M5, M6 (zgodnie z drabinką MMRivals) zamiast M10, M11, M12, M13, M14.
+### Zakres
+- 1 plik: `src/components/dashboard/MatchControls.tsx`
 
