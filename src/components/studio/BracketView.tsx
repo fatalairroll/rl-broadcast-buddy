@@ -316,8 +316,7 @@ export function BracketView({ matches }: BracketViewProps) {
           )}
 
           {visibleRounds.map(([roundIdx, roundMatches], roundOffset) => {
-            const absoluteRoundIndex = startIdx + roundOffset;
-            const containerHeight = getContainerHeight(absoluteRoundIndex);
+            const containerHeight = getContainerHeight(roundOffset);
 
             return (
               <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ minWidth: CARD_WIDTH }}>
