@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, Send, Palette } from 'lucide-react';
+import { RefreshCw, Send, Palette, ArrowLeftRight } from 'lucide-react';
 import { RelayStatus } from './RelayStatus';
 import type { BroadcastSession, SeriesType, OverlayPreset } from '@/types/broadcast';
 
