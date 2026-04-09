@@ -1,33 +1,24 @@
 
 
-## Plan: Przycisk "Przerzuć drużyny" w sekcji Kontrola meczu
+## Plan: Drabinka zawsze zaczyna od góry
 
-### Co zostanie dodane
-Nowy przycisk w `MatchControls` (sekcja "Kontrola meczu" na dashboardzie), który zamienia miejscami wszystkie dane drużyny A i drużyny B w sesji.
+### Problem
+Funkcja `getContainerHeight` używa `absoluteRoundIndex` (np. runda 3 w turnieju), więc gdy faza 1 jest ukryta, pierwsza widoczna runda ma już dużą wysokość kontenera — mecze zaczynają się niżej.
 
-### Działanie
-Po kliknięciu wywołuje `onUpdate` z zamienionymi polami:
-- `team_a_name` ↔ `team_b_name`
-- `team_a_color` ↔ `team_b_color`
-- `team_a_logo` ↔ `team_b_logo`
-- `team_a_id` ↔ `team_b_id`
-- `team_a_series_score` ↔ `team_b_series_score`
-- `team_a_game_score` ↔ `team_b_game_score`
+### Rozwiązanie
+Zmienić obliczanie wysokości z `absoluteRoundIndex` na `roundOffset` (0-bazowy indeks względem widocznych rund). Dzięki temu pierwsza widoczna runda zawsze ma wysokość `MATCH_HEIGHT` (72px), a kolejne rosną proporcjonalnie.
 
-### Zmiana techniczna
+### Zmiana w `src/components/studio/BracketView.tsx`
 
-**Plik: `src/components/dashboard/MatchControls.tsx`**
+**Linia 319-320** — zamiana:
+```ts
+// Było:
+const absoluteRoundIndex = startIdx + roundOffset;
+const containerHeight = getContainerHeight(absoluteRoundIndex);
 
-- Import `ArrowLeftRight` z lucide-react
-- Nowy przycisk w sekcji "Action Buttons" (obok Reset gry i Aktualizuj overlay):
-```tsx
-<Button variant="outline" size="sm" onClick={handleSwapTeams}>
-  <ArrowLeftRight className="mr-2 h-4 w-4" />
-  Przerzuć drużyny
-</Button>
+// Będzie:
+const containerHeight = getContainerHeight(roundOffset);
 ```
-- Funkcja `handleSwapTeams` wywołuje `onUpdate` z zamienionymi wartościami wszystkich pól A↔B
 
-### Zakres
-- 1 plik: `src/components/dashboard/MatchControls.tsx`
+To jedyna zmiana — 1 linia w 1 pliku.
 
