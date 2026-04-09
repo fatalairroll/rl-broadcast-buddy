@@ -67,7 +67,7 @@ function SmokeLayer({ side }: { side: 'a' | 'b' }) {
 
 function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
   if (mmr == null) return null;
-  const color = 'rgba(255,255,255,0.9)';
+  const color = '#ffffff';
   return (
     <div
       className="absolute pointer-events-none z-[2]"
@@ -80,8 +80,8 @@ function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        mixBlendMode: 'overlay',
-        opacity: side === 'a' ? 0.61 : 0.54,
+        mixBlendMode: 'normal' as const,
+        opacity: 0.25,
         overflow: 'hidden',
       }}
     >
@@ -119,8 +119,8 @@ function PlayerPanel({
 
   const glassBg =
     side === 'a'
-      ? 'rgba(10,15,30,0.75)'
-      : 'rgba(30,15,10,0.75)';
+      ? 'rgba(10,15,30,0.85)'
+      : 'rgba(30,15,10,0.85)';
 
   const glowColor = side === 'a' ? '#2563eb' : '#f97316';
   const boxGlow =
@@ -142,7 +142,7 @@ function PlayerPanel({
         borderTop: `2px solid ${accentColor}`,
         boxShadow: boxGlow,
         transform: 'skewX(-5deg)',
-        backdropFilter: 'blur(10px)',
+        backdropFilter: 'blur(15px)',
       }}
     >
       <SmokeLayer side={side} />
@@ -152,7 +152,7 @@ function PlayerPanel({
         className="absolute top-0 left-0 right-0 z-20 flex items-center justify-center"
         style={{
           height: '48px',
-          background: 'rgba(0,0,0,0.5)',
+          background: 'rgba(0,0,0,0.75)',
           paddingLeft: '15%',
         }}
       >
