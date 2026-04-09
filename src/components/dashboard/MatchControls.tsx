@@ -159,13 +159,17 @@ export function MatchControls({
 
         {/* Action Buttons */}
         <div className="flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={handleSwapTeams}>
+            <ArrowLeftRight className="mr-2 h-4 w-4" />
+            Przerzuć
+          </Button>
           <Button variant="outline" className="flex-1" onClick={onResetGameScore}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Reset gry
           </Button>
           <Button className="flex-1" onClick={onBroadcast}>
             <Send className="mr-2 h-4 w-4" />
-            Aktualizuj overlay
+            Aktualizuj
           </Button>
         </div>
       </CardContent>
