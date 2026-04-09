@@ -46,7 +46,7 @@ export function useStudioData({
 
       // Map mode + count to API mode
       let apiMode: string = mode;
-      if (mode === 'recent') {
+      if (mode === 'recent' || mode === 'next_3') {
         apiMode = 'bracket';
       }
 
