@@ -1,22 +1,42 @@
 
 
-## Plan: Poprawka wyświetlania prawidłowej liczby meczy w trybie "Next Matches"
+## Plan: Naprawienie kolejności meczów w "Next Matches"
 
-### Problem
-Gdy tryb to `next_3`, hook wysyła do API `mode=next_3`, które prawdopodobnie zwraca z góry ograniczoną liczbę meczów (3). Parametr `count=5` z URL jest poprawnie odczytywany i przekazywany, ale API nie zwraca wystarczająco dużo danych do przycięcia.
+### Przyczyna problemu
+API zwraca pole `match_index` w kolejności **alfabetycznej** ID meczu, nie w kolejności drabinki:
+- M1 → match_index: 1
+- M10 → match_index: 2
+- M11 → match_index: 3
+- M2 → match_index: 9
+- M3 → match_index: 10
+
+Dlatego overlay wybiera mecze 10, 11, 12 zamiast 2, 3, 4 — bo mają niższy `match_index`.
 
 ### Rozwiązanie
-**Plik: `src/hooks/useStudioData.ts`** — zmiana mapowania trybu API
+Wyciągnąć **numer meczu** z `match_id` (np. `...-R1-M5` → 5) i sortować po nim zamiast po `match_index`.
 
-Dla trybu `next_3` wysyłać do API `mode=bracket` (tak jak już robi to tryb `recent`), dzięki czemu API zwróci **wszystkie** mecze turnieju. Filtrowanie po `state === 'scheduled'` i `.slice(0, count)` już działa poprawnie po stronie klienta.
+### Zmiana w `src/hooks/useStudioData.ts`
 
-Zmiana w liniach 47-51:
+Dodać funkcję pomocniczą:
 ```ts
-let apiMode: string = mode;
-if (mode === 'recent' || mode === 'next_3') {
-  apiMode = 'bracket';
+function extractMatchNumber(matchId: string): number {
+  const m = matchId.match(/-M(\d+)$/);
+  return m ? parseInt(m[1], 10) : 0;
 }
 ```
 
-Jedna linia warunku — reszta logiki bez zmian.
+Zmienić sortowanie w trybie `next_3` (i opcjonalnie `recent`) z:
+```ts
+return (a.match_index ?? 0) - (b.match_index ?? 0);
+```
+na:
+```ts
+return extractMatchNumber(a.match_id) - extractMatchNumber(b.match_id);
+```
+
+### Plik do edycji
+- `src/hooks/useStudioData.ts`
+
+### Efekt
+Dla count=5 overlay pokaże mecze M2, M3, M4, M5, M6 (zgodnie z drabinką MMRivals) zamiast M10, M11, M12, M13, M14.
 
