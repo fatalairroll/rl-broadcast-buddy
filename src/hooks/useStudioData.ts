@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchMatches, fetchTournaments } from '@/lib/mmrivals-api';
 import type { Tournament, MatchData, MatchResponse, StudioMode } from '@/types/studio';
 
+function extractMatchNumber(matchId: string): number {
+  const m = matchId.match(/-M(\d+)$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 interface UseStudioDataOptions {
   tournamentId: string;
   mode: StudioMode;
@@ -60,7 +65,7 @@ export function useStudioData({
           .filter((m) => m.state === 'done')
           .sort((a, b) => {
             if (b.round_index !== a.round_index) return b.round_index - a.round_index;
-            return (b.match_index ?? 0) - (a.match_index ?? 0);
+            return extractMatchNumber(b.match_id) - extractMatchNumber(a.match_id);
           })
           .slice(0, 10);
       }
@@ -71,7 +76,7 @@ export function useStudioData({
           .filter((m) => m.state === 'scheduled')
           .sort((a, b) => {
             if (a.round_index !== b.round_index) return a.round_index - b.round_index;
-            return (a.match_index ?? 0) - (b.match_index ?? 0);
+            return extractMatchNumber(a.match_id) - extractMatchNumber(b.match_id);
           })
           .slice(0, count);
       }
