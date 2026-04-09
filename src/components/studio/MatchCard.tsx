@@ -67,7 +67,7 @@ function SmokeLayer({ side }: { side: 'a' | 'b' }) {
 
 function MmrHeroText({ mmr, side }: { mmr: number | null; side: 'a' | 'b' }) {
   if (mmr == null) return null;
-  const color = side === 'a' ? 'rgba(37,99,235,0.9)' : 'rgba(249,115,22,0.9)';
+  const color = 'rgba(255,255,255,0.9)';
   return (
     <div
       className="absolute pointer-events-none z-[2]"
