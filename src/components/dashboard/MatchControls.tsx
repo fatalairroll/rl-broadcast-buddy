@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, Send, Palette } from 'lucide-react';
+import { RefreshCw, Send, Palette, ArrowLeftRight } from 'lucide-react';
 import { RelayStatus } from './RelayStatus';
 import type { BroadcastSession, SeriesType, OverlayPreset } from '@/types/broadcast';
 
@@ -35,6 +35,24 @@ export function MatchControls({
   onResetGameScore,
   onBroadcast,
 }: MatchControlsProps) {
+  const handleSwapTeams = () => {
+    if (!session) return;
+    onUpdate({
+      team_a_name: session.team_b_name,
+      team_b_name: session.team_a_name,
+      team_a_color: session.team_b_color,
+      team_b_color: session.team_a_color,
+      team_a_logo: session.team_b_logo,
+      team_b_logo: session.team_a_logo,
+      team_a_id: session.team_b_id,
+      team_b_id: session.team_a_id,
+      team_a_series_score: session.team_b_series_score,
+      team_b_series_score: session.team_a_series_score,
+      team_a_game_score: session.team_b_game_score,
+      team_b_game_score: session.team_a_game_score,
+    });
+  };
+
   return (
     <Card className="glass-panel">
       <CardHeader className="pb-3">
@@ -141,13 +159,17 @@ export function MatchControls({
 
         {/* Action Buttons */}
         <div className="flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={handleSwapTeams}>
+            <ArrowLeftRight className="mr-2 h-4 w-4" />
+            Przerzuć
+          </Button>
           <Button variant="outline" className="flex-1" onClick={onResetGameScore}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Reset gry
           </Button>
           <Button className="flex-1" onClick={onBroadcast}>
             <Send className="mr-2 h-4 w-4" />
-            Aktualizuj overlay
+            Aktualizuj
           </Button>
         </div>
       </CardContent>
