@@ -35,6 +35,24 @@ export function MatchControls({
   onResetGameScore,
   onBroadcast,
 }: MatchControlsProps) {
+  const handleSwapTeams = () => {
+    if (!session) return;
+    onUpdate({
+      team_a_name: session.team_b_name,
+      team_b_name: session.team_a_name,
+      team_a_color: session.team_b_color,
+      team_b_color: session.team_a_color,
+      team_a_logo: session.team_b_logo,
+      team_b_logo: session.team_a_logo,
+      team_a_id: session.team_b_id,
+      team_b_id: session.team_a_id,
+      team_a_series_score: session.team_b_series_score,
+      team_b_series_score: session.team_a_series_score,
+      team_a_game_score: session.team_b_game_score,
+      team_b_game_score: session.team_a_game_score,
+    });
+  };
+
   return (
     <Card className="glass-panel">
       <CardHeader className="pb-3">
