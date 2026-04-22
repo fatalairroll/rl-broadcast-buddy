@@ -465,7 +465,7 @@ export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults }
             )) ?? <TbdPanel side="a" />}
           </div>
           <div style={{ marginTop: 'auto' }}>
-            <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" pollPct={activePollPct} />
+            <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" pollPct={activePollPct} team={match.team_a} />
           </div>
         </div>
 
@@ -492,7 +492,7 @@ export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults }
             )) ?? <TbdPanel side="b" />}
           </div>
           <div style={{ marginTop: 'auto' }}>
-            <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" />
+            <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" team={match.team_b} />
           </div>
         </div>
       </div>
