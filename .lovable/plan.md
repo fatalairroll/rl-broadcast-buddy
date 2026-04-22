@@ -1,59 +1,52 @@
 
 
-## Plan: Obsługa check-in z MMRivals API
+## Plan: Pokazuj świeżo „check-inowane" mecze w overlayu Next Matches
 
-### Co zostanie dodane
-Nowe pola check-in z API zostaną wczytane do typów i pokazane wizualnie na overlayach meczowych — dla każdej drużyny ikona ✓ + godzina check-inu, dla całego meczu wskaźnik gdy obie drużyny już potwierdziły gotowość.
+### Problem
+Filter w `useStudioData` dla trybu `next_3` przepuszcza tylko mecze ze stanem `scheduled`. Gdy obie drużyny zrobią check-in, mecz zwykle przechodzi do `in_progress`/`live` i znika z overlaya — chociaż nadal jest „następnym meczem", który właśnie się zaczyna.
+
+### Rozwiązanie
+Rozszerzyć filtr w `useStudioData.ts` (tryb `next_3`) tak, aby zawierał:
+- mecze ze stanem `scheduled` (jak teraz), **oraz**
+- mecze w dowolnym stanie ≠ `done`/`finished`, w których **co najmniej jedna drużyna** ma `checked_in_at` w ciągu ostatnich **3 minut** (180 s) od `Date.now()`.
+
+Dzięki temu mecze, które właśnie dostały check-in (jeden lub oba), nie znikają natychmiast z overlaya „Następne mecze" — pozostają widoczne maks. 3 min od ostatniego check-inu.
 
 ### Zmiany w kodzie
 
-**1. `src/types/studio.ts`** — rozszerzenie typów
+**Plik: `src/hooks/useStudioData.ts`** (jedyny edytowany plik)
+
+W bloku `if (mode === 'next_3')` zastąpić obecny `.filter((m) => m.state === 'scheduled')` rozszerzonym predykatem:
 
 ```ts
-interface TeamData {
-  // ...istniejące pola
-  checked_in?: boolean;
-  checked_in_at?: string | null;
-}
+const RECENT_CHECKIN_MS = 3 * 60 * 1000;
+const now = Date.now();
 
-interface MatchData {
-  // ...istniejące pola
-  started_at?: string | null;
-  both_teams_checked_in?: boolean;
-}
+const isRecentCheckIn = (iso?: string | null) => {
+  if (!iso) return false;
+  const t = new Date(iso).getTime();
+  return !isNaN(t) && now - t <= RECENT_CHECKIN_MS && now - t >= 0;
+};
+
+resultMatches = resultMatches
+  .filter((m) => {
+    if (m.state === 'done' || m.state === 'finished') return false;
+    if (m.state === 'scheduled') return true;
+    // mecze w innych stanach (in_progress/live) — pokaż jeśli świeży check-in
+    return (
+      isRecentCheckIn(m.team_a?.checked_in_at) ||
+      isRecentCheckIn(m.team_b?.checked_in_at)
+    );
+  })
+  .sort(/* bez zmian: round_index, potem extractMatchNumber */)
+  .slice(0, count);
 ```
 
-Brak breaking changes — wszystkie pola opcjonalne.
-
-**2. `src/components/studio/MatchCard.tsx`** (overlay "Next 3" / "Next match")
-
-Dodać mały badge check-in w `TeamBanner` (obok nazwy drużyny):
-- Jeśli `team.checked_in === true` → zielona kropka + ✓ + godzina (`HH:MM`) sformatowana z `checked_in_at`
-- Jeśli `false`/brak → szara kropka + napis „Oczekuje"
-- Po stronie A wyrównanie do prawej, po stronie B do lewej
-
-Lokalizacja: w komponencie `TeamBanner` jako dodatkowa linia/element pod nazwą drużyny, w stylu spójnym z resztą (font-esports, uppercase, tracking).
-
-**3. `src/components/studio/RecentMatchesTable.tsx`** (zakończone mecze)
-
-Brak zmian — mecz `done` z definicji miał check-in, ta informacja nic nie wnosi.
-
-**4. `src/components/studio/BracketView.tsx`** (drabinka)
-
-Dodać dyskretną kropkę check-in (zielona/szara, 6×6 px) obok nazwy każdej drużyny w karcie meczu drabinkowego — tylko dla meczów w stanie `scheduled` (dla `done` nie pokazywać, bo redundantne).
-
-### Helper formatowania
-
-Dodać małą funkcję `formatCheckInTime(iso: string | null): string` (zwraca `HH:MM` w lokalnej strefie) — bezpośrednio w `MatchCard.tsx` lub w `src/lib/utils.ts`.
+### Efekt
+- Mecz ze statusem `scheduled` → widoczny jak dotychczas.
+- Mecz, który właśnie wszedł w `in_progress`/`live` po check-inie → pozostaje na overlayu jeszcze do 3 min od ostatniego check-inu obu drużyn, po czym wypada.
+- Nic się nie zmienia w trybach `bracket` i `recent`.
 
 ### Zakres
-3 pliki:
-- `src/types/studio.ts` (typy)
-- `src/components/studio/MatchCard.tsx` (badge check-in w bannerach drużyn)
-- `src/components/studio/BracketView.tsx` (kropka check-in obok nazw drużyn w drabince)
-
-### Efekt wizualny
-- Overlay "Next 3": pod nazwą każdej drużyny widać status „✓ 19:42" (zielony) lub „○ Oczekuje" (szary)
-- Drabinka: obok nazwy drużyny w meczach zaplanowanych mała zielona/szara kropka pokazująca kto już zrobił check-in
-- Wszystko w istniejącej stylistyce (skew, font-esports, tracking)
+1 plik: `src/hooks/useStudioData.ts`
 
