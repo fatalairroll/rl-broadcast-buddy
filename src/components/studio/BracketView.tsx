@@ -372,6 +372,7 @@ function BracketMatchCard({
   const isFinished = match.state === 'finished' || match.state === 'done';
   const aWon = isFinished && match.winner_team_id === match.team_a?.team_id;
   const bWon = isFinished && match.winner_team_id === match.team_b?.team_id;
+  const showCheckIn = match.state === 'scheduled';
 
   return (
     <div
@@ -397,12 +398,15 @@ function BracketMatchCard({
           className="flex items-center justify-between flex-1 px-2.5"
           style={{ transform: `skewX(${UNSKEW}deg)`, height: '100%' }}
         >
-          <span
-            className="font-esports text-xs uppercase tracking-wider truncate ml-2"
-            style={{ color: '#ffffff', fontWeight: 700, opacity: bWon ? 0.4 : 1 }}
-          >
-            {match.team_a?.name ?? 'TBD'}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0 ml-2">
+            {showCheckIn && <CheckInDot team={match.team_a} />}
+            <span
+              className="font-esports text-xs uppercase tracking-wider truncate"
+              style={{ color: '#ffffff', fontWeight: 700, opacity: bWon ? 0.4 : 1 }}
+            >
+              {match.team_a?.name ?? 'TBD'}
+            </span>
+          </div>
           {match.team_a?.seed != null && (
             <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
               #{match.team_a.seed}
@@ -430,12 +434,15 @@ function BracketMatchCard({
           className="flex items-center justify-between flex-1 px-2.5"
           style={{ transform: `skewX(${UNSKEW}deg)`, height: '100%' }}
         >
-          <span
-            className="font-esports text-xs uppercase tracking-wider truncate ml-2"
-            style={{ color: '#ffffff', fontWeight: 700, opacity: aWon ? 0.4 : 1 }}
-          >
-            {match.team_b?.name ?? 'TBD'}
-          </span>
+          <div className="flex items-center gap-1.5 min-w-0 ml-2">
+            {showCheckIn && <CheckInDot team={match.team_b} />}
+            <span
+              className="font-esports text-xs uppercase tracking-wider truncate"
+              style={{ color: '#ffffff', fontWeight: 700, opacity: aWon ? 0.4 : 1 }}
+            >
+              {match.team_b?.name ?? 'TBD'}
+            </span>
+          </div>
           {match.team_b?.seed != null && (
             <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
               #{match.team_b.seed}
