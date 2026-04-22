@@ -27,6 +27,8 @@ export interface TeamData {
   avg_mmr: number;
   seed: number;
   players: PlayerData[];
+  checked_in?: boolean;
+  checked_in_at?: string | null;
 }
 
 export interface MatchData {
@@ -41,6 +43,8 @@ export interface MatchData {
   scheduled_at: string | null;
   team_a: TeamData | null;
   team_b: TeamData | null;
+  started_at?: string | null;
+  both_teams_checked_in?: boolean;
 }
 
 export interface TournamentResponse {
