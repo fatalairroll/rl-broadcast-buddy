@@ -89,6 +89,13 @@ export function useStudioData({
             );
           })
           .sort((a, b) => {
+            const aHasCheckIn =
+              isRecentCheckIn(a.team_a?.checked_in_at) ||
+              isRecentCheckIn(a.team_b?.checked_in_at);
+            const bHasCheckIn =
+              isRecentCheckIn(b.team_a?.checked_in_at) ||
+              isRecentCheckIn(b.team_b?.checked_in_at);
+            if (aHasCheckIn !== bHasCheckIn) return aHasCheckIn ? -1 : 1;
             if (a.round_index !== b.round_index) return a.round_index - b.round_index;
             return extractMatchNumber(a.match_id) - extractMatchNumber(b.match_id);
           })
