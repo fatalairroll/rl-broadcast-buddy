@@ -209,7 +209,31 @@ function TbdPanel({ side }: { side: 'a' | 'b' }) {
   );
 }
 
-function TeamBanner({ name, side, pollPct }: { name: string; side: 'a' | 'b'; pollPct?: number }) {
+function CheckInBadge({ team, side }: { team: TeamData | null; side: 'a' | 'b' }) {
+  if (!team) return null;
+  const checkedIn = team.checked_in === true;
+  const time = formatCheckInTime(team.checked_in_at);
+  const color = checkedIn ? '#22c55e' : 'rgba(255,255,255,0.4)';
+  const label = checkedIn ? (time || 'OK') : 'Oczekuje';
+
+  return (
+    <div
+      className="flex items-center gap-1 font-esports font-bold uppercase"
+      style={{
+        fontSize: '10px',
+        letterSpacing: '0.15em',
+        color,
+        flexDirection: side === 'a' ? 'row-reverse' : 'row',
+        textShadow: '0 1px 3px rgba(0,0,0,0.7)',
+      }}
+    >
+      {checkedIn ? <Check size={11} strokeWidth={3} /> : <Clock size={11} strokeWidth={2.5} />}
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function TeamBanner({ name, side, pollPct, team }: { name: string; side: 'a' | 'b'; pollPct?: number; team: TeamData | null }) {
   const bg =
     side === 'a'
       ? 'linear-gradient(90deg, transparent 0%, rgba(37,99,235,0.5) 30%, rgba(37,99,235,0.7) 100%)'
@@ -223,21 +247,32 @@ function TeamBanner({ name, side, pollPct }: { name: string; side: 'a' | 'b'; po
     : { marginLeft: '-12px', alignSelf: 'flex-start' as const };
 
   const banner = (
-    <div
-      className="py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
-      style={{
-        width: '450px',
-        background: bg,
-        transform: 'skewX(-5deg)',
-        textAlign,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-        ...padding,
-        ...margin,
-      }}
-    >
-      <span style={{ transform: 'skewX(5deg)', display: 'block' }}>
-        {name}
-      </span>
+    <div style={{ ...margin }}>
+      <div
+        className="py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
+        style={{
+          width: '450px',
+          background: bg,
+          transform: 'skewX(-5deg)',
+          textAlign,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+          ...padding,
+        }}
+      >
+        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>
+          {name}
+        </span>
+      </div>
+      <div
+        className="mt-1 flex"
+        style={{
+          justifyContent: side === 'a' ? 'flex-end' : 'flex-start',
+          paddingLeft: side === 'a' ? 0 : '20px',
+          paddingRight: side === 'a' ? '20px' : 0,
+        }}
+      >
+        <CheckInBadge team={team} side={side} />
+      </div>
     </div>
   );
 
