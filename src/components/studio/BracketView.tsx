@@ -1,5 +1,24 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import type { MatchData } from '@/types/studio';
+import type { MatchData, TeamData } from '@/types/studio';
+
+function CheckInDot({ team }: { team: TeamData | null }) {
+  if (!team) return null;
+  const checkedIn = team.checked_in === true;
+  return (
+    <span
+      title={checkedIn ? 'Check-in OK' : 'Oczekuje na check-in'}
+      style={{
+        display: 'inline-block',
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: checkedIn ? '#22c55e' : 'rgba(255,255,255,0.25)',
+        boxShadow: checkedIn ? '0 0 4px rgba(34,197,94,0.7)' : 'none',
+        flexShrink: 0,
+      }}
+    />
+  );
+}
 
 interface BracketViewProps {
   matches: MatchData[];
