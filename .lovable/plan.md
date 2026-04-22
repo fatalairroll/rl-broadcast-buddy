@@ -1,29 +1,59 @@
 
 
-## Sprawdzenie: check-in w API MMRivals
+## Plan: Obsługa check-in z MMRivals API
 
-### Wynik analizy
-Przejrzałem wszystkie odpowiedzi z endpointu `overlay-data` (https://tvmieplfcvgmfcjaxpto.supabase.co/functions/v1/overlay-data). API obsługuje tylko 4 tryby: `next_match`, `next_3`, `bracket`, `tournaments`.
+### Co zostanie dodane
+Nowe pola check-in z API zostaną wczytane do typów i pokazane wizualnie na overlayach meczowych — dla każdej drużyny ikona ✓ + godzina check-inu, dla całego meczu wskaźnik gdy obie drużyny już potwierdziły gotowość.
 
-**Pełna lista pól zwracanych przez API:**
-- **Tournament**: `name`, `mode`, `status`
-- **Match**: `match_id`, `round_index`, `match_index`, `best_of`, `state` (`scheduled`/`in_progress`/`done`), `score_a`, `score_b`, `winner_team_id`, `scheduled_at`, `team_a`, `team_b`
-- **Team**: `team_id`, `name`, `avg_mmr`, `seed`, `players`
-- **Player**: `discord_id`, `nick`, `nick_in_game`, `rlstats_url`, `avatar`, `mmr_1v1/2v2/3v3`, `rank_1v1/2v2/3v3`
+### Zmiany w kodzie
 
-**Brak jakiegokolwiek pola** związanego z check-inem (sprawdzone klucze: `check`, `checkin`, `check_in`, `ready`, `confirmed`, itp.). Pole `scheduled_at` jest dostępne, ale w obecnym turnieju zawsze ma wartość `null`.
+**1. `src/types/studio.ts`** — rozszerzenie typów
 
-### Wniosek
-**Nie da się tego zrobić po stronie naszej aplikacji** — endpoint `overlay-data` po prostu nie eksportuje danych o check-inie graczy/drużyn ani timestampach jego wykonania.
+```ts
+interface TeamData {
+  // ...istniejące pola
+  checked_in?: boolean;
+  checked_in_at?: string | null;
+}
 
-### Możliwe ścieżki dalej
+interface MatchData {
+  // ...istniejące pola
+  started_at?: string | null;
+  both_teams_checked_in?: boolean;
+}
+```
 
-1. **Rozszerzyć API MMRivals** (po stronie właściciela MMRivals) — dodać do odpowiedzi `team_a`/`team_b` pola np. `checked_in: boolean` i `checked_in_at: timestamp`, albo nowy tryb `mode=checkin` zwracający listę drużyn z czasami check-inu. To wymaga zmian po stronie MMRivals — nie mamy dostępu do tego repo.
+Brak breaking changes — wszystkie pola opcjonalne.
 
-2. **Bezpośredni dostęp do bazy MMRivals** — gdyby udostępniono nam connection string/service role key do projektu Supabase MMRivals (`tvmieplfcvgmfcjaxpto`), moglibyśmy z naszej edge function odpytywać tabelę check-inów bezpośrednio. Wymaga uzgodnienia z właścicielem.
+**2. `src/components/studio/MatchCard.tsx`** (overlay "Next 3" / "Next match")
 
-3. **Własny tracking check-in w naszej Cloud** — zbudować w naszym dashboardzie ręczne oznaczanie check-inu drużyn (kto się zgłosił, o której). Niezależne od MMRivals, ale wymaga ręcznego klikania przez admina meczu.
+Dodać mały badge check-in w `TeamBanner` (obok nazwy drużyny):
+- Jeśli `team.checked_in === true` → zielona kropka + ✓ + godzina (`HH:MM`) sformatowana z `checked_in_at`
+- Jeśli `false`/brak → szara kropka + napis „Oczekuje"
+- Po stronie A wyrównanie do prawej, po stronie B do lewej
 
-### Rekomendacja
-Najszybsza i najczystsza ścieżka to **opcja 1** — poproś właściciela MMRivals o dodanie pól `checked_in` i `checked_in_at` w endpoincie `overlay-data` (w obiektach `team_a`/`team_b` w trybach `bracket`/`next_match`/`next_3`). Gdy te pola zaczną się pojawiać w odpowiedzi, dorobimy ich obsługę w overlay'ach (np. ikonka „✓ checked-in 19:42” na karcie meczu). Chcesz, żebym przygotował opcję 3 (własny tracking) jako tymczasowe obejście, czy czekamy aż MMRivals wystawi te dane?
+Lokalizacja: w komponencie `TeamBanner` jako dodatkowa linia/element pod nazwą drużyny, w stylu spójnym z resztą (font-esports, uppercase, tracking).
+
+**3. `src/components/studio/RecentMatchesTable.tsx`** (zakończone mecze)
+
+Brak zmian — mecz `done` z definicji miał check-in, ta informacja nic nie wnosi.
+
+**4. `src/components/studio/BracketView.tsx`** (drabinka)
+
+Dodać dyskretną kropkę check-in (zielona/szara, 6×6 px) obok nazwy każdej drużyny w karcie meczu drabinkowego — tylko dla meczów w stanie `scheduled` (dla `done` nie pokazywać, bo redundantne).
+
+### Helper formatowania
+
+Dodać małą funkcję `formatCheckInTime(iso: string | null): string` (zwraca `HH:MM` w lokalnej strefie) — bezpośrednio w `MatchCard.tsx` lub w `src/lib/utils.ts`.
+
+### Zakres
+3 pliki:
+- `src/types/studio.ts` (typy)
+- `src/components/studio/MatchCard.tsx` (badge check-in w bannerach drużyn)
+- `src/components/studio/BracketView.tsx` (kropka check-in obok nazw drużyn w drabince)
+
+### Efekt wizualny
+- Overlay "Next 3": pod nazwą każdej drużyny widać status „✓ 19:42" (zielony) lub „○ Oczekuje" (szary)
+- Drabinka: obok nazwy drużyny w meczach zaplanowanych mała zielona/szara kropka pokazująca kto już zrobił check-in
+- Wszystko w istniejącej stylistyce (skew, font-esports, tracking)
 
