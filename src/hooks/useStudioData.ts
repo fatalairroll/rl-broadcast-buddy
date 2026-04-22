@@ -72,8 +72,22 @@ export function useStudioData({
 
       // Limit to requested count for next_match modes
       if (mode === 'next_3') {
+        const RECENT_CHECKIN_MS = 3 * 60 * 1000;
+        const now = Date.now();
+        const isRecentCheckIn = (iso?: string | null) => {
+          if (!iso) return false;
+          const t = new Date(iso).getTime();
+          return !isNaN(t) && now - t <= RECENT_CHECKIN_MS && now - t >= 0;
+        };
         resultMatches = resultMatches
-          .filter((m) => m.state === 'scheduled')
+          .filter((m) => {
+            if (m.state === 'done' || m.state === 'finished') return false;
+            if (m.state === 'scheduled') return true;
+            return (
+              isRecentCheckIn(m.team_a?.checked_in_at) ||
+              isRecentCheckIn(m.team_b?.checked_in_at)
+            );
+          })
           .sort((a, b) => {
             if (a.round_index !== b.round_index) return a.round_index - b.round_index;
             return extractMatchNumber(a.match_id) - extractMatchNumber(b.match_id);
