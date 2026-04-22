@@ -1,8 +1,15 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { BarChart3 } from 'lucide-react';
-import type { MatchData, PlayerData, PollResults } from '@/types/studio';
+import { BarChart3, Check, Clock } from 'lucide-react';
+import type { MatchData, PlayerData, PollResults, TeamData } from '@/types/studio';
 import { RankIcon } from './RankIcon';
 import { getRankFromMmr, normalizeRankName, isValidRank } from '@/lib/rank-utils';
+
+function formatCheckInTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
 
 interface MatchCardProps {
   match: MatchData;
