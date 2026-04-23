@@ -246,6 +246,16 @@ function TeamBanner({ name, side, pollPct, team }: { name: string; side: 'a' | '
     ? { marginRight: '18px', alignSelf: 'flex-end' as const }
     : { marginLeft: '-12px', alignSelf: 'flex-start' as const };
 
+  const checkedIn = team?.checked_in === true;
+  const checkIcon = checkedIn ? (
+    <Check
+      size={18}
+      strokeWidth={3}
+      color="#22c55e"
+      style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.7)) drop-shadow(0 0 6px rgba(34,197,94,0.5))', flexShrink: 0 }}
+    />
+  ) : null;
+
   const banner = (
     <div style={{ ...margin }}>
       <div
@@ -259,8 +269,18 @@ function TeamBanner({ name, side, pollPct, team }: { name: string; side: 'a' | '
           ...padding,
         }}
       >
-        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>
-          {name}
+        <span
+          style={{
+            transform: 'skewX(5deg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+          }}
+        >
+          {side === 'a' ? checkIcon : <span style={{ width: 0 }} />}
+          <span style={{ flex: 1, textAlign }}>{name}</span>
+          {side === 'b' ? checkIcon : <span style={{ width: 0 }} />}
         </span>
       </div>
       <div
