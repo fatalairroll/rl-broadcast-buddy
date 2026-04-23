@@ -343,9 +343,13 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
         marginLeft: '-2px',
       }}
     >
-      <div className="flex-1 flex items-center justify-end gap-2 pr-3" style={{ transform: 'skewX(5deg)' }}>
-        {aCheckedIn && checkIcon}
-        <span className="truncate">{teamA}</span>
+      <div className="flex-1 flex items-center pr-3 relative" style={{ transform: 'skewX(5deg)' }}>
+        {aCheckedIn && (
+          <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+            {checkIcon}
+          </div>
+        )}
+        <span className="truncate w-full text-right">{teamA}</span>
       </div>
 
       <div className="flex items-center gap-0 shrink-0" style={{ transform: 'skewX(5deg)' }}>
@@ -359,9 +363,13 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
         <div style={{ width: 3, height: 18, background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.6)', transform: 'skewX(-5deg)' }} />
       </div>
 
-      <div className="flex-1 flex items-center justify-start gap-2 pl-3" style={{ transform: 'skewX(5deg)' }}>
-        <span className="truncate">{teamB}</span>
-        {bCheckedIn && checkIcon}
+      <div className="flex-1 flex items-center pl-3 relative" style={{ transform: 'skewX(5deg)' }}>
+        <span className="truncate w-full text-left">{teamB}</span>
+        {bCheckedIn && (
+          <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)' }}>
+            {checkIcon}
+          </div>
+        )}
       </div>
     </div>
   );
