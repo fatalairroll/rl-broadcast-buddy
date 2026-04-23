@@ -317,6 +317,19 @@ function TeamBanner({ name, side, pollPct, team }: { name: string; side: 'a' | '
 function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: number }) {
   const teamA = match.team_a?.name ?? 'TBD';
   const teamB = match.team_b?.name ?? 'TBD';
+  const aCheckedIn = match.team_a?.checked_in === true;
+  const bCheckedIn = match.team_b?.checked_in === true;
+  const checkIcon = (
+    <Check
+      size={14}
+      strokeWidth={3}
+      color="#22c55e"
+      style={{
+        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.7)) drop-shadow(0 0 4px rgba(34,197,94,0.5))',
+        flexShrink: 0,
+      }}
+    />
+  );
 
   const row = (
     <div
@@ -330,8 +343,9 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
         marginLeft: '-2px',
       }}
     >
-      <div className="flex-1 text-right pr-3" style={{ transform: 'skewX(5deg)' }}>
-        {teamA}
+      <div className="flex-1 flex items-center justify-end gap-2 pr-3" style={{ transform: 'skewX(5deg)' }}>
+        {aCheckedIn && checkIcon}
+        <span className="truncate">{teamA}</span>
       </div>
 
       <div className="flex items-center gap-0 shrink-0" style={{ transform: 'skewX(5deg)' }}>
@@ -345,8 +359,9 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
         <div style={{ width: 3, height: 18, background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.6)', transform: 'skewX(-5deg)' }} />
       </div>
 
-      <div className="flex-1 text-left pl-3" style={{ transform: 'skewX(5deg)' }}>
-        {teamB}
+      <div className="flex-1 flex items-center justify-start gap-2 pl-3" style={{ transform: 'skewX(5deg)' }}>
+        <span className="truncate">{teamB}</span>
+        {bCheckedIn && checkIcon}
       </div>
     </div>
   );
