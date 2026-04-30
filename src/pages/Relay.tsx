@@ -137,9 +137,41 @@ def prune_stale_players(current_names: List[str]) -> None:
     if not current_names:
         return
     try:
-        sb.table("players_live").delete().not_.in_("player_name", current_names).execute()
+        # Czytamy aktualne nicki z DB i kasujemy te, ktorych nie ma w snapie z gry.
+        # Pojedyncze .delete().eq() jest odporne na roznice w obsludze 'not in'
+        # przez rozne wersje supabase-py.
+        existing = sb.table("players_live").select("player_name").execute()
+        rows = getattr(existing, "data", None) or []
+        current_set = set(current_names)
+        stale = [r["player_name"] for r in rows if r.get("player_name") not in current_set]
+        for name in stale:
+            try:
+                sb.table("players_live").delete().eq("player_name", name).execute()
+                print(f"[PRUNE] usunieto stary wpis: {name}")
+            except Exception as e:
+                print(f"[ERR] players_live prune ({name}): {e}")
     except Exception as e:
         print(f"[ERR] players_live prune: {e}")
+
+
+def clear_all_players() -> None:
+    """Calkowicie czysci players_live — uzywane przy starcie nowego meczu,
+    zeby overlay nie pokazywal nikogo z poprzedniego meczu/replaya."""
+    try:
+        existing = sb.table("players_live").select("player_name").execute()
+        rows = getattr(existing, "data", None) or []
+        for r in rows:
+            name = r.get("player_name")
+            if not name:
+                continue
+            try:
+                sb.table("players_live").delete().eq("player_name", name).execute()
+            except Exception as e:
+                print(f"[ERR] players_live clear ({name}): {e}")
+        if rows:
+            print(f"[RESET] wyczyszczono players_live ({len(rows)} wpisow)")
+    except Exception as e:
+        print(f"[ERR] players_live clear: {e}")
 
 
 def upsert_camera(target: Optional[str]) -> None:
