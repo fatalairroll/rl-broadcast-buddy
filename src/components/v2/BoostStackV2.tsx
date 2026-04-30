@@ -1,6 +1,7 @@
 import type { PlayerLive, PlayerRegistry } from '@/types/livestats';
 import { BoostBarV2 } from './BoostBarV2';
 import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2';
+import { positionToStyle } from '@/lib/position-utils';
 
 interface Props {
   players: PlayerLive[];
@@ -14,14 +15,14 @@ export function BoostStackV2({ players, registryMap, side, activeName, config = 
   const c = config.boostBar;
   if (!c.visible) return null;
 
+  const pos = side === 'left' ? c.positionLeft : c.positionRight;
+
   return (
     <div
-      className="absolute flex flex-col"
+      className="flex flex-col"
       style={{
-        top: `${c.verticalAlign}%`,
-        transform: 'translateY(-50%)',
+        ...positionToStyle(pos),
         gap: c.gap,
-        [side === 'left' ? 'left' : 'right']: c.sideOffset,
       }}
     >
       {players.map((p) => (

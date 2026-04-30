@@ -5,6 +5,7 @@ import type { PlayerLive, PlayerRegistry } from '@/types/livestats';
 import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2';
 import { gradientToCss } from '@/lib/gradient-utils';
 import { glowToBoxShadow } from '@/lib/glow-utils';
+import { positionToStyle } from '@/lib/position-utils';
 
 interface Props {
   player: PlayerLive | null;
@@ -41,8 +42,7 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 60, opacity: 0 }}
           transition={{ duration: (config.general.transitionDuration ?? 350) / 1000, ease: 'easeOut' }}
-          className="absolute left-1/2 -translate-x-1/2"
-          style={{ bottom: c.bottomOffset }}
+          style={positionToStyle(c.position)}
         >
           <div
             className="relative flex items-stretch"
