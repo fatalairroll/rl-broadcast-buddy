@@ -253,3 +253,37 @@ function FontInput({ label, value, onChange }: { label: string; value: string; o
     </div>
   );
 }
+
+function PositionEditor({ value, onChange }: { value: PositionV2; onChange: (v: PositionV2) => void }) {
+  return (
+    <div className="space-y-3 border-l-2 border-primary/40 pl-3">
+      <Label className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja</Label>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">Anchor X</Label>
+          <Select value={value.anchorH} onValueChange={(v) => onChange({ ...value, anchorH: v as AnchorH })}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="left">Lewa</SelectItem>
+              <SelectItem value="center">Środek</SelectItem>
+              <SelectItem value="right">Prawa</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">Anchor Y</Label>
+          <Select value={value.anchorV} onValueChange={(v) => onChange({ ...value, anchorV: v as AnchorV })}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="top">Góra</SelectItem>
+              <SelectItem value="middle">Środek</SelectItem>
+              <SelectItem value="bottom">Dół</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <SliderInput label="Offset X" value={value.offsetX} onValueChange={(v) => onChange({ ...value, offsetX: v })} min={-1920} max={1920} unit="px" />
+      <SliderInput label="Offset Y" value={value.offsetY} onValueChange={(v) => onChange({ ...value, offsetY: v })} min={-1080} max={1080} unit="px" />
+    </div>
+  );
+}
