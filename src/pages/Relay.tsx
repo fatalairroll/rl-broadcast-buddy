@@ -151,6 +151,43 @@ def upsert_camera(target: Optional[str]) -> None:
 
 
 # === HANDLERY EVENTOW ===
+def _maybe_decode_json(value: Any, max_depth: int = 5) -> Any:
+    """Rozpakowuje wartosci, ktore RL Stats API potrafi przyslac jako string/bytes
+    z zakodowanym JSON-em w srodku (czasem nawet wielokrotnie). Zwraca wartosc
+    natywna, jesli mozliwe; w przeciwnym wypadku oryginal."""
+    cur = value
+    for _ in range(max_depth):
+        if isinstance(cur, (bytes, bytearray)):
+            try:
+                cur = cur.decode("utf-8", errors="replace")
+            except Exception:
+                return cur
+        if isinstance(cur, str):
+            s = cur.strip()
+            if not s or s[0] not in "{[\\"":
+                return cur
+            try:
+                cur = json.loads(s)
+            except Exception:
+                return cur
+            continue
+        return cur
+    return cur
+
+
+def _coerce_dict(v: Any) -> Dict[str, Any]:
+    v = _maybe_decode_json(v)
+    return v if isinstance(v, dict) else {}
+
+
+def _coerce_list(v: Any) -> List[Any]:
+    v = _maybe_decode_json(v)
+    return v if isinstance(v, list) else []
+
+
+_dbg_printed = 0
+
+
 def handle_update_state(data: Dict[str, Any]) -> None:
     global current_match_guid, local_time_seconds, is_overtime
     global blue_score, orange_score, in_replay, last_state_update_at
@@ -161,12 +198,12 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     if guid:
         current_match_guid = guid
 
-    game = data.get("Game") or {}
-    teams = game.get("Teams") or []
+    game = _coerce_dict(data.get("Game"))
+    teams = _coerce_list(game.get("Teams"))
     if len(teams) > 0:
-        blue_score = int((teams[0] or {}).get("Score", 0) or 0)
+        blue_score = int(_coerce_dict(teams[0]).get("Score", 0) or 0)
     if len(teams) > 1:
-        orange_score = int((teams[1] or {}).get("Score", 0) or 0)
+        orange_score = int(_coerce_dict(teams[1]).get("Score", 0) or 0)
 
     ts = game.get("TimeSeconds")
     if ts is not None:
@@ -181,17 +218,20 @@ def handle_update_state(data: Dict[str, Any]) -> None:
 
     # Kamera aktywna
     if game.get("bHasTarget"):
-        target = (game.get("Target") or {}).get("Name")
+        target = _coerce_dict(game.get("Target")).get("Name")
         if target:
             upsert_camera(target)
     else:
         upsert_camera(None)
 
     # Gracze
-    players = data.get("Players") or []
+    players = _coerce_list(data.get("Players"))
     stats["players_seen"] = len(players)
     rows: List[Dict[str, Any]] = []
-    for p in players:
+    for raw in players:
+        p = _coerce_dict(raw)
+        if not p:
+            continue
         name = p.get("Name")
         if not name:
             continue
@@ -226,11 +266,18 @@ def handle_clock_updated(data: Dict[str, Any]) -> None:
 
 
 def handle_event(evt: Dict[str, Any]) -> None:
-    global current_match_guid, clock_running, in_replay
+    global current_match_guid, clock_running, in_replay, _dbg_printed
     global blue_score, orange_score, local_time_seconds, is_overtime
 
     name = evt.get("Event") or evt.get("event") or ""
-    data = evt.get("Data") or evt.get("data") or {}
+    raw_data = evt.get("Data")
+    if raw_data is None:
+        raw_data = evt.get("data")
+    data = _coerce_dict(raw_data)
+
+    if _dbg_printed < 3:
+        _dbg_printed += 1
+        print(f"[DBG] event='{name}' data_type={type(raw_data).__name__} keys={list(data.keys())[:8]}")
 
     if name == "UpdateState":
         handle_update_state(data)
@@ -241,7 +288,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
         return
 
     if name == "GoalScored":
-        scorer = (data.get("Scorer") or {}).get("Name", "?")
+        scorer = _coerce_dict(data.get("Scorer")).get("Name", "?")
         print(f"[GOAL] {scorer}")
         return
 
@@ -542,6 +589,14 @@ PacketSendRate=30`}</pre>
                   <strong>Gotowe do uzycia</strong>
                   <br />
                   Skrypt ma juz wpisane SUPABASE_URL i klucz - nie musisz nic edytowac.
+                </p>
+              </div>
+
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <p className="text-sm text-yellow-300">
+                  <strong>Aktualizacja</strong>
+                  <br />
+                  Jesli widzisz w konsoli powtarzajacy sie blad <code className="bg-secondary px-1 rounded">'str' object has no attribute 'get'</code>, pobierz ponownie najnowszy <code className="bg-secondary px-1 rounded">relay.py</code> z tej strony - obsluga zagniezdzonego JSON-a w polu <code className="bg-secondary px-1 rounded">Data</code> zostala dodana.
                 </p>
               </div>
             </CardContent>
