@@ -2,13 +2,16 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import { RankIcon } from '@/components/studio/RankIcon';
 import type { PlayerLive, PlayerRegistry } from '@/types/livestats';
+import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2';
+import { gradientToCss } from '@/lib/gradient-utils';
+import { glowToBoxShadow } from '@/lib/glow-utils';
 
 interface Props {
   player: PlayerLive | null;
   registry: PlayerRegistry | null;
+  config?: OverlayV2Config;
 }
 
-/** Debounced display so quick camera flips don't flicker the card. */
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -18,63 +21,63 @@ function useDebounced<T>(value: T, ms: number): T {
   return v;
 }
 
-const TEAM_BG = {
-  0: 'linear-gradient(135deg, hsl(217 91% 22% / 0.95), hsl(217 91% 38% / 0.95))',
-  1: 'linear-gradient(135deg, hsl(24 95% 28% / 0.95), hsl(24 95% 45% / 0.95))',
-} as const;
-
-const TEAM_GLOW = {
-  0: 'hsl(217 91% 60%)',
-  1: 'hsl(24 95% 60%)',
-} as const;
-
-export function PlayerCardV2({ player, registry }: Props) {
+export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config }: Props) {
+  const c = config.playerCard;
   const debounced = useDebounced(player?.player_name ?? null, 250);
-  const visible = debounced != null && player != null && debounced === player.player_name;
+  const visible = c.visible && debounced != null && player != null && debounced === player.player_name;
+
+  const team = (player?.team_num as 0 | 1) ?? 0;
+  const teamGradient = team === 0 ? c.blueGradient : c.orangeGradient;
+
+  const skewOuter = `skewX(${c.skewDeg}deg)`;
+  const skewInner = `skewX(${-c.skewDeg}deg)`;
 
   return (
     <AnimatePresence mode="wait">
       {visible && player && (
         <motion.div
           key={player.player_name}
-          initial={{ y: 60, opacity: 0, skewX: 0 }}
+          initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 60, opacity: 0 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
+          transition={{ duration: (config.general.transitionDuration ?? 350) / 1000, ease: 'easeOut' }}
           className="absolute left-1/2 -translate-x-1/2"
-          style={{ bottom: 60 }}
+          style={{ bottom: c.bottomOffset }}
         >
           <div
-            className="relative flex items-stretch min-w-[640px] h-[160px]"
+            className="relative flex items-stretch"
             style={{
-              transform: 'skewX(-15deg)',
+              minWidth: c.width,
+              height: c.height,
+              transform: skewOuter,
               background: registry?.team_color
                 ? `linear-gradient(135deg, ${registry.team_color}cc, ${registry.team_color}99)`
-                : TEAM_BG[(player.team_num as 0 | 1) ?? 0],
-              boxShadow: `0 0 48px ${TEAM_GLOW[(player.team_num as 0 | 1) ?? 0]}80`,
-              border: '2px solid rgba(255,255,255,0.15)',
+                : gradientToCss(teamGradient),
+              boxShadow: glowToBoxShadow({ ...c.glow, color: team === 0 ? c.glow.color : c.glow.color }),
+              border: `${c.borderWidth}px solid ${c.borderColor}`,
             }}
           >
             {/* MMR watermark */}
             <div
               className="absolute right-6 top-2 pointer-events-none select-none"
               style={{
-                transform: 'skewX(15deg)',
-                fontFamily: 'Rajdhani, sans-serif',
-                fontSize: 98,
+                transform: skewInner,
+                fontFamily: c.mmrFontFamily,
+                fontSize: c.mmrFontSize,
                 fontWeight: 900,
                 lineHeight: 1,
-                color: 'rgba(255,255,255,0.07)',
+                color: c.mmrColor,
+                opacity: c.mmrOpacity,
               }}
             >
               {registry?.mmr ?? player.mmr ?? ''}
             </div>
 
-            {/* Photo (optional) */}
+            {/* Photo */}
             {registry?.photo_url && (
               <div
-                className="w-[160px] h-full overflow-hidden border-r-2 border-white/15"
-                style={{ transform: 'skewX(15deg)', marginLeft: -12, marginRight: -12 }}
+                className="h-full overflow-hidden border-r-2 border-white/15"
+                style={{ width: c.photoWidth, transform: skewInner, marginLeft: -12, marginRight: -12 }}
               >
                 <img
                   src={registry.photo_url}
@@ -85,21 +88,24 @@ export function PlayerCardV2({ player, registry }: Props) {
             )}
 
             {/* Body */}
-            <div
-              className="flex-1 flex flex-col justify-center px-8 gap-2"
-              style={{ transform: 'skewX(15deg)' }}
-            >
+            <div className="flex-1 flex flex-col justify-center px-8 gap-2" style={{ transform: skewInner }}>
               <div className="flex items-center gap-3">
                 {registry?.country_code && (
                   <span
-                    className="text-xs font-bold uppercase px-2 py-0.5 bg-black/40 text-white tracking-widest border border-white/20"
+                    className="font-bold uppercase px-2 py-0.5 tracking-widest border border-white/20"
+                    style={{ fontSize: 12, background: c.countryBg, color: c.countryColor }}
                   >
                     {registry.country_code}
                   </span>
                 )}
                 <span
-                  className="text-white font-black uppercase text-3xl tracking-tight"
-                  style={{ fontFamily: 'Rajdhani, sans-serif', textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}
+                  className="font-black uppercase tracking-tight"
+                  style={{
+                    fontFamily: c.nickFontFamily,
+                    fontSize: c.nickFontSize,
+                    color: c.nickColor,
+                    textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+                  }}
                 >
                   {registry?.display_name ?? player.player_name}
                 </span>
@@ -114,13 +120,15 @@ export function PlayerCardV2({ player, registry }: Props) {
                 </div>
               )}
 
-              {/* Live stats */}
-              <div className="flex items-center gap-5 mt-1 text-white">
-                <Stat label="G" value={player.goals} />
-                <Stat label="A" value={player.assists} />
-                <Stat label="SV" value={player.saves} />
-                <Stat label="D" value={player.demos} />
-                <BoostStat boost={player.boost} supersonic={player.is_supersonic} />
+              <div
+                className="flex items-center gap-5 mt-1"
+                style={{ color: c.statsColor, fontSize: c.statsFontSize }}
+              >
+                <Stat label="G" value={player.goals} size={c.statsFontSize} />
+                <Stat label="A" value={player.assists} size={c.statsFontSize} />
+                <Stat label="SV" value={player.saves} size={c.statsFontSize} />
+                <Stat label="D" value={player.demos} size={c.statsFontSize} />
+                <BoostStat boost={player.boost} supersonic={player.is_supersonic} size={c.statsFontSize} />
               </div>
             </div>
           </div>
@@ -130,18 +138,18 @@ export function PlayerCardV2({ player, registry }: Props) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, size }: { label: string; value: number; size: number }) {
   return (
     <div className="flex items-baseline gap-1">
-      <span className="text-white/50 text-xs font-bold uppercase tracking-wider">{label}</span>
-      <span className="font-black text-2xl tabular-nums" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+      <span className="text-white/50 font-bold uppercase tracking-wider" style={{ fontSize: Math.round(size * 0.55) }}>{label}</span>
+      <span className="font-black tabular-nums" style={{ fontFamily: 'Rajdhani, sans-serif', fontSize: size }}>
         {value}
       </span>
     </div>
   );
 }
 
-function BoostStat({ boost, supersonic }: { boost: number; supersonic: boolean }) {
+function BoostStat({ boost, supersonic, size }: { boost: number; supersonic: boolean; size: number }) {
   return (
     <div className="flex items-center gap-2 ml-auto">
       <div className="relative w-[120px] h-2 bg-white/10 overflow-hidden">
@@ -157,9 +165,10 @@ function BoostStat({ boost, supersonic }: { boost: number; supersonic: boolean }
         />
       </div>
       <span
-        className="font-black text-2xl tabular-nums"
+        className="font-black tabular-nums"
         style={{
           fontFamily: 'Rajdhani, sans-serif',
+          fontSize: size,
           color: supersonic ? 'hsl(48 100% 65%)' : 'white',
         }}
       >
