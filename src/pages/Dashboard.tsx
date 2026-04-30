@@ -18,6 +18,8 @@ import {
   Loader2,
   ExternalLink,
   Plus,
+  Radio,
+  UserCog,
 } from 'lucide-react';
 
 const BROADCAST_CHANNEL = 'rl_broadcast_room';
@@ -121,6 +123,15 @@ export default function Dashboard() {
               Overlay
               <ExternalLink className="ml-1 h-3 w-3" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.open('/v2/overlay', '_blank')}
+            >
+              <Radio className="mr-2 h-4 w-4" />
+              Overlay V2
+              <ExternalLink className="ml-1 h-3 w-3" />
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/studio')}>
               <Monitor className="mr-2 h-4 w-4" />
               Studio
@@ -133,6 +144,10 @@ export default function Dashboard() {
             <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
               <Users className="mr-2 h-4 w-4" />
               Admin
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/v2/admin/players')}>
+              <UserCog className="mr-2 h-4 w-4" />
+              Players V2
             </Button>
             <Button variant="ghost" size="icon" onClick={handleSignOut}>
               <LogOut className="h-4 w-4" />
