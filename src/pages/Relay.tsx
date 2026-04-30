@@ -346,8 +346,24 @@ def heartbeat_loop() -> None:
 _decoder = json.JSONDecoder()
 
 
-def _process_payload(evt: Dict[str, Any]) -> None:
+def _process_payload(evt: Any) -> None:
     global last_event_at
+    # RL czasem wysyla JSON-e zakodowane jako string (double-encoded).
+    for _ in range(3):
+        if isinstance(evt, (bytes, bytearray)):
+            try:
+                evt = evt.decode("utf-8", errors="replace")
+            except Exception:
+                return
+        if isinstance(evt, str):
+            try:
+                evt = json.loads(evt)
+            except Exception:
+                return
+        else:
+            break
+    if not isinstance(evt, dict):
+        return
     with state_lock:
         stats["events"] += 1
         stats["events_delta"] += 1
@@ -368,8 +384,7 @@ def _drain_buffer(buf: str) -> str:
             obj, end = _decoder.raw_decode(s)
         except json.JSONDecodeError:
             return s  # niekompletny / czesciowy obiekt — czekamy na kolejne dane
-        if isinstance(obj, dict):
-            _process_payload(obj)
+        _process_payload(obj)
         buf = s[end:]
 
 
