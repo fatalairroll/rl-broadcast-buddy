@@ -509,7 +509,7 @@ PacketSendRate=30`}</pre>
                 <h3 className="font-semibold">3. Uruchomienie relay</h3>
                 <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
                   <li>Pobierz plik <code className="bg-secondary px-1 rounded">relay.py</code></li>
-                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install websocket-client supabase requests</code></li>
+                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install supabase requests</code></li>
                   <li>Uruchom: <code className="bg-secondary px-1 rounded">python relay.py</code></li>
                 </ol>
               </div>
@@ -518,7 +518,7 @@ PacketSendRate=30`}</pre>
                 <p className="text-sm text-blue-300">
                   <strong>Dziala w trzech trybach</strong>
                   <br />
-                  Mecze online (competitive), mecze z botami / custom offline oraz replaye z Match History. Boost i speed sa widoczne tylko gdy spectatujesz lub gracz jest na Twojej druzynie (ograniczenie API).
+                  Mecze online (competitive), mecze z botami / custom offline oraz replaye z Match History. Skrypt laczy sie z oficjalnym RL Stats API jako lokalny TCP stream (port 49123). Boost i speed sa widoczne tylko gdy spectatujesz lub gracz jest na Twojej druzynie (ograniczenie API).
                 </p>
               </div>
 
