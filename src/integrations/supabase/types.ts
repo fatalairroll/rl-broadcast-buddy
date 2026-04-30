@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_camera: {
+        Row: {
+          id: number
+          target_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          target_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          target_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       broadcast_sessions: {
         Row: {
           created_at: string
@@ -126,6 +144,39 @@ export type Database = {
         }
         Relationships: []
       }
+      match_metadata: {
+        Row: {
+          blue_score: number
+          id: number
+          is_overtime: boolean
+          match_guid: string | null
+          orange_score: number
+          time_seconds: number
+          timer: string
+          updated_at: string
+        }
+        Insert: {
+          blue_score?: number
+          id?: number
+          is_overtime?: boolean
+          match_guid?: string | null
+          orange_score?: number
+          time_seconds?: number
+          timer?: string
+          updated_at?: string
+        }
+        Update: {
+          blue_score?: number
+          id?: number
+          is_overtime?: boolean
+          match_guid?: string | null
+          orange_score?: number
+          time_seconds?: number
+          timer?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       overlay_presets: {
         Row: {
           config: Json
@@ -158,6 +209,93 @@ export type Database = {
           is_default?: boolean | null
           name?: string
           thumbnail_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      players_live: {
+        Row: {
+          assists: number
+          boost: number
+          demos: number
+          goals: number
+          is_demolished: boolean
+          is_supersonic: boolean
+          mmr: number | null
+          player_name: string
+          saves: number
+          shots: number
+          speed: number
+          team_num: number
+          updated_at: string
+        }
+        Insert: {
+          assists?: number
+          boost?: number
+          demos?: number
+          goals?: number
+          is_demolished?: boolean
+          is_supersonic?: boolean
+          mmr?: number | null
+          player_name: string
+          saves?: number
+          shots?: number
+          speed?: number
+          team_num?: number
+          updated_at?: string
+        }
+        Update: {
+          assists?: number
+          boost?: number
+          demos?: number
+          goals?: number
+          is_demolished?: boolean
+          is_supersonic?: boolean
+          mmr?: number | null
+          player_name?: string
+          saves?: number
+          shots?: number
+          speed?: number
+          team_num?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      players_registry: {
+        Row: {
+          country_code: string | null
+          created_at: string
+          display_name: string | null
+          mmr: number | null
+          notes: string | null
+          photo_url: string | null
+          player_name: string
+          rank_name: string | null
+          team_color: string | null
+          updated_at: string
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string
+          display_name?: string | null
+          mmr?: number | null
+          notes?: string | null
+          photo_url?: string | null
+          player_name: string
+          rank_name?: string | null
+          team_color?: string | null
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string
+          display_name?: string | null
+          mmr?: number | null
+          notes?: string | null
+          photo_url?: string | null
+          player_name?: string
+          rank_name?: string | null
+          team_color?: string | null
           updated_at?: string
         }
         Relationships: []
