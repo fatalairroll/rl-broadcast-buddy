@@ -39,6 +39,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          overlay_v2_preset_id: string | null
           series_type: string | null
           team_a_color: string | null
           team_a_game_score: number | null
@@ -60,6 +61,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          overlay_v2_preset_id?: string | null
           series_type?: string | null
           team_a_color?: string | null
           team_a_game_score?: number | null
@@ -81,6 +83,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          overlay_v2_preset_id?: string | null
           series_type?: string | null
           team_a_color?: string | null
           team_a_game_score?: number | null
@@ -97,6 +100,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "broadcast_sessions_overlay_v2_preset_id_fkey"
+            columns: ["overlay_v2_preset_id"]
+            isOneToOne: false
+            referencedRelation: "overlay_presets_v2"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "broadcast_sessions_team_a_id_fkey"
             columns: ["team_a_id"]
@@ -163,6 +173,36 @@ export type Database = {
           orange_score?: number
           time_seconds?: number
           timer?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      overlay_presets_v2: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
           updated_at?: string
         }
         Relationships: []
