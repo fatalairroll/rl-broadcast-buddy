@@ -5,10 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ColorPicker } from '@/components/ui/color-picker';
 import { SliderInput } from '@/components/ui/slider-input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   V2_ELEMENT_LABELS,
   type OverlayV2Config,
   type V2EditableElement,
+  type PositionV2,
+  type AnchorH,
+  type AnchorV,
 } from '@/types/overlayV2';
 import type { GlowConfig } from '@/lib/glow-utils';
 import type { GradientConfig, GradientStop } from '@/lib/gradient-utils';
@@ -32,7 +36,8 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
         {element === 'scoreboard' && (
           <>
             <Toggle label="Widoczny" value={config.scoreboard.visible} onChange={(v) => update('scoreboard', { visible: v })} />
-            <SliderInput label="Odsunięcie od góry" value={config.scoreboard.topOffset} onValueChange={(v) => update('scoreboard', { topOffset: v })} min={0} max={200} unit="px" />
+            <PositionEditor value={config.scoreboard.position} onChange={(p) => update('scoreboard', { position: p })} />
+            <Separator />
             <SliderInput label="Odstęp między kafelkami" value={config.scoreboard.gap} onValueChange={(v) => update('scoreboard', { gap: v })} min={0} max={64} unit="px" />
             <SliderInput label="Skew" value={config.scoreboard.skewDeg} onValueChange={(v) => update('scoreboard', { skewDeg: v })} min={-30} max={30} unit="°" />
             <SliderInput label="Opacity" value={config.scoreboard.opacity} onValueChange={(v) => update('scoreboard', { opacity: v })} min={0} max={1} step={0.05} />
@@ -49,6 +54,13 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
 
         {element === 'timer' && (
           <>
+            <Toggle label="Odepnij timer (osobna pozycja)" value={config.timer.detached} onChange={(v) => update('timer', { detached: v })} />
+            {config.timer.detached && (
+              <>
+                <PositionEditor value={config.timer.position} onChange={(p) => update('timer', { position: p })} />
+                <Separator />
+              </>
+            )}
             <ColorPicker label="Tło" value={config.timer.background} onChange={(v) => update('timer', { background: v })} />
             <FontInput label="Font" value={config.timer.fontFamily} onChange={(v) => update('timer', { fontFamily: v })} />
             <SliderInput label="Rozmiar fontu" value={config.timer.fontSize} onValueChange={(v) => update('timer', { fontSize: v })} min={20} max={120} unit="px" />
@@ -67,10 +79,14 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
         {element === 'boostBar' && (
           <>
             <Toggle label="Widoczne" value={config.boostBar.visible} onChange={(v) => update('boostBar', { visible: v })} />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja lewy stack</h4>
+            <PositionEditor value={config.boostBar.positionLeft} onChange={(p) => update('boostBar', { positionLeft: p })} />
+            <Separator />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja prawy stack</h4>
+            <PositionEditor value={config.boostBar.positionRight} onChange={(p) => update('boostBar', { positionRight: p })} />
+            <Separator />
             <SliderInput label="Szerokość paska" value={config.boostBar.width} onValueChange={(v) => update('boostBar', { width: v })} min={180} max={500} unit="px" />
             <SliderInput label="Odstęp w pionie" value={config.boostBar.gap} onValueChange={(v) => update('boostBar', { gap: v })} min={0} max={40} unit="px" />
-            <SliderInput label="Margines od krawędzi" value={config.boostBar.sideOffset} onValueChange={(v) => update('boostBar', { sideOffset: v })} min={0} max={200} unit="px" />
-            <SliderInput label="Wyrównanie pionowe (%)" value={config.boostBar.verticalAlign} onValueChange={(v) => update('boostBar', { verticalAlign: v })} min={0} max={100} unit="%" />
             <SliderInput label="Skew" value={config.boostBar.skewDeg} onValueChange={(v) => update('boostBar', { skewDeg: v })} min={-30} max={30} unit="°" />
             <ColorPicker label="Tło" value={config.boostBar.background} onChange={(v) => update('boostBar', { background: v })} />
             <ColorPicker label="Kolor obramowania" value={config.boostBar.borderColor} onChange={(v) => update('boostBar', { borderColor: v })} />
@@ -104,7 +120,8 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
         {element === 'playerCard' && (
           <>
             <Toggle label="Widoczna" value={config.playerCard.visible} onChange={(v) => update('playerCard', { visible: v })} />
-            <SliderInput label="Odsunięcie od dołu" value={config.playerCard.bottomOffset} onValueChange={(v) => update('playerCard', { bottomOffset: v })} min={0} max={300} unit="px" />
+            <PositionEditor value={config.playerCard.position} onChange={(p) => update('playerCard', { position: p })} />
+            <Separator />
             <SliderInput label="Min. szerokość" value={config.playerCard.width} onValueChange={(v) => update('playerCard', { width: v })} min={400} max={1200} unit="px" />
             <SliderInput label="Wysokość" value={config.playerCard.height} onValueChange={(v) => update('playerCard', { height: v })} min={100} max={300} unit="px" />
             <SliderInput label="Skew" value={config.playerCard.skewDeg} onValueChange={(v) => update('playerCard', { skewDeg: v })} min={-30} max={30} unit="°" />
