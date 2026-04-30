@@ -122,8 +122,25 @@ export function useLiveStatsV2() {
     [players],
   );
 
-  const blue = useMemo(() => sorted.filter((p) => p.team_num === 0), [sorted]);
-  const orange = useMemo(() => sorted.filter((p) => p.team_num === 1), [sorted]);
+  // Awaryjny filtr swiezosci: jezeli w tabeli zostana stare rekordy
+  // (np. boty z poprzedniej sesji testowej, ktorych relay z jakiegos powodu
+  // nie zdazyl skasowac), odcinamy wpisy starsze o ponad 30 s od najswiezszego.
+  const fresh = useMemo(() => {
+    if (sorted.length === 0) return sorted;
+    const times = sorted
+      .map((p) => (p.updated_at ? new Date(p.updated_at).getTime() : 0))
+      .filter((t) => Number.isFinite(t) && t > 0);
+    if (times.length === 0) return sorted;
+    const newest = Math.max(...times);
+    const STALE_MS = 30_000;
+    return sorted.filter((p) => {
+      const t = p.updated_at ? new Date(p.updated_at).getTime() : 0;
+      return t > 0 && newest - t <= STALE_MS;
+    });
+  }, [sorted]);
+
+  const blue = useMemo(() => fresh.filter((p) => p.team_num === 0), [fresh]);
+  const orange = useMemo(() => fresh.filter((p) => p.team_num === 1), [fresh]);
 
   const activeCameraTarget = camera?.target_name ?? null;
   const activePlayer =
@@ -135,7 +152,7 @@ export function useLiveStatsV2() {
 
   return {
     match,
-    players: sorted,
+    players: fresh,
     blue,
     orange,
     activeCameraTarget,
