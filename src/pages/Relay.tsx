@@ -591,6 +591,14 @@ PacketSendRate=30`}</pre>
                   Skrypt ma juz wpisane SUPABASE_URL i klucz - nie musisz nic edytowac.
                 </p>
               </div>
+
+              <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <p className="text-sm text-yellow-300">
+                  <strong>Aktualizacja</strong>
+                  <br />
+                  Jesli widzisz w konsoli powtarzajacy sie blad <code className="bg-secondary px-1 rounded">'str' object has no attribute 'get'</code>, pobierz ponownie najnowszy <code className="bg-secondary px-1 rounded">relay.py</code> z tej strony - obsluga zagniezdzonego JSON-a w polu <code className="bg-secondary px-1 rounded">Data</code> zostala dodana.
+                </p>
+              </div>
             </CardContent>
           </Card>
 
