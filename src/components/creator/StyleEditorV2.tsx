@@ -67,7 +67,6 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <ColorPicker label="Kolor tekstu" value={config.timer.textColor} onChange={(v) => update('timer', { textColor: v })} />
             <SliderInput label="Padding X" value={config.timer.paddingX} onValueChange={(v) => update('timer', { paddingX: v })} min={0} max={120} unit="px" />
             <SliderInput label="Padding Y" value={config.timer.paddingY} onValueChange={(v) => update('timer', { paddingY: v })} min={0} max={60} unit="px" />
-            <SliderInput label="Min. szerokość" value={config.timer.minWidth} onValueChange={(v) => update('timer', { minWidth: v })} min={120} max={500} unit="px" />
             <Separator />
             <Toggle label="Etykieta Overtime" value={config.timer.showOvertimeLabel} onChange={(v) => update('timer', { showOvertimeLabel: v })} />
             <ColorPicker label="Kolor etykiety OT" value={config.timer.overtimeLabelColor} onChange={(v) => update('timer', { overtimeLabelColor: v })} />

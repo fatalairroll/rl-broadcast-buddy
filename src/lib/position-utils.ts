@@ -1,33 +1,40 @@
 import type { CSSProperties } from 'react';
 import type { PositionV2 } from '@/types/overlayV2';
 
+const STAGE_W = 1920;
+const STAGE_H = 1080;
+
 /**
  * Convert a PositionV2 anchor + offset into absolute-positioning CSS.
  * The element MUST be `position: absolute` inside a 1920x1080 stage.
- * For center/middle anchors we use translate(-50%) so offsets remain
- * relative to the element's own center.
+ *
+ * SEMANTICS: offsetX / offsetY are ALWAYS relative to the SCREEN CENTER
+ * (960, 540). The anchor selects which point of the ELEMENT is glued to
+ * that screen-center-relative point:
+ *   anchorH=left   → element's LEFT edge   sits at (960 + offsetX)
+ *   anchorH=center → element's CENTER      sits at (960 + offsetX)
+ *   anchorH=right  → element's RIGHT edge  sits at (960 + offsetX)
+ *   anchorV=top    → element's TOP edge    sits at (540 + offsetY)
+ *   anchorV=middle → element's MIDDLE      sits at (540 + offsetY)
+ *   anchorV=bottom → element's BOTTOM edge sits at (540 + offsetY)
+ *
+ * Therefore (anchor=center/middle, 0, 0) puts the element's center at
+ * the screen center, regardless of the element's own size.
  */
 export function positionToStyle(pos: PositionV2): CSSProperties {
   const style: CSSProperties = { position: 'absolute' };
   const tx: string[] = [];
 
-  if (pos.anchorH === 'left') {
-    style.left = pos.offsetX;
-  } else if (pos.anchorH === 'right') {
-    style.right = pos.offsetX;
-  } else {
-    style.left = '50%';
-    tx.push(`translateX(calc(-50% + ${pos.offsetX}px))`);
-  }
+  // Horizontal: always position via `left` from screen center, then translate
+  // the element by 0 / -50% / -100% of its own width depending on anchor.
+  style.left = STAGE_W / 2 + pos.offsetX;
+  if (pos.anchorH === 'center') tx.push('translateX(-50%)');
+  else if (pos.anchorH === 'right') tx.push('translateX(-100%)');
 
-  if (pos.anchorV === 'top') {
-    style.top = pos.offsetY;
-  } else if (pos.anchorV === 'bottom') {
-    style.bottom = pos.offsetY;
-  } else {
-    style.top = '50%';
-    tx.push(`translateY(calc(-50% + ${pos.offsetY}px))`);
-  }
+  // Vertical: same pattern.
+  style.top = STAGE_H / 2 + pos.offsetY;
+  if (pos.anchorV === 'middle') tx.push('translateY(-50%)');
+  else if (pos.anchorV === 'bottom') tx.push('translateY(-100%)');
 
   if (tx.length) style.transform = tx.join(' ');
   return style;
