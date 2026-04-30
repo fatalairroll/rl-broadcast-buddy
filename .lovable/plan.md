@@ -1,30 +1,69 @@
-Potwierdziłem dwie rzeczy:
+# Etap 1 — Kill legacy overlay + odpięcie Kreatora
 
-1. W samym Overlay V2 nie ma zahardcodowanych nazw `BLUE BOT 1`, `BLUE BOT 2`, `ORANGE BOT 1`, `ORANGE BOT 2`. Komponent `/v2/overlay` pobiera listę wyłącznie z tabeli `players_live` przez `useLiveStatsV2`.
-2. Te 4 wpisy nadal siedzą w bazie jako stare rekordy. Mają `updated_at` ok. 15:34, a prawdziwi gracze są nowsi. Dlatego overlay je pokazuje.
+Cel: w UI zostaje tylko Overlay V2. Legacy `/overlay` znika, Kreator (który dziś edytuje tylko legacy) zostaje wyłączony z UI, ale plik nie jest jeszcze kasowany — w razie gdybyś chciał go w Etapie 2 przepiąć pod V2 zamiast wywalać.
 
-Problem wygląda na to, że obecne czyszczenie w wygenerowanym `relay.py` nie usuwa ich skutecznie — najpewniej przez składnię `.not_.in_(...)` w pythonowym kliencie albo dlatego, że czyszczenie dzieje się tylko po udanym upsercie i może być pomijane/throttlowane.
+## Co robię
 
-Plan naprawy:
+1. **Routing (`src/App.tsx`)**
+   - Usuwam import `Overlay` i `Creator`.
+   - Usuwam trasy `/overlay` i `/creator`. Wejście na te ścieżki trafi na `NotFound`.
+   - Przy okazji usuwam zduplikowany `<Route path="*" element={<NotFound />} />`.
 
-1. Poprawić wygenerowany `relay.py` w `src/pages/Relay.tsx`
-   - Zastąpić aktualne `prune_stale_players(...).not_.in_(...)` bezpieczniejszą logiką:
-     - pobierz aktualne `player_name` z `players_live`,
-     - porównaj z nazwami graczy z bieżącego snapshota RL,
-     - usuń rekordy, których nie ma w snapshotcie, pojedynczymi `.delete().eq("player_name", name)`.
-   - Dzięki temu stare wpisy typu `BLUE BOT 1` i `ORANGE BOT 1` znikną niezależnie od problemów z operatorem `not in`.
+2. **Dashboard (`src/pages/Dashboard.tsx`)**
+   - Usuwam przycisk „Overlay" (link do `/overlay`).
+   - Usuwam przycisk „Kreator" (link do `/creator`).
+   - Zostają: Overlay V2, Studio, Admin, Players V2, Logout.
+   - Przycisk „Overlay V2" przemianowuję na samo „Overlay" (skoro legacy już nie ma — nie ma z czym mylić). Ikona `Radio` zostaje.
 
-2. Dodać natychmiastowe czyszczenie przy starcie/zmianie meczu
-   - W eventach `MatchCreated` / `MatchInitialized` wyczyścić `players_live`, żeby nowy mecz/replay zaczynał z pustą listą.
-   - Potem pierwsze `UpdateState` wstawi tylko realnych graczy obecnych w tym meczu.
+3. **MatchControls (`src/components/dashboard/MatchControls.tsx`)**
+   - Usuwam sekcję „Preset overlay" (Select wybierający `overlay_preset_id`). Presety dotyczyły wyłącznie legacy, V2 ma styl hardkodowany. Zostawiam pole `overlay_preset_id` w typie/sesji bez ruszania DB — po prostu nie edytuję go z UI.
+   - Usuwam props `presets` i powiązany `useOverlayPresets()` z Dashboardu (import + użycie).
 
-3. Dodać awaryjne filtrowanie po świeżości w hooku Overlay V2
-   - W `useLiveStatsV2` odfiltrować ekstremalnie stare wpisy z `players_live` na initial load i realtime state, np. starsze niż kilka minut względem najnowszego `updated_at` w tej samej tabeli.
-   - To zabezpieczy overlay przed zalegającymi rekordami nawet wtedy, gdy relay chwilowo nie zdąży ich usunąć.
-   - Nie będzie to filtrowanie konkretnych nazw botów, tylko ogólna ochrona przed stale data.
+4. **Strona startowa (`src/pages/Index.tsx`)**
+   - Karta „Kreator Overlay" → zamieniam na coś sensownego dla obecnego stanu, np. „Studio & MMRivals" (krótki opis modułu turniejowego), żeby nie obiecywać funkcji której nie ma. Reszta strony bez zmian.
 
-4. Jednorazowo wyczyścić obecne stare rekordy z bazy
-   - Usunąć z `players_live` obecne rekordy: `BLUE BOT 1`, `BLUE BOT 2`, `ORANGE BOT 1`, `ORANGE BOT 2`.
-   - To jest operacja na danych, nie migracja schematu.
+5. **Pliki, których NIE ruszam w tym etapie** (świadoma decyzja, czekają na Etap 2):
+   - `src/pages/Overlay.tsx`
+   - `src/pages/Creator.tsx` + `src/components/creator/*`
+   - `src/config/overlayTemplates.ts`
+   - hook `useOverlayPresets` w `src/hooks/useBroadcast.tsx`
+   - tabela `overlay_presets` w bazie
+   
+   Powód: są niepodpięte pod żaden aktywny route ani UI, więc nie szkodzą. Skasujemy je hurtem w Etapie 2 razem z decyzją „Kreator pod V2 czy w pełni wywalamy".
 
-Po wdrożeniu trzeba będzie pobrać/skopiować nowy `relay.py` ze strony `/relay` i uruchomić go ponownie. Overlay V2 powinien wtedy pokazywać tylko graczy faktycznie przychodzących z aktualnego meczu/replaya.
+## Po wdrożeniu — Twoja decyzja na Etap 2
+
+Powiedz w następnej wiadomości, którą drogą lecimy:
+
+- **A. Pełen kill** — kasuję `Overlay.tsx`, `Creator.tsx`, `components/creator/*`, `overlayTemplates.ts`, `useOverlayPresets`, kolumnę `overlay_preset_id` z `broadcast_sessions` i tabelę `overlay_presets`. Czysto, bez powrotu.
+- **B. Kreator → V2** — refaktoruję `ScoreboardV2`, `BoostStackV2`, `PlayerCardV2` tak, by przyjmowały `OverlayConfig` (skew, kolory HSL, fonty), Kreator zaczyna edytować V2, presety V2 lądują w nowej tabeli (`overlay_presets_v2`) albo w istniejącej z polem `version`.
+
+## Szczegóły techniczne
+
+```text
+src/App.tsx
+  - import Overlay from "./pages/Overlay";        DELETE
+  - import Creator from "./pages/Creator";        DELETE
+  - <Route path="/overlay" .../>                  DELETE
+  - <Route path="/creator" .../>                  DELETE
+  - duplikat <Route path="*" .../>                DELETE (zostaje 1)
+
+src/pages/Dashboard.tsx
+  - usunięcie 2 <Button> (Overlay legacy, Kreator)
+  - { presets } z useOverlayPresets()             DELETE
+  - <MatchControls presets={presets} ... />       DELETE prop presets
+  - import useOverlayPresets                      DELETE jeśli nieużywany
+  - przycisk "Overlay V2" -> label "Overlay"
+
+src/components/dashboard/MatchControls.tsx
+  - prop presets: OverlayPreset[]                 DELETE
+  - cała sekcja "Preset overlay" (Label+Select)   DELETE
+  - import Palette z lucide-react                 DELETE jeśli osierocony
+  - import OverlayPreset z types/broadcast        DELETE jeśli nieużywany
+
+src/pages/Index.tsx
+  - karta "Kreator Overlay"                       REPLACE tytuł/opis
+    np. "Studio turniejowe" / "Bracket, najbliższe i ostatnie mecze MMRivals"
+```
+
+Brak zmian w bazie, brak migracji w tym etapie.
