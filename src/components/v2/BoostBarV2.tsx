@@ -82,7 +82,7 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
         </div>
 
         {/* Mini stats */}
-        {c.showStats && (
+        {(c.stats.goals || c.stats.assists || c.stats.saves || c.stats.shots || c.stats.demos) && (
           <div
             className={`flex gap-3 tabular-nums uppercase tracking-wider ${reverse ? 'justify-start' : 'justify-end'}`}
             style={{
@@ -93,10 +93,11 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
               color: c.statsColor,
             }}
           >
-            <span>G {player.goals}</span>
-            <span style={{ opacity: 0.8 }}>A {player.assists}</span>
-            <span style={{ opacity: 0.8 }}>SV {player.saves}</span>
-            <span style={{ opacity: 0.6 }}>D {player.demos}</span>
+            {c.stats.goals && <span>G {player.goals}</span>}
+            {c.stats.assists && <span style={{ opacity: 0.85 }}>A {player.assists}</span>}
+            {c.stats.saves && <span style={{ opacity: 0.8 }}>SV {player.saves}</span>}
+            {c.stats.shots && <span style={{ opacity: 0.7 }}>SH {player.shots}</span>}
+            {c.stats.demos && <span style={{ opacity: 0.6 }}>D {player.demos}</span>}
           </div>
         )}
       </div>

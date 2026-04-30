@@ -58,7 +58,7 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
             }}
           >
             {/* MMR watermark */}
-            <div
+            {c.fields.mmrWatermark && <div
               className="absolute right-6 top-2 pointer-events-none select-none"
               style={{
                 transform: skewInner,
@@ -71,10 +71,10 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
               }}
             >
               {registry?.mmr ?? player.mmr ?? ''}
-            </div>
+            </div>}
 
             {/* Photo */}
-            {registry?.photo_url && (
+            {c.fields.photo && registry?.photo_url && (
               <div
                 className="h-full overflow-hidden border-r-2 border-white/15"
                 style={{ width: c.photoWidth, transform: skewInner, marginLeft: -12, marginRight: -12 }}
@@ -90,7 +90,7 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
             {/* Body */}
             <div className="flex-1 flex flex-col justify-center px-8 gap-2" style={{ transform: skewInner }}>
               <div className="flex items-center gap-3">
-                {registry?.country_code && (
+                {c.fields.country && registry?.country_code && (
                   <span
                     className="font-bold uppercase px-2 py-0.5 tracking-widest border border-white/20"
                     style={{ fontSize: 12, background: c.countryBg, color: c.countryColor }}
@@ -111,7 +111,7 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
                 </span>
               </div>
 
-              {registry?.rank_name && (
+              {c.fields.rank && registry?.rank_name && (
                 <div className="flex items-center gap-2">
                   <RankIcon rank={registry.rank_name} size="sm" />
                   <span className="text-white/80 text-sm font-semibold uppercase tracking-wider">
@@ -124,11 +124,12 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
                 className="flex items-center gap-5 mt-1"
                 style={{ color: c.statsColor, fontSize: c.statsFontSize }}
               >
-                <Stat label="G" value={player.goals} size={c.statsFontSize} />
-                <Stat label="A" value={player.assists} size={c.statsFontSize} />
-                <Stat label="SV" value={player.saves} size={c.statsFontSize} />
-                <Stat label="D" value={player.demos} size={c.statsFontSize} />
-                <BoostStat boost={player.boost} supersonic={player.is_supersonic} size={c.statsFontSize} />
+                {c.stats.goals && <Stat label="G" value={player.goals} size={c.statsFontSize} />}
+                {c.stats.assists && <Stat label="A" value={player.assists} size={c.statsFontSize} />}
+                {c.stats.saves && <Stat label="SV" value={player.saves} size={c.statsFontSize} />}
+                {c.stats.shots && <Stat label="SH" value={player.shots} size={c.statsFontSize} />}
+                {c.stats.demos && <Stat label="D" value={player.demos} size={c.statsFontSize} />}
+                {c.stats.boost && <BoostStat boost={player.boost} supersonic={player.is_supersonic} size={c.statsFontSize} />}
               </div>
             </div>
           </div>
