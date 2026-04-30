@@ -1,37 +1,54 @@
 import { motion } from 'framer-motion';
 import type { MatchMetadata } from '@/types/livestats';
+import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2';
+import { gradientToCss } from '@/lib/gradient-utils';
+import { glowToBoxShadow } from '@/lib/glow-utils';
 
 interface Props {
   match: MatchMetadata | null;
+  config?: OverlayV2Config;
 }
 
-export function ScoreboardV2({ match }: Props) {
+export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) {
+  const sb = config.scoreboard;
+  if (!sb.visible) return null;
+
   const blue = match?.blue_score ?? 0;
   const orange = match?.orange_score ?? 0;
   const timer = match?.timer ?? '5:00';
   const ot = match?.is_overtime ?? false;
 
+  const skewOuter = `skewX(${sb.skewDeg}deg)`;
+  const skewInner = `skewX(${-sb.skewDeg}deg)`;
+
   return (
     <motion.div
       initial={{ y: -40, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
+      animate={{ y: 0, opacity: sb.opacity }}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="absolute top-0 left-1/2 -translate-x-1/2 flex items-stretch gap-2 select-none"
-      style={{ paddingTop: 24 }}
+      className="absolute top-0 left-1/2 -translate-x-1/2 flex items-stretch select-none"
+      style={{ paddingTop: sb.topOffset, gap: sb.gap, fontFamily: sb.fontFamily }}
     >
       {/* Blue */}
       <div
-        className="px-10 py-4 flex items-center justify-center min-w-[160px]"
+        className="flex items-center justify-center"
         style={{
-          transform: 'skewX(-15deg)',
-          background: 'linear-gradient(135deg, hsl(217 91% 35%), hsl(217 91% 55%))',
-          boxShadow: '0 0 32px hsl(217 91% 60% / 0.55)',
-          clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)',
+          padding: `${config.scoreBlue.paddingY}px ${config.scoreBlue.paddingX}px`,
+          minWidth: config.scoreBlue.minWidth,
+          transform: skewOuter,
+          background: gradientToCss(config.scoreBlue.gradient),
+          boxShadow: glowToBoxShadow(config.scoreBlue.glow),
         }}
       >
         <span
-          className="text-white font-black text-6xl tabular-nums tracking-tight"
-          style={{ transform: 'skewX(15deg)', textShadow: '0 2px 12px rgba(0,0,0,0.6)' }}
+          className="tabular-nums tracking-tight"
+          style={{
+            transform: skewInner,
+            fontSize: config.scoreBlue.fontSize,
+            fontWeight: config.scoreBlue.fontWeight,
+            color: config.scoreBlue.textColor,
+            textShadow: config.scoreBlue.textShadow,
+          }}
         >
           {blue}
         </span>
@@ -39,19 +56,35 @@ export function ScoreboardV2({ match }: Props) {
 
       {/* Timer */}
       <div
-        className="px-12 py-4 flex flex-col items-center justify-center min-w-[220px] bg-black/85 border-y-2 border-white/10"
-        style={{ transform: 'skewX(-15deg)' }}
+        className="flex flex-col items-center justify-center border-y-2 border-white/10"
+        style={{
+          padding: `${config.timer.paddingY}px ${config.timer.paddingX}px`,
+          minWidth: config.timer.minWidth,
+          background: config.timer.background,
+          transform: skewOuter,
+          boxShadow: glowToBoxShadow(config.timer.glow),
+        }}
       >
         <span
-          className="text-white font-black text-5xl tabular-nums tracking-wider"
-          style={{ transform: 'skewX(15deg)', fontFamily: 'Rajdhani, sans-serif' }}
+          className="tabular-nums tracking-wider"
+          style={{
+            transform: skewInner,
+            fontFamily: config.timer.fontFamily,
+            fontSize: config.timer.fontSize,
+            fontWeight: 900,
+            color: config.timer.textColor,
+          }}
         >
           {timer}
         </span>
-        {ot && (
+        {ot && config.timer.showOvertimeLabel && (
           <span
-            className="text-xs font-bold uppercase tracking-[0.3em] text-yellow-300 mt-1 animate-pulse"
-            style={{ transform: 'skewX(15deg)', textShadow: '0 0 8px hsl(48 100% 60% / 0.9)' }}
+            className="text-xs font-bold uppercase tracking-[0.3em] mt-1 animate-pulse"
+            style={{
+              transform: skewInner,
+              color: config.timer.overtimeLabelColor,
+              textShadow: `0 0 8px ${config.timer.overtimeLabelColor}`,
+            }}
           >
             Overtime
           </span>
@@ -60,16 +93,24 @@ export function ScoreboardV2({ match }: Props) {
 
       {/* Orange */}
       <div
-        className="px-10 py-4 flex items-center justify-center min-w-[160px]"
+        className="flex items-center justify-center"
         style={{
-          transform: 'skewX(-15deg)',
-          background: 'linear-gradient(135deg, hsl(24 95% 45%), hsl(24 95% 60%))',
-          boxShadow: '0 0 32px hsl(24 95% 60% / 0.55)',
+          padding: `${config.scoreOrange.paddingY}px ${config.scoreOrange.paddingX}px`,
+          minWidth: config.scoreOrange.minWidth,
+          transform: skewOuter,
+          background: gradientToCss(config.scoreOrange.gradient),
+          boxShadow: glowToBoxShadow(config.scoreOrange.glow),
         }}
       >
         <span
-          className="text-white font-black text-6xl tabular-nums tracking-tight"
-          style={{ transform: 'skewX(15deg)', textShadow: '0 2px 12px rgba(0,0,0,0.6)' }}
+          className="tabular-nums tracking-tight"
+          style={{
+            transform: skewInner,
+            fontSize: config.scoreOrange.fontSize,
+            fontWeight: config.scoreOrange.fontWeight,
+            color: config.scoreOrange.textColor,
+            textShadow: config.scoreOrange.textShadow,
+          }}
         >
           {orange}
         </span>

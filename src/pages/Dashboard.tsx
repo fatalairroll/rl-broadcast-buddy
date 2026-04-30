@@ -13,6 +13,7 @@ import {
   LogOut,
   Settings,
   Monitor,
+  Palette,
   Users,
   Loader2,
   ExternalLink,
@@ -124,6 +125,10 @@ export default function Dashboard() {
             <Button variant="ghost" size="sm" onClick={() => navigate('/studio')}>
               <Monitor className="mr-2 h-4 w-4" />
               Studio
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/creator')}>
+              <Palette className="mr-2 h-4 w-4" />
+              Kreator
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
               <Users className="mr-2 h-4 w-4" />

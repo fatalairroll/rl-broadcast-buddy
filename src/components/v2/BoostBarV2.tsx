@@ -1,47 +1,66 @@
 import { motion } from 'framer-motion';
 import type { PlayerLive, PlayerRegistry } from '@/types/livestats';
+import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2';
 
 interface Props {
   player: PlayerLive;
   registry?: PlayerRegistry | null;
   side: 'left' | 'right';
   isActive?: boolean;
+  config?: OverlayV2Config;
 }
 
-const TEAM_COLORS = {
-  0: { from: 'hsl(217 91% 45%)', to: 'hsl(217 91% 65%)', glow: 'hsl(217 91% 60%)' },
-  1: { from: 'hsl(24 95% 50%)', to: 'hsl(24 95% 65%)', glow: 'hsl(24 95% 60%)' },
-} as const;
+export function BoostBarV2({ player, registry, side, isActive, config = defaultOverlayV2Config }: Props) {
+  const c = config.boostBar;
+  const team = (player.team_num as 0 | 1) ?? 0;
+  const colors = team === 0
+    ? { from: c.blueFrom, to: c.blueTo, glow: c.blueGlow }
+    : { from: c.orangeFrom, to: c.orangeTo, glow: c.orangeGlow };
 
-export function BoostBarV2({ player, registry, side, isActive }: Props) {
-  const colors = TEAM_COLORS[(player.team_num as 0 | 1) ?? 0] ?? TEAM_COLORS[0];
   const reverse = side === 'right';
   const displayName = registry?.display_name ?? player.player_name;
   const boost = Math.max(0, Math.min(100, player.boost ?? 0));
 
   return (
     <div
-      className={`relative w-[300px] ${player.is_demolished ? 'opacity-50 grayscale' : ''}`}
+      className={`relative ${player.is_demolished ? 'opacity-50 grayscale' : ''}`}
       style={{
-        transform: 'skewX(-15deg)',
+        width: c.width,
+        transform: `skewX(${c.skewDeg}deg)`,
         filter: isActive ? `drop-shadow(0 0 16px ${colors.glow})` : undefined,
       }}
     >
       <div
-        className="bg-black/80 border border-white/10 px-3 py-2 flex flex-col gap-1"
-        style={{ direction: reverse ? 'rtl' : 'ltr' }}
+        className="flex flex-col gap-1"
+        style={{
+          background: c.background,
+          border: `1px solid ${c.borderColor}`,
+          padding: `${c.paddingY}px ${c.paddingX}px`,
+          direction: reverse ? 'rtl' : 'ltr',
+        }}
       >
         {/* Nick + boost number */}
-        <div className="flex items-center justify-between" style={{ transform: 'skewX(15deg)', direction: 'ltr' }}>
+        <div className="flex items-center justify-between" style={{ transform: `skewX(${-c.skewDeg}deg)`, direction: 'ltr' }}>
           <span
-            className={`text-white font-bold text-base uppercase truncate ${reverse ? 'order-2 text-right' : 'order-1 text-left'}`}
-            style={{ maxWidth: 200, fontFamily: 'Rajdhani, sans-serif', letterSpacing: '0.05em' }}
+            className={`uppercase truncate ${reverse ? 'order-2 text-right' : 'order-1 text-left'}`}
+            style={{
+              maxWidth: c.width - 80,
+              fontFamily: c.nameFontFamily,
+              letterSpacing: '0.05em',
+              fontWeight: 700,
+              fontSize: c.nameFontSize,
+              color: c.nameColor,
+            }}
           >
             {displayName}
           </span>
           <span
-            className={`text-white font-black text-lg tabular-nums ${reverse ? 'order-1' : 'order-2'}`}
-            style={{ color: player.is_supersonic ? 'hsl(48 100% 65%)' : 'white' }}
+            className={`tabular-nums ${reverse ? 'order-1' : 'order-2'}`}
+            style={{
+              fontWeight: 900,
+              fontSize: c.boostFontSize,
+              color: player.is_supersonic ? c.supersonicColor : c.nameColor,
+            }}
           >
             {boost}
           </span>
@@ -63,21 +82,29 @@ export function BoostBarV2({ player, registry, side, isActive }: Props) {
         </div>
 
         {/* Mini stats */}
-        <div
-          className={`flex gap-3 text-[11px] font-bold tabular-nums uppercase tracking-wider ${reverse ? 'justify-start' : 'justify-end'}`}
-          style={{ transform: 'skewX(15deg)', direction: 'ltr' }}
-        >
-          <span className="text-white/90">G {player.goals}</span>
-          <span className="text-white/70">A {player.assists}</span>
-          <span className="text-white/70">SV {player.saves}</span>
-          <span className="text-white/50">D {player.demos}</span>
-        </div>
+        {c.showStats && (
+          <div
+            className={`flex gap-3 tabular-nums uppercase tracking-wider ${reverse ? 'justify-start' : 'justify-end'}`}
+            style={{
+              transform: `skewX(${-c.skewDeg}deg)`,
+              direction: 'ltr',
+              fontSize: c.statsFontSize,
+              fontWeight: 700,
+              color: c.statsColor,
+            }}
+          >
+            <span>G {player.goals}</span>
+            <span style={{ opacity: 0.8 }}>A {player.assists}</span>
+            <span style={{ opacity: 0.8 }}>SV {player.saves}</span>
+            <span style={{ opacity: 0.6 }}>D {player.demos}</span>
+          </div>
+        )}
       </div>
 
       {player.is_demolished && (
         <div
-          className="absolute inset-0 flex items-center justify-center text-red-500 font-black text-xs uppercase tracking-widest"
-          style={{ transform: 'skewX(15deg)', textShadow: '0 0 8px rgba(255,0,0,0.8)' }}
+          className="absolute inset-0 flex items-center justify-center font-black text-xs uppercase tracking-widest"
+          style={{ transform: `skewX(${-c.skewDeg}deg)`, color: c.demolishedColor, textShadow: `0 0 8px ${c.demolishedColor}` }}
         >
           DEMOLISHED
         </div>
