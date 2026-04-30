@@ -1,75 +1,58 @@
-## Diagnoza błędu
+## Co potwierdziły logi
 
-`did not receive a valid HTTP response` pochodzi z biblioteki `websockets` — próbuje wykonać uścisk WebSocket (HTTP Upgrade), ale **oficjalne RL Stats API to surowy TCP socket emitujący linie JSON, a nie WebSocket**. To zupełnie inny protokół niż BakkesMod SOS.
-
-Dodatkowo wcześniejszy skrypt celował w port `49122` (SOS), a oficjalne API używa **`49123`** i wymaga ręcznego włączenia w `DefaultStatsAPI.ini`.
+- TCP do `127.0.0.1:49123` działa, RL przesyła ~330 KB/s i 150+ eventów/s.
+- Eventy które przychodzą: `ClockUpdatedSeconds`, `MatchCreated`, `UpdateState` (wszystkie z poprawnym JSON-em).
+- W `UpdateState.Data` jest `MatchGuid`, `Game.Teams[0/1].Score`, `TimeSeconds`, `bOvertime`, `Arena`, `Ball.Speed`.
+- **`Players: []` jest puste** — to ograniczenie oficjalnego API Psyonix: w prywatnym meczu z botami w trybie spectator offline pola pomocnicze (Players, Boost, Speed) NIE są wypełniane. To nie jest błąd naszego kodu.
 
 ## Cel
 
-Przepisać `relay.py` tak, by:
-1. Łączył się z oficjalnym RL Stats API jako **TCP klient** (nie WebSocket).
-2. Parsował kopertę `{"Event": "...", "Data": {...}}` zgodnie z dokumentacją Psyonix.
-3. Mapował event `UpdateState` na tabele `match_metadata`, `players_live`, `active_camera` w Lovable Cloud.
-4. Obsługiwał reconnect, czyszczenie graczy między meczami i logował błędy.
+Mimo pustych `Players` chcę, żeby overlay V2 zaczął **już teraz** pokazywać:
+- aktualny wynik drużyn (`blue_score` / `orange_score`),
+- timer i status overtime,
+- nazwę areny (na potem),
 
-Dodatkowo: dostarczyć użytkownikowi krótką instrukcję włączenia API w grze (edycja `.ini`).
+a kiedy użytkownik wejdzie jako spectator do prawdziwego meczu online, gracze pojawią się automatycznie w `players_live` bez żadnej dodatkowej zmiany.
 
-## Co dostarczam
+## Co zmienię w `relay.py`
 
-### 1. Nowy `relay.py` (gotowy copy-paste)
+1. **Throttling wysyłek do Supabase**
+   - Obecnie każdy z 150+ eventów/s próbuje robić upsert. To zatyka logi i Supabase.
+   - Wyślę `match_metadata` **maks. 4 razy/s** (tylko gdy zmienił się `time_seconds`, `blue_score`, `orange_score` lub `is_overtime`) i `players_live` z tym samym throttle'em.
+   - `active_camera` aktualizuję tylko gdy zmienia się `target_name`.
 
-Zawartość skryptu:
+2. **Obsługa `ClockUpdatedSeconds` jako fallback dla timera**
+   - Niektóre tryby gry nie wysyłają `UpdateState` z aktualnym `TimeSeconds`, ale ślą `ClockUpdatedSeconds`. Mapuję to na `match_metadata.time_seconds` + sformatowany `timer = M:SS`.
 
-- **Konfiguracja**: hardkodowane `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `RL_HOST = "127.0.0.1"`, `RL_PORT = 49123`.
-- **Połączenie TCP** przez `asyncio.open_connection(RL_HOST, RL_PORT)` z auto-reconnectem co 3 s przy `ConnectionRefusedError` / `ConnectionResetError`.
-- **Parser strumieniowy**: czytanie linii (`reader.readline()`); jeśli RL wysyła kilka JSON-ów w jednej ramce, fallback na akumulator + `json.JSONDecoder.raw_decode` aby wyciąć kolejne obiekty.
-- **Handler `UpdateState`**:
-  - upsert do `match_metadata` (id=1): `match_guid`, `time_seconds`, `timer` (sformatowany `M:SS`), `is_overtime`, `blue_score = Game.Teams[0].Score`, `orange_score = Game.Teams[1].Score`.
-  - upsert do `players_live` po `player_name`: `team_num`, `boost`, `speed`, `goals`, `shots`, `assists`, `saves`, `demos`, `is_demolished` (`bDemolished`), `is_supersonic` (`bSupersonic`).
-  - upsert do `active_camera` (id=1): `target_name = Game.Target.Name` jeśli `Game.bHasTarget`, w przeciwnym razie `None`.
-  - **Czyszczenie**: na każdy `UpdateState` zapamiętujemy zbiór bieżących `Name`; po zmianie `MatchGuid` (nowy mecz) wykonujemy `delete().neq('player_name','')` na `players_live`, żeby nie zostawały duchy z poprzedniego meczu.
-- **Handler `GoalScored`** (opcjonalnie): log do konsoli (przyda się później do animacji).
-- **Throttling**: `time_seconds` i `boost` zmieniają się szybko — nie blokujemy upserta, ale pomijamy duplikaty (porównanie z lokalnym cache `last_state`), żeby nie spamować Supabase 30+ requestami/s.
-- **Logging**: `print` z prefixami `[RL]`, `[DB]`, `[ERR]`.
+3. **Pomijanie pustych `Players` zamiast logować błędy**
+   - Gdy `Players: []`, nie czyszczę `players_live` (żeby zachować ostatni stan z prawdziwego meczu) i loguję jednorazowy hint:  
+     `[INFO] Players list empty — wejdź jako spectator do meczu z prawdziwymi graczami, żeby zobaczyć boost/speed/imiona.`
 
-### 2. Instrukcja włączenia API w grze
+4. **Reset `players_live` tylko przy zmianie `MatchGuid` na **niepustą****
+   - Obecny kod kasuje listę przy każdej zmianie GUID, nawet z pustego na pusty. Po poprawce przejście `"" → realGuid` wyzwala czyszczenie raz.
 
-W odpowiedzi czatu (nie w kodzie) podam użytkownikowi:
+5. **Logi `[HB]` zamiast co 5 s pokazują co naprawdę poszło do Supabase**
+   - Format: `[HB] eventów: 754 | DB: 12 match upserts, 0 player upserts, 0 camera | players_seen: 0`.
+   - Dzięki temu od razu widać czy problem jest w "RL nie wysyła" czy "Supabase nie zapisuje".
 
-- Ścieżkę pliku: `<Steam>\steamapps\common\rocketleague\TAGame\Config\DefaultStatsAPI.ini` (analogicznie dla Epic).
-- Wymagane ustawienia:
-  ```
-  PacketSendRate=30
-  Port=49123
-  ```
-- Uwagę: zmiany wymagają **restartu Rocket League**.
-- Informację, że API działa **dla spectatora lub gracza w danej drużynie** — niektóre pola (`Boost`, `Speed`, `bSupersonic`) są oznaczone `SPECTATOR` i pojawią się tylko dla gracza obserwującego mecz w trybie spectator.
+## Co dostarczę
 
-### 3. Brak migracji bazy
+- Pełen, gotowy do wklejenia plik `relay.py` (cała zawartość — żadnych fragmentów).
+- W aplikacji nie ruszam nic — `useLiveStatsV2`, `OverlayV2.tsx`, schemat Supabase zostają bez zmian, bo już teraz konsumują `match_metadata` poprawnie.
 
-Sprawdzony schemat `match_metadata`, `players_live`, `active_camera` pokrywa wszystkie pola, które potrafi dostarczyć oficjalne API. Nie potrzebujemy żadnych ALTER-ów.
+## Jak to zweryfikujesz
 
-## Mapowanie pól (referencja)
+Po podmianie `relay.py` i restarcie:
 
-```text
-RL Stats API UpdateState        →   Supabase
-─────────────────────────────────────────────────────────
-Data.MatchGuid                  →   match_metadata.match_guid
-Data.Game.TimeSeconds           →   match_metadata.time_seconds + timer (M:SS)
-Data.Game.bOvertime             →   match_metadata.is_overtime
-Data.Game.Teams[0].Score        →   match_metadata.blue_score
-Data.Game.Teams[1].Score        →   match_metadata.orange_score
-Data.Game.bHasTarget+Target.Name→   active_camera.target_name
-Data.Players[i].Name            →   players_live.player_name (PK)
-Data.Players[i].TeamNum         →   players_live.team_num
-Data.Players[i].Boost           →   players_live.boost
-Data.Players[i].Speed           →   players_live.speed
-Data.Players[i].Goals/Shots/... →   players_live.goals/shots/...
-Data.Players[i].Demos           →   players_live.demos
-Data.Players[i].bDemolished     →   players_live.is_demolished
-Data.Players[i].bSupersonic     →   players_live.is_supersonic
-```
+1. **W Supabase Studio (Lovable Cloud)** otwórz tabelę `match_metadata`, wiersz `id=1` — powinieneś zobaczyć `time_seconds` zmieniający się w czasie i `blue_score` / `orange_score` rosnące, gdy boty strzelą.
+2. **Overlay V2 (`/v2/overlay`)** — wynik i timer u góry zaczną się ruszać. Karty graczy zostaną puste do momentu wejścia do prawdziwego meczu online jako spectator.
+3. **W konsoli relay** linia `[HB]` powinna pokazywać `DB: N match upserts` > 0.
 
-## Po zatwierdzeniu
+## Uwaga końcowa o testach z botami
 
-Wkleję pełen skrypt `relay.py` w odpowiedzi (gotowy do skopiowania), a w samej aplikacji **nic się nie zmieni** — overlay V2 (`/v2/overlay`) i tabele Supabase już są gotowe na te dane. Po uruchomieniu poprawionego skryptu i włączeniu Stats API w `.ini`, overlay zacznie się aktualizować automatycznie.
+Jeśli chcesz przetestować pełen flow z graczami i kamerą (BoostBarV2, PlayerCardV2, kółko aktywnego gracza), musisz:
+- albo zagrać **online** (Casual / Private z drugą osobą / Tournament) — wtedy Twoja postać będzie w `Players`,
+- albo wejść w **replay z trybu Spectator** — wtedy wszyscy gracze i kamera będą uzupełnione,
+- prywatny mecz z botami offline **nigdy nie wypełni `Players`** — to celowe ograniczenie Psyonix.
+
+To nie jest coś co da się obejść kodem.
