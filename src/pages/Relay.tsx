@@ -8,14 +8,18 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2 (Python) — oficjalne RL Stats API (WebSocket)
+RL Broadcast Relay V2 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
 
 Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
+Endpoint w aktualnych buildach RL zachowuje sie jak zwykly lokalny TCP stream JSON,
+a nie jak klasyczny WebSocket (mimo nazwy w dokumentacji). Ten skrypt laczy sie
+bezposrednio przez TCP i parsuje strumien JSON-ow przy uzyciu raw_decode.
+
 Dziala w meczach competitive online, meczach z botami oraz w replayach z Match History.
 
 INSTALACJA:
   1) Python 3.10+
-  2) pip install websocket-client supabase requests
+  2) pip install supabase requests
   3) Wlacz w grze plik DefaultStatsAPI.ini (patrz /relay w aplikacji).
   4) python relay.py
 
@@ -23,6 +27,7 @@ Plik wygenerowany na stronie /relay — nie musisz nic edytowac.
 """
 
 import json
+import socket
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -31,28 +36,23 @@ try:
     from supabase import create_client, Client  # type: ignore
 except Exception as e:
     raise SystemExit(
-        "Brakuje pakietu 'supabase'. Uruchom: pip install supabase requests websocket-client\\n"
-        f"Szczegol: {e}"
-    )
-
-try:
-    import websocket  # type: ignore  # websocket-client
-except Exception as e:
-    raise SystemExit(
-        "Brakuje pakietu 'websocket-client'. Uruchom: pip install websocket-client\\n"
+        "Brakuje pakietu 'supabase'. Uruchom: pip install supabase requests\\n"
         f"Szczegol: {e}"
     )
 
 # === KONFIGURACJA (wstrzykiwana przez Lovable) ===
 SUPABASE_URL = '${SUPABASE_URL}'
 SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
-RL_WS_URL = "ws://127.0.0.1:49123"
+RL_HOST = "127.0.0.1"
+RL_PORT = 49123
 
 WRITE_INTERVAL_S = 0.25      # throttle zapisow do DB (~4/s na rodzaj)
 HEARTBEAT_S = 5.0
 WATCHDOG_TIMEOUT_S = 0.5     # po tylu s bez updateu z gry zatrzymujemy lokalny zegar
 LOCAL_TICK_S = 0.1
 NO_DATA_WARN_S = 10.0
+RECONNECT_DELAY_S = 3.0
+RECV_CHUNK = 65536
 
 sb: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
