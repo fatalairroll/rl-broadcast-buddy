@@ -110,6 +110,14 @@ export const MOCK_CAMERA: ActiveCamera = {
   updated_at: new Date().toISOString(),
 };
 
+export const MOCK_SERIES = {
+  type: 'bo5' as const,
+  blueScore: 2,
+  orangeScore: 1,
+  blueName: 'Team Blue',
+  orangeName: 'Team Orange',
+};
+
 export const MOCK_REGISTRY: PlayerRegistry[] = [
   {
     player_name: 'Phantom',

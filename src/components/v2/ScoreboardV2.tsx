@@ -37,7 +37,6 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
       className="flex flex-col items-center justify-center border-y-2 border-white/10"
       style={{
         padding: `${config.timer.paddingY}px ${config.timer.paddingX}px`,
-        minWidth: config.timer.minWidth,
         background: config.timer.background,
         transform: skewOuter,
         boxShadow: glowToBoxShadow(config.timer.glow),
@@ -86,7 +85,6 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
         className="flex items-center justify-center"
         style={{
           padding: `${config.scoreBlue.paddingY}px ${config.scoreBlue.paddingX}px`,
-          minWidth: config.scoreBlue.minWidth,
           transform: skewOuter,
           background: gradientToCss(config.scoreBlue.gradient),
           boxShadow: glowToBoxShadow(config.scoreBlue.glow),
@@ -114,7 +112,6 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
         className="flex items-center justify-center"
         style={{
           padding: `${config.scoreOrange.paddingY}px ${config.scoreOrange.paddingX}px`,
-          minWidth: config.scoreOrange.minWidth,
           transform: skewOuter,
           background: gradientToCss(config.scoreOrange.gradient),
           boxShadow: glowToBoxShadow(config.scoreOrange.glow),

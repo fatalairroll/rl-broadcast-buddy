@@ -30,7 +30,6 @@ export interface ScoreSideStyle {
   glow: GlowConfig;
   paddingX: number;
   paddingY: number;
-  minWidth: number;
   fontSize: number;
   fontWeight: number;
   textColor: string;
@@ -44,13 +43,20 @@ export interface TimerStyle {
   textColor: string;
   paddingX: number;
   paddingY: number;
-  minWidth: number;
   showOvertimeLabel: boolean;
   overtimeLabelColor: string;
   glow: GlowConfig;
   /** When true, timer is rendered as its own absolute element using `position`. */
   detached: boolean;
   position: PositionV2;
+}
+
+export interface BoostBarStatsToggle {
+  goals: boolean;
+  assists: boolean;
+  saves: boolean;
+  shots: boolean;
+  demos: boolean;
 }
 
 export interface BoostBarV2Style {
@@ -82,11 +88,29 @@ export interface BoostBarV2Style {
   nameColor: string;
   boostFontSize: number;
   // Mini-stats row
-  showStats: boolean;
+  /** @deprecated migrated to `stats`. */
+  showStats?: boolean;
+  stats: BoostBarStatsToggle;
   statsFontSize: number;
   statsColor: string;
   // Demolished tint
   demolishedColor: string;
+}
+
+export interface PlayerCardFieldsToggle {
+  country: boolean;
+  rank: boolean;
+  mmrWatermark: boolean;
+  photo: boolean;
+}
+
+export interface PlayerCardStatsToggle {
+  goals: boolean;
+  assists: boolean;
+  saves: boolean;
+  shots: boolean;
+  demos: boolean;
+  boost: boolean;
 }
 
 export interface PlayerCardV2Style {
@@ -120,12 +144,35 @@ export interface PlayerCardV2Style {
   // Country chip
   countryBg: string;
   countryColor: string;
+  // Visibility toggles
+  fields: PlayerCardFieldsToggle;
+  stats: PlayerCardStatsToggle;
 }
 
 export interface GeneralV2Style {
   animationsEnabled: boolean;
   transitionDuration: number; // ms
   globalScale: number;        // 0.5..2.0
+}
+
+export type SeriesType = 'bo1' | 'bo3' | 'bo5' | 'bo7';
+
+export interface SeriesScoreStyle {
+  visible: boolean;
+  position: PositionV2;
+  dotSize: number;          // px diameter
+  gap: number;              // px between dots
+  groupGap: number;         // px between blue group / VS / orange group
+  showLabel: boolean;       // 'BO5' label between groups
+  labelColor: string;
+  labelFontSize: number;
+  fontFamily: string;
+  blueColor: string;
+  orangeColor: string;
+  dimColor: string;
+  borderColor: string;
+  skewDeg: number;
+  shape: 'circle' | 'square' | 'pill';
 }
 
 export interface OverlayV2Config {
@@ -135,6 +182,7 @@ export interface OverlayV2Config {
   timer: TimerStyle;
   boostBar: BoostBarV2Style;
   playerCard: PlayerCardV2Style;
+  seriesScore: SeriesScoreStyle;
   general: GeneralV2Style;
 }
 
@@ -145,6 +193,7 @@ export type V2EditableElement =
   | 'timer'
   | 'boostBar'
   | 'playerCard'
+  | 'seriesScore'
   | 'general';
 
 export const V2_ELEMENT_LABELS: Record<V2EditableElement, string> = {
@@ -154,6 +203,7 @@ export const V2_ELEMENT_LABELS: Record<V2EditableElement, string> = {
   timer: 'Timer',
   boostBar: 'Paski boosta graczy',
   playerCard: 'Karta aktywnego gracza',
+  seriesScore: 'Wynik serii (BO)',
   general: 'Ogólne',
 };
 
@@ -167,7 +217,9 @@ const ORANGE_GLOW = 'hsl(24 95% 60%)';
 export const defaultOverlayV2Config: OverlayV2Config = {
   scoreboard: {
     visible: true,
-    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: 24 },
+    // anchorV:'top' means the TOP edge of the element is anchored at this offset
+    // from screen center (0,0). Default scoreboard sits ~516px above center → top edge near y=24.
+    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -516 },
     gap: 8,
     fontFamily: 'Rajdhani, sans-serif',
     opacity: 1,
@@ -178,7 +230,6 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     glow: { ...defaultGlow, enabled: true, color: BLUE_GLOW, blur: 32, intensity: 0.55 },
     paddingX: 40,
     paddingY: 16,
-    minWidth: 160,
     fontSize: 60,
     fontWeight: 900,
     textColor: '#ffffff',
@@ -189,7 +240,6 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     glow: { ...defaultGlow, enabled: true, color: ORANGE_GLOW, blur: 32, intensity: 0.55 },
     paddingX: 40,
     paddingY: 16,
-    minWidth: 160,
     fontSize: 60,
     fontWeight: 900,
     textColor: '#ffffff',
@@ -202,19 +252,20 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     textColor: '#ffffff',
     paddingX: 48,
     paddingY: 16,
-    minWidth: 220,
     showOvertimeLabel: true,
     overtimeLabelColor: 'hsl(48 100% 60%)',
     glow: { ...defaultGlow, enabled: false },
     detached: false,
-    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: 24 },
+    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -516 },
   },
   boostBar: {
     visible: true,
     width: 300,
     gap: 12,
-    positionLeft: { anchorH: 'left', anchorV: 'middle', offsetX: 32, offsetY: 0 },
-    positionRight: { anchorH: 'right', anchorV: 'middle', offsetX: 32, offsetY: 0 },
+    // anchorH:'left' → element's LEFT edge anchored at offsetX from screen center.
+    // -928 = 32px from screen left (1920/2 - 32).
+    positionLeft: { anchorH: 'left', anchorV: 'middle', offsetX: -928, offsetY: 0 },
+    positionRight: { anchorH: 'right', anchorV: 'middle', offsetX: 928, offsetY: 0 },
     background: 'rgba(0,0,0,0.8)',
     borderColor: 'rgba(255,255,255,0.1)',
     paddingX: 12,
@@ -231,14 +282,16 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     nameFontSize: 16,
     nameColor: '#ffffff',
     boostFontSize: 18,
-    showStats: true,
+    stats: { goals: true, assists: true, saves: true, shots: false, demos: false },
     statsFontSize: 11,
     statsColor: 'rgba(255,255,255,0.85)',
     demolishedColor: '#ef4444',
   },
   playerCard: {
     visible: true,
-    position: { anchorH: 'center', anchorV: 'bottom', offsetX: 0, offsetY: -60 },
+    // anchorV:'bottom' → bottom edge anchored at offsetY (positive = below center).
+    // 480 = 60px from screen bottom (1080/2 - 60).
+    position: { anchorH: 'center', anchorV: 'bottom', offsetX: 0, offsetY: 480 },
     width: 640,
     height: 160,
     skewDeg: -15,
@@ -259,6 +312,25 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     statsColor: '#ffffff',
     countryBg: 'rgba(0,0,0,0.4)',
     countryColor: '#ffffff',
+    fields: { country: true, rank: true, mmrWatermark: true, photo: true },
+    stats: { goals: true, assists: true, saves: true, shots: false, demos: true, boost: true },
+  },
+  seriesScore: {
+    visible: true,
+    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -440 },
+    dotSize: 18,
+    gap: 8,
+    groupGap: 24,
+    showLabel: true,
+    labelColor: '#ffffff',
+    labelFontSize: 16,
+    fontFamily: 'Rajdhani, sans-serif',
+    blueColor: BLUE_GLOW,
+    orangeColor: ORANGE_GLOW,
+    dimColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.35)',
+    skewDeg: -15,
+    shape: 'circle',
   },
   general: {
     animationsEnabled: true,
@@ -274,7 +346,7 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   const p = partial as Partial<OverlayV2Config>;
   const sb = { ...defaultOverlayV2Config.scoreboard, ...(p.scoreboard ?? {}) } as ScoreboardV2Style;
   if (!(p.scoreboard as any)?.position && (p.scoreboard as any)?.topOffset != null) {
-    sb.position = { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: (p.scoreboard as any).topOffset };
+    sb.position = { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -540 + (p.scoreboard as any).topOffset };
   }
   const tm = { ...defaultOverlayV2Config.timer, ...(p.timer ?? {}) } as TimerStyle;
   const bb = { ...defaultOverlayV2Config.boostBar, ...(p.boostBar ?? {}) } as BoostBarV2Style;
@@ -283,17 +355,27 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   if (!(p.boostBar as any)?.positionLeft && (legacySide != null || legacyVA != null)) {
     const off = legacySide ?? 32;
     const vy = legacyVA != null ? ((legacyVA - 50) / 100) * 1080 : 0;
-    bb.positionLeft = { anchorH: 'left', anchorV: 'middle', offsetX: off, offsetY: vy };
+    bb.positionLeft = { anchorH: 'left', anchorV: 'middle', offsetX: -960 + off, offsetY: vy };
   }
   if (!(p.boostBar as any)?.positionRight && (legacySide != null || legacyVA != null)) {
     const off = legacySide ?? 32;
     const vy = legacyVA != null ? ((legacyVA - 50) / 100) * 1080 : 0;
-    bb.positionRight = { anchorH: 'right', anchorV: 'middle', offsetX: off, offsetY: vy };
+    bb.positionRight = { anchorH: 'right', anchorV: 'middle', offsetX: 960 - off, offsetY: vy };
+  }
+  // Migrate old boostBar.showStats → stats toggles
+  if (!(p.boostBar as any)?.stats && (p.boostBar as any)?.showStats !== undefined) {
+    const on = (p.boostBar as any).showStats === true;
+    bb.stats = { goals: on, assists: on, saves: on, shots: false, demos: false };
+  } else if (!bb.stats) {
+    bb.stats = { ...defaultOverlayV2Config.boostBar.stats };
   }
   const pc = { ...defaultOverlayV2Config.playerCard, ...(p.playerCard ?? {}) } as PlayerCardV2Style;
   if (!(p.playerCard as any)?.position && (p.playerCard as any)?.bottomOffset != null) {
-    pc.position = { anchorH: 'center', anchorV: 'bottom', offsetX: 0, offsetY: -(p.playerCard as any).bottomOffset };
+    pc.position = { anchorH: 'center', anchorV: 'bottom', offsetX: 0, offsetY: 540 - (p.playerCard as any).bottomOffset };
   }
+  if (!pc.fields) pc.fields = { ...defaultOverlayV2Config.playerCard.fields };
+  if (!pc.stats) pc.stats = { ...defaultOverlayV2Config.playerCard.stats };
+  const ss = { ...defaultOverlayV2Config.seriesScore, ...((p as any).seriesScore ?? {}) } as SeriesScoreStyle;
   return {
     scoreboard: sb,
     scoreBlue: { ...defaultOverlayV2Config.scoreBlue, ...(p.scoreBlue ?? {}) },
@@ -301,6 +383,7 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
     timer: tm,
     boostBar: bb,
     playerCard: pc,
+    seriesScore: ss,
     general: { ...defaultOverlayV2Config.general, ...(p.general ?? {}) },
   };
 }

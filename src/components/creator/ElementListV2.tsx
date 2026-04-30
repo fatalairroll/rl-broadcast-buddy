@@ -12,6 +12,7 @@ const ORDER: V2EditableElement[] = [
   'scoreBlue',
   'scoreOrange',
   'timer',
+  'seriesScore',
   'boostBar',
   'playerCard',
   'general',
