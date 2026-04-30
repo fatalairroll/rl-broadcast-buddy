@@ -134,6 +134,7 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
         </span>
       </div>
       </motion.div>
+      </div>
 
       {/* Timer (detached mode) */}
       {detached && (
