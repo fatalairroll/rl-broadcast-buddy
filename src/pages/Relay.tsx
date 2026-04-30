@@ -8,36 +8,21 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2 (Python)
-Most pomiedzy oficjalnym Rocket League Stats API (TAGame.MatchStatsExporter_TA, port 49123)
-a baza Lovable Cloud (Supabase) zasilajaca Overlay V2 (/v2/overlay).
+RL Broadcast Relay V2 (Python) — oficjalne RL Stats API (WebSocket)
+
+Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
+Dziala w meczach competitive online, meczach z botami oraz w replayach z Match History.
 
 INSTALACJA:
-  1) Zainstaluj Python 3.10+
-  2) pip install supabase requests
-  3) Wlacz w grze plik:
-        %LOCALAPPDATA%\\\\..\\\\Roaming\\\\TAGame\\\\Config\\\\DefaultStatsAPI.ini  (Steam)
-        ...\\\\Epic Games\\\\rocketleague\\\\TAGame\\\\Config\\\\DefaultStatsAPI.ini (Epic)
-     z trescia:
-        [TAGame.MatchStatsExporter_TA]
-        Port=49123
-        PacketSendRate=30
-  4) Uruchom: python relay.py
+  1) Python 3.10+
+  2) pip install websocket-client supabase requests
+  3) Wlacz w grze plik DefaultStatsAPI.ini (patrz /relay w aplikacji).
+  4) python relay.py
 
-TRYB TESTOWY DLA BOTOW:
-  Jezeli RL nie wysyla listy graczy (mecz z botami / offline spectate),
-  relay AUTOMATYCZNIE wstawia czterech testowych zawodnikow (BLUE 1/2, ORANGE 1/2)
-  z symulowanym boostem/speedem oraz przelaczana co 4s kamera aktywnego gracza.
-  Dzieki temu mozesz testowac caly Overlay V2 nie wchodzac do prawdziwego meczu online.
-  W prawdziwym meczu online dane testowe sa automatycznie zastepowane realnymi.
-
-Plik wygenerowany ze strony Relay - nie musisz nic edytowac.
+Plik wygenerowany na stronie /relay — nie musisz nic edytowac.
 """
 
 import json
-import math
-import random
-import socket
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -46,47 +31,58 @@ try:
     from supabase import create_client, Client  # type: ignore
 except Exception as e:
     raise SystemExit(
-        "Brakuje pakietu 'supabase'. Uruchom: pip install supabase requests\\n"
+        "Brakuje pakietu 'supabase'. Uruchom: pip install supabase requests websocket-client\\n"
         f"Szczegol: {e}"
     )
 
-# === KONFIGURACJA (automatycznie uzupelniona przez Lovable) ===
+try:
+    import websocket  # type: ignore  # websocket-client
+except Exception as e:
+    raise SystemExit(
+        "Brakuje pakietu 'websocket-client'. Uruchom: pip install websocket-client\\n"
+        f"Szczegol: {e}"
+    )
+
+# === KONFIGURACJA (wstrzykiwana przez Lovable) ===
 SUPABASE_URL = '${SUPABASE_URL}'
 SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
-RL_HOST = "127.0.0.1"
-RL_PORT = 49123
+RL_WS_URL = "ws://127.0.0.1:49123"
 
-# Throttle zapisow do bazy (sekundy miedzy upsertami danego rodzaju)
-WRITE_INTERVAL_S = 0.25  # ~4 zapisy/s
+WRITE_INTERVAL_S = 0.25      # throttle zapisow do DB (~4/s na rodzaj)
 HEARTBEAT_S = 5.0
-DUMMY_CAMERA_CYCLE_S = 4.0
-DUMMY_TIMEOUT_S = 2.0  # po ilu sekundach bez prawdziwych graczy wlaczamy tryb testowy
+WATCHDOG_TIMEOUT_S = 0.5     # po tylu s bez updateu z gry zatrzymujemy lokalny zegar
+LOCAL_TICK_S = 0.1
+NO_DATA_WARN_S = 10.0
 
-DUMMY_PLAYERS = [
-    {"player_name": "BLUE BOT 1",   "team_num": 0},
-    {"player_name": "BLUE BOT 2",   "team_num": 0},
-    {"player_name": "ORANGE BOT 1", "team_num": 1},
-    {"player_name": "ORANGE BOT 2", "team_num": 1},
-]
-
-# === STAN ===
 sb: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+# === STAN ===
 state_lock = threading.Lock()
+
 last_match_write = 0.0
 last_players_write = 0.0
 last_camera_write = 0.0
-last_real_players_at = 0.0
+last_event_at = 0.0
+last_state_update_at = 0.0
+
 current_match_guid: Optional[str] = None
 last_active_camera: Optional[str] = None
 
+# Lokalny zegar (interpolacja miedzy snapami z gry)
+local_time_seconds: float = 300.0
+is_overtime: bool = False
+clock_running: bool = False
+in_replay: bool = False  # bReplay z Game lub goal-replay window
+blue_score: int = 0
+orange_score: int = 0
+
 stats = {
-    "events": 0, "bytes": 0,
-    "events_delta": 0, "bytes_delta": 0,
-    "match_writes": 0, "player_writes": 0, "camera_writes": 0,
-    "match_writes_delta": 0, "player_writes_delta": 0, "camera_writes_delta": 0,
+    "events": 0, "events_delta": 0,
+    "match_writes": 0, "match_writes_delta": 0,
+    "player_writes": 0, "player_writes_delta": 0,
+    "camera_writes": 0, "camera_writes_delta": 0,
     "players_seen": 0,
-    "dummy_mode": False,
+    "mode": "waiting",  # waiting / live / replay / podium
 }
 
 
@@ -95,7 +91,8 @@ def fmt_timer(seconds: float) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
-def upsert_match(blue: int, orange: int, time_seconds: float, is_ot: bool, guid: Optional[str]) -> None:
+# === ZAPISY DO DB (z throttlingiem) ===
+def upsert_match() -> None:
     global last_match_write
     now = time.time()
     if now - last_match_write < WRITE_INTERVAL_S:
@@ -103,12 +100,12 @@ def upsert_match(blue: int, orange: int, time_seconds: float, is_ot: bool, guid:
     last_match_write = now
     payload = {
         "id": 1,
-        "blue_score": int(blue),
-        "orange_score": int(orange),
-        "time_seconds": int(round(time_seconds)),
-        "timer": fmt_timer(time_seconds),
-        "is_overtime": bool(is_ot),
-        "match_guid": guid,
+        "blue_score": int(blue_score),
+        "orange_score": int(orange_score),
+        "time_seconds": int(round(max(0, local_time_seconds))),
+        "timer": fmt_timer(local_time_seconds),
+        "is_overtime": bool(is_overtime),
+        "match_guid": current_match_guid,
     }
     try:
         sb.table("match_metadata").upsert(payload, on_conflict="id").execute()
@@ -153,124 +150,171 @@ def upsert_camera(target: Optional[str]) -> None:
         print(f"[ERR] active_camera upsert: {e}")
 
 
-# === PARSOWANIE EVENTOW Z RL STATS API ===
-# Format: kazda wiadomosc to JSON z polami { "event": "...", "data": {...} }
-# Eventy ktore obsluguje:
-#   - UpdateState (Game.Teams[].Score, Game.TimeSeconds, bOvertime, Players[])
-#   - ClockUpdatedSeconds (delta_time)
-#   - MatchCreated / MatchDestroyed (MatchGuid reset)
+# === HANDLERY EVENTOW ===
+def handle_update_state(data: Dict[str, Any]) -> None:
+    global current_match_guid, local_time_seconds, is_overtime
+    global blue_score, orange_score, in_replay, last_state_update_at
 
-def handle_event(evt: Dict[str, Any]) -> None:
-    global current_match_guid, last_real_players_at
-    name = evt.get("event") or evt.get("Event") or ""
-    data = evt.get("data") or evt.get("Data") or {}
+    last_state_update_at = time.time()
 
-    if name == "UpdateState":
-        game = data.get("Game") or {}
-        teams = game.get("Teams") or []
-        blue = (teams[0] or {}).get("Score", 0) if len(teams) > 0 else 0
-        orange = (teams[1] or {}).get("Score", 0) if len(teams) > 1 else 0
-        ts = game.get("TimeSeconds")
-        is_ot = bool(game.get("bOvertime") or game.get("IsOvertime"))
-        guid = data.get("MatchGuid") or game.get("MatchGuid")
-        if guid:
-            current_match_guid = guid
+    guid = data.get("MatchGuid")
+    if guid:
+        current_match_guid = guid
 
-        if ts is None:
-            ts = 300
+    game = data.get("Game") or {}
+    teams = game.get("Teams") or []
+    if len(teams) > 0:
+        blue_score = int((teams[0] or {}).get("Score", 0) or 0)
+    if len(teams) > 1:
+        orange_score = int((teams[1] or {}).get("Score", 0) or 0)
 
-        upsert_match(blue, orange, ts, is_ot, current_match_guid)
-
-        players = data.get("Players") or game.get("Players") or []
-        stats["players_seen"] = len(players)
-
-        if players:
-            last_real_players_at = time.time()
-            rows: List[Dict[str, Any]] = []
-            target = None
-            for p in players:
-                pname = p.get("Name") or p.get("PlayerName")
-                if not pname:
-                    continue
-                rows.append({
-                    "player_name": pname,
-                    "team_num": int(p.get("Team", 0)),
-                    "boost": int(round((p.get("Boost", 0) or 0))),
-                    "speed": float(p.get("Speed", 0) or 0),
-                    "goals": int(p.get("Goals", 0) or 0),
-                    "assists": int(p.get("Assists", 0) or 0),
-                    "saves": int(p.get("Saves", 0) or 0),
-                    "shots": int(p.get("Shots", 0) or 0),
-                    "demos": int(p.get("Demolishes", p.get("Demos", 0)) or 0),
-                    "is_demolished": bool(p.get("bDemolished") or p.get("IsDemolished")),
-                    "is_supersonic": bool(p.get("bSupersonic") or p.get("IsSupersonic")),
-                })
-                if p.get("bIsTarget") or p.get("IsTarget"):
-                    target = pname
-            upsert_players(rows)
-            if target:
-                upsert_camera(target)
-
-    elif name == "ClockUpdatedSeconds":
-        # data zawiera np. { "delta_time": 0.033, "TimeSeconds": ... }
-        ts = data.get("TimeSeconds")
-        if ts is None:
-            ts = data.get("time_seconds")
-        if ts is None:
-            return
-        # Update tylko timera; wynik zostaje
+    ts = game.get("TimeSeconds")
+    if ts is not None:
         try:
-            current = sb.table("match_metadata").select("blue_score,orange_score,is_overtime").eq("id", 1).single().execute().data or {}
+            local_time_seconds = float(ts)
         except Exception:
-            current = {}
-        upsert_match(
-            current.get("blue_score", 0),
-            current.get("orange_score", 0),
-            ts,
-            bool(current.get("is_overtime", False)),
-            current_match_guid,
-        )
+            pass
+    is_overtime = bool(game.get("bOvertime", False))
+    in_replay = bool(game.get("bReplay", False))
 
-    elif name in ("MatchCreated", "MatchDestroyed"):
-        guid = data.get("MatchGuid")
-        if name == "MatchCreated" and guid:
-            current_match_guid = guid
+    upsert_match()
 
+    # Kamera aktywna
+    if game.get("bHasTarget"):
+        target = (game.get("Target") or {}).get("Name")
+        if target:
+            upsert_camera(target)
+    else:
+        upsert_camera(None)
 
-# === TRYB TESTOWY (mecz z botami / offline) ===
-def dummy_loop() -> None:
-    """Co WRITE_INTERVAL_S generuje fikcyjnych graczy gdy RL nie podaje Players."""
-    cam_idx = 0
-    last_cam_switch = 0.0
-    phase = 0.0
-    while True:
-        time.sleep(WRITE_INTERVAL_S)
-        # Wlacz tylko gdy nie ma realnych graczy od DUMMY_TIMEOUT_S
-        if last_real_players_at and (time.time() - last_real_players_at) < DUMMY_TIMEOUT_S:
-            stats["dummy_mode"] = False
+    # Gracze
+    players = data.get("Players") or []
+    stats["players_seen"] = len(players)
+    rows: List[Dict[str, Any]] = []
+    for p in players:
+        name = p.get("Name")
+        if not name:
             continue
-        stats["dummy_mode"] = True
-        phase += WRITE_INTERVAL_S
-
-        rows: List[Dict[str, Any]] = []
-        for i, dp in enumerate(DUMMY_PLAYERS):
-            boost = int(50 + 45 * math.sin(phase * 0.7 + i))
-            speed = abs(int(40 + 60 * math.sin(phase * 1.1 + i * 1.7)))
-            rows.append({
-                "player_name": dp["player_name"],
-                "team_num": dp["team_num"],
-                "boost": max(0, min(100, boost)),
-                "speed": float(speed),
-                "goals": 0, "assists": 0, "saves": 0, "shots": 0, "demos": 0,
-                "is_demolished": False,
-                "is_supersonic": speed > 95,
-            })
+        rows.append({
+            "player_name": name,
+            "team_num": int(p.get("TeamNum", 0) or 0),
+            "boost": int(p.get("Boost", 0) or 0),          # SPECTATOR-only
+            "speed": float(p.get("Speed", 0) or 0),         # SPECTATOR-only
+            "goals": int(p.get("Goals", 0) or 0),
+            "assists": int(p.get("Assists", 0) or 0),
+            "saves": int(p.get("Saves", 0) or 0),
+            "shots": int(p.get("Shots", 0) or 0),
+            "demos": int(p.get("Demos", 0) or 0),
+            "is_demolished": bool(p.get("bDemolished", False)),
+            "is_supersonic": bool(p.get("bSupersonic", False)),
+        })
+    if rows:
         upsert_players(rows)
 
-        if time.time() - last_cam_switch >= DUMMY_CAMERA_CYCLE_S:
-            last_cam_switch = time.time()
-            cam_idx = (cam_idx + 1) % len(DUMMY_PLAYERS)
-            upsert_camera(DUMMY_PLAYERS[cam_idx]["player_name"])
+
+def handle_clock_updated(data: Dict[str, Any]) -> None:
+    global local_time_seconds, is_overtime, last_state_update_at
+    last_state_update_at = time.time()
+    ts = data.get("TimeSeconds")
+    if ts is not None:
+        try:
+            local_time_seconds = float(ts)
+        except Exception:
+            return
+    is_overtime = bool(data.get("bOvertime", is_overtime))
+    upsert_match()
+
+
+def handle_event(evt: Dict[str, Any]) -> None:
+    global current_match_guid, clock_running, in_replay
+    global blue_score, orange_score, local_time_seconds, is_overtime
+
+    name = evt.get("Event") or evt.get("event") or ""
+    data = evt.get("Data") or evt.get("data") or {}
+
+    if name == "UpdateState":
+        handle_update_state(data)
+        return
+
+    if name == "ClockUpdatedSeconds":
+        handle_clock_updated(data)
+        return
+
+    if name == "GoalScored":
+        scorer = (data.get("Scorer") or {}).get("Name", "?")
+        print(f"[GOAL] {scorer}")
+        return
+
+    if name == "GoalReplayStart":
+        in_replay = True
+        clock_running = False
+        return
+
+    if name in ("GoalReplayEnd", "GoalReplayWillEnd"):
+        in_replay = False
+        clock_running = True
+        return
+
+    if name == "RoundStarted":
+        clock_running = True
+        return
+
+    if name == "CountdownBegin":
+        clock_running = False
+        return
+
+    if name in ("MatchCreated", "MatchInitialized"):
+        guid = data.get("MatchGuid")
+        if guid:
+            current_match_guid = guid
+        blue_score = 0
+        orange_score = 0
+        local_time_seconds = 300.0
+        is_overtime = False
+        in_replay = False
+        clock_running = False
+        stats["mode"] = "live"
+        upsert_match()
+        return
+
+    if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
+        clock_running = False
+        if name == "PodiumStart":
+            stats["mode"] = "podium"
+        return
+
+    if name == "MatchPaused":
+        clock_running = False
+        return
+
+    if name == "MatchUnpaused":
+        clock_running = True
+        return
+
+    if name == "ReplayCreated":
+        stats["mode"] = "replay"
+        print("[INFO] Wykryto replay z Match History.")
+        return
+
+    # BallHit, CrossbarHit, StatfeedEvent — ignorujemy na razie
+
+
+# === LOKALNY ZEGAR ===
+def clock_loop() -> None:
+    global local_time_seconds, clock_running
+    while True:
+        time.sleep(LOCAL_TICK_S)
+        with state_lock:
+            # Watchdog: brak danych z gry => zatrzymaj zegar
+            if last_state_update_at and (time.time() - last_state_update_at) > WATCHDOG_TIMEOUT_S:
+                clock_running = False
+            if not clock_running or in_replay:
+                continue
+            if is_overtime:
+                local_time_seconds += LOCAL_TICK_S
+            else:
+                local_time_seconds = max(0.0, local_time_seconds - LOCAL_TICK_S)
+        upsert_match()
 
 
 # === HEARTBEAT ===
@@ -278,80 +322,83 @@ def heartbeat_loop() -> None:
     while True:
         time.sleep(HEARTBEAT_S)
         with state_lock:
-            mode = "DUMMY" if stats["dummy_mode"] else "LIVE"
+            mode = stats["mode"]
+            no_data_for = (time.time() - last_event_at) if last_event_at else None
+            warn = ""
+            if last_event_at == 0 or (no_data_for is not None and no_data_for > NO_DATA_WARN_S):
+                warn = " | [WARN] brak danych z RL — sprawdz DefaultStatsAPI.ini i restart RL"
             print(
-                f"[HB] {HEARTBEAT_S:.1f}s | mode: {mode} "
-                f"| events: +{stats['events_delta']} (total {stats['events']}) "
-                f"| bytes: +{stats['bytes_delta']} (total {stats['bytes']}) "
+                f"[HB] mode={mode} "
+                f"events=+{stats['events_delta']} (total {stats['events']}) "
+                f"| players_seen={stats['players_seen']} "
                 f"| DB: match=+{stats['match_writes_delta']} "
                 f"players=+{stats['player_writes_delta']} "
-                f"camera=+{stats['camera_writes_delta']} "
-                f"| players_seen={stats['players_seen']}"
+                f"camera=+{stats['camera_writes_delta']}"
+                f"{warn}"
             )
             stats["events_delta"] = 0
-            stats["bytes_delta"] = 0
             stats["match_writes_delta"] = 0
             stats["player_writes_delta"] = 0
             stats["camera_writes_delta"] = 0
 
 
-# === GLOWNA PETLA TCP ===
-def read_messages(sock: socket.socket) -> None:
-    """RL Stats API wysyla strumien JSON-ow rozdzielonych newline-em."""
-    buf = b""
-    sock.settimeout(1.0)
-    while True:
-        try:
-            chunk = sock.recv(65536)
-        except socket.timeout:
-            continue
-        if not chunk:
-            print("[RL] Polaczenie zamkniete przez gre.")
-            return
-        with state_lock:
-            stats["bytes"] += len(chunk)
-            stats["bytes_delta"] += len(chunk)
-        buf += chunk
-        # parse newline-delimited JSON
-        while b"\\n" in buf:
-            line, buf = buf.split(b"\\n", 1)
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                evt = json.loads(line.decode("utf-8", errors="replace"))
-            except Exception:
-                continue
-            with state_lock:
-                stats["events"] += 1
-                stats["events_delta"] += 1
-            try:
-                handle_event(evt)
-            except Exception as e:
-                print(f"[ERR] handle_event: {e}")
+# === WEBSOCKET ===
+def on_message(ws, message):  # type: ignore
+    global last_event_at
+    try:
+        evt = json.loads(message)
+    except Exception:
+        return
+    with state_lock:
+        stats["events"] += 1
+        stats["events_delta"] += 1
+        last_event_at = time.time()
+    try:
+        handle_event(evt)
+    except Exception as e:
+        print(f"[ERR] handle_event: {e}")
 
 
-def connect_loop() -> None:
+def on_error(ws, error):  # type: ignore
+    print(f"[WS] Blad: {error}")
+
+
+def on_close(ws, status_code, msg):  # type: ignore
+    print(f"[WS] Polaczenie zamkniete (code={status_code}).")
+
+
+def on_open(ws):  # type: ignore
+    print("[WS] Polaczono z RL Stats API.")
+
+
+def ws_loop() -> None:
     while True:
         try:
-            print(f"[RL] Laczenie z {RL_HOST}:{RL_PORT}...")
-            with socket.create_connection((RL_HOST, RL_PORT), timeout=5) as sock:
-                print("[RL] \\u2705 Polaczono \\u2014 czekam na eventy.")
-                read_messages(sock)
-        except (ConnectionRefusedError, socket.timeout, OSError) as e:
-            print(f"[RL] Brak polaczenia ({e}). Ponawiam za 3s.")
+            print(f"[WS] Laczenie z {RL_WS_URL} ...")
+            ws_app = websocket.WebSocketApp(
+                RL_WS_URL,
+                on_open=on_open,
+                on_message=on_message,
+                on_error=on_error,
+                on_close=on_close,
+            )
+            ws_app.run_forever(ping_interval=10, ping_timeout=5)
+        except Exception as e:
+            print(f"[WS] Wyjatek: {e}")
+        print("[WS] Reconnect za 3s...")
         time.sleep(3)
 
 
 def main() -> None:
-    print("\\u2554\\u2550\\u2550 RL Broadcast Relay V2 (Python) \\u2550\\u2550")
-    print(f"\\u2551 Stats API: {RL_HOST}:{RL_PORT}")
-    print(f"\\u2551 Supabase:  {SUPABASE_URL}")
-    print("\\u255a\\u2550 Tryb testowy aktywuje sie automatycznie gdy RL nie wysyla graczy (np. mecz z botami).\\n")
+    print("== RL Broadcast Relay V2 (Python) ==")
+    print(f"   Stats API: {RL_WS_URL}")
+    print(f"   Supabase:  {SUPABASE_URL}")
+    print("   Tryby: mecz online, mecz z botami, replay z Match History.")
+    print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
 
     threading.Thread(target=heartbeat_loop, daemon=True).start()
-    threading.Thread(target=dummy_loop, daemon=True).start()
-    connect_loop()
+    threading.Thread(target=clock_loop, daemon=True).start()
+    ws_loop()
 
 
 if __name__ == "__main__":
@@ -435,16 +482,16 @@ PacketSendRate=30`}</pre>
                 <h3 className="font-semibold">3. Uruchomienie relay</h3>
                 <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
                   <li>Pobierz plik <code className="bg-secondary px-1 rounded">relay.py</code></li>
-                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install supabase requests</code></li>
+                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install websocket-client supabase requests</code></li>
                   <li>Uruchom: <code className="bg-secondary px-1 rounded">python relay.py</code></li>
                 </ol>
               </div>
 
               <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                 <p className="text-sm text-blue-300">
-                  <strong>Tryb testowy dla botow</strong>
+                  <strong>Dziala w trzech trybach</strong>
                   <br />
-                  Jezeli grasz mecz z botami / offline, RL nie wysyla listy graczy. Relay automatycznie wstawia czterech testowych zawodnikow oraz przelaczana kamere, zebys mogl testowac caly Overlay V2. W meczu online dane testowe sa zastepowane prawdziwymi.
+                  Mecze online (competitive), mecze z botami / custom offline oraz replaye z Match History. Boost i speed sa widoczne tylko gdy spectatujesz lub gracz jest na Twojej druzynie (ograniczenie API).
                 </p>
               </div>
 
@@ -452,7 +499,7 @@ PacketSendRate=30`}</pre>
                 <p className="text-sm text-green-400">
                   <strong>Gotowe do uzycia</strong>
                   <br />
-                  Skrypt ma juz wpisane SUPABASE_URL i klucz — nie musisz nic edytowac.
+                  Skrypt ma juz wpisane SUPABASE_URL i klucz - nie musisz nic edytowac.
                 </p>
               </div>
             </CardContent>
