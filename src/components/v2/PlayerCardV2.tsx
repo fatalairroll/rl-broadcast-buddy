@@ -36,13 +36,13 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
   return (
     <AnimatePresence mode="wait">
       {visible && player && (
+        <div style={positionToStyle(c.position)}>
         <motion.div
           key={player.player_name}
           initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 60, opacity: 0 }}
           transition={{ duration: (config.general.transitionDuration ?? 350) / 1000, ease: 'easeOut' }}
-          style={positionToStyle(c.position)}
         >
           <div
             className="relative flex items-stretch"
