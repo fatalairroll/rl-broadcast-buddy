@@ -342,13 +342,12 @@ def heartbeat_loop() -> None:
             stats["camera_writes_delta"] = 0
 
 
-# === WEBSOCKET ===
-def on_message(ws, message):  # type: ignore
+# === TCP STREAM (lokalny RL Stats API) ===
+_decoder = json.JSONDecoder()
+
+
+def _process_payload(evt: Dict[str, Any]) -> None:
     global last_event_at
-    try:
-        evt = json.loads(message)
-    except Exception:
-        return
     with state_lock:
         stats["events"] += 1
         stats["events_delta"] += 1
@@ -359,46 +358,74 @@ def on_message(ws, message):  # type: ignore
         print(f"[ERR] handle_event: {e}")
 
 
-def on_error(ws, error):  # type: ignore
-    print(f"[WS] Blad: {error}")
-
-
-def on_close(ws, status_code, msg):  # type: ignore
-    print(f"[WS] Polaczenie zamkniete (code={status_code}).")
-
-
-def on_open(ws):  # type: ignore
-    print("[WS] Polaczono z RL Stats API.")
-
-
-def ws_loop() -> None:
+def _drain_buffer(buf: str) -> str:
+    """Wyciaga z bufora kolejne kompletne JSON-y (raw_decode tolerujace whitespace)."""
     while True:
+        s = buf.lstrip()
+        if not s:
+            return ""
         try:
-            print(f"[WS] Laczenie z {RL_WS_URL} ...")
-            ws_app = websocket.WebSocketApp(
-                RL_WS_URL,
-                on_open=on_open,
-                on_message=on_message,
-                on_error=on_error,
-                on_close=on_close,
+            obj, end = _decoder.raw_decode(s)
+        except json.JSONDecodeError:
+            return s  # niekompletny / czesciowy obiekt — czekamy na kolejne dane
+        if isinstance(obj, dict):
+            _process_payload(obj)
+        buf = s[end:]
+
+
+def tcp_loop() -> None:
+    print(f"[RL] Klient lokalnego TCP streamu RL Stats API ({RL_HOST}:{RL_PORT}).")
+    while True:
+        sock: Optional[socket.socket] = None
+        try:
+            print(f"[RL] Laczenie z {RL_HOST}:{RL_PORT} ...")
+            sock = socket.create_connection((RL_HOST, RL_PORT), timeout=5.0)
+            sock.settimeout(None)
+            print(f"[RL] Polaczono z RL Stats API na {RL_HOST}:{RL_PORT}.")
+            buf = ""
+            while True:
+                chunk = sock.recv(RECV_CHUNK)
+                if not chunk:
+                    print("[RL] Strumien zamkniety przez gre.")
+                    break
+                try:
+                    buf += chunk.decode("utf-8", errors="replace")
+                except Exception:
+                    continue
+                buf = _drain_buffer(buf)
+        except ConnectionRefusedError:
+            print(
+                "[RL] Polaczenie odrzucone. Sprawdz:\\n"
+                "     - TAGame/Config/DefaultStatsAPI.ini ma PacketSendRate>0 i Port=49123\\n"
+                "     - Rocket League jest uruchomiony i bylo restartowane po edycji ini\\n"
+                "     - jestes w meczu / replayu (przed startem rozgrywki port moze byc nieaktywny)"
             )
-            ws_app.run_forever(ping_interval=10, ping_timeout=5)
+        except socket.timeout:
+            print("[RL] Timeout polaczenia.")
+        except OSError as e:
+            print(f"[RL] Blad gniazda: {e}")
         except Exception as e:
-            print(f"[WS] Wyjatek: {e}")
-        print("[WS] Reconnect za 3s...")
-        time.sleep(3)
+            print(f"[RL] Wyjatek: {e}")
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+        print(f"[RL] Reconnect za {RECONNECT_DELAY_S:.0f}s ...")
+        time.sleep(RECONNECT_DELAY_S)
 
 
 def main() -> None:
     print("== RL Broadcast Relay V2 (Python) ==")
-    print(f"   Stats API: {RL_WS_URL}")
+    print(f"   Stats API: tcp://{RL_HOST}:{RL_PORT} (lokalny JSON stream)")
     print(f"   Supabase:  {SUPABASE_URL}")
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
 
     threading.Thread(target=heartbeat_loop, daemon=True).start()
     threading.Thread(target=clock_loop, daemon=True).start()
-    ws_loop()
+    tcp_loop()
 
 
 if __name__ == "__main__":
