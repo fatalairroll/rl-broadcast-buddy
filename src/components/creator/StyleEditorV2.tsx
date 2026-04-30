@@ -110,7 +110,12 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <ColorPicker label="Kolor nicku" value={config.boostBar.nameColor} onChange={(v) => update('boostBar', { nameColor: v })} />
             <SliderInput label="Rozmiar boost (liczba)" value={config.boostBar.boostFontSize} onValueChange={(v) => update('boostBar', { boostFontSize: v })} min={10} max={32} unit="px" />
             <Separator />
-            <Toggle label="Mini-statystyki" value={config.boostBar.showStats} onChange={(v) => update('boostBar', { showStats: v })} />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Statystyki w pasku</h4>
+            <Toggle label="Gole" value={config.boostBar.stats.goals} onChange={(v) => update('boostBar', { stats: { ...config.boostBar.stats, goals: v } })} />
+            <Toggle label="Asysty" value={config.boostBar.stats.assists} onChange={(v) => update('boostBar', { stats: { ...config.boostBar.stats, assists: v } })} />
+            <Toggle label="Obrony" value={config.boostBar.stats.saves} onChange={(v) => update('boostBar', { stats: { ...config.boostBar.stats, saves: v } })} />
+            <Toggle label="Strzały" value={config.boostBar.stats.shots} onChange={(v) => update('boostBar', { stats: { ...config.boostBar.stats, shots: v } })} />
+            <Toggle label="Demo" value={config.boostBar.stats.demos} onChange={(v) => update('boostBar', { stats: { ...config.boostBar.stats, demos: v } })} />
             <SliderInput label="Rozmiar statystyk" value={config.boostBar.statsFontSize} onValueChange={(v) => update('boostBar', { statsFontSize: v })} min={8} max={20} unit="px" />
             <ColorPicker label="Kolor statystyk" value={config.boostBar.statsColor} onChange={(v) => update('boostBar', { statsColor: v })} />
           </>
@@ -120,6 +125,20 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
           <>
             <Toggle label="Widoczna" value={config.playerCard.visible} onChange={(v) => update('playerCard', { visible: v })} />
             <PositionEditor value={config.playerCard.position} onChange={(p) => update('playerCard', { position: p })} />
+            <Separator />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pokazuj pola</h4>
+            <Toggle label="Zdjęcie" value={config.playerCard.fields.photo} onChange={(v) => update('playerCard', { fields: { ...config.playerCard.fields, photo: v } })} />
+            <Toggle label="Flaga kraju" value={config.playerCard.fields.country} onChange={(v) => update('playerCard', { fields: { ...config.playerCard.fields, country: v } })} />
+            <Toggle label="Ranga" value={config.playerCard.fields.rank} onChange={(v) => update('playerCard', { fields: { ...config.playerCard.fields, rank: v } })} />
+            <Toggle label="MMR (watermark)" value={config.playerCard.fields.mmrWatermark} onChange={(v) => update('playerCard', { fields: { ...config.playerCard.fields, mmrWatermark: v } })} />
+            <Separator />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pokazuj statystyki</h4>
+            <Toggle label="Gole" value={config.playerCard.stats.goals} onChange={(v) => update('playerCard', { stats: { ...config.playerCard.stats, goals: v } })} />
+            <Toggle label="Asysty" value={config.playerCard.stats.assists} onChange={(v) => update('playerCard', { stats: { ...config.playerCard.stats, assists: v } })} />
+            <Toggle label="Obrony" value={config.playerCard.stats.saves} onChange={(v) => update('playerCard', { stats: { ...config.playerCard.stats, saves: v } })} />
+            <Toggle label="Strzały" value={config.playerCard.stats.shots} onChange={(v) => update('playerCard', { stats: { ...config.playerCard.stats, shots: v } })} />
+            <Toggle label="Demo" value={config.playerCard.stats.demos} onChange={(v) => update('playerCard', { stats: { ...config.playerCard.stats, demos: v } })} />
+            <Toggle label="Boost" value={config.playerCard.stats.boost} onChange={(v) => update('playerCard', { stats: { ...config.playerCard.stats, boost: v } })} />
             <Separator />
             <SliderInput label="Min. szerokość" value={config.playerCard.width} onValueChange={(v) => update('playerCard', { width: v })} min={400} max={1200} unit="px" />
             <SliderInput label="Wysokość" value={config.playerCard.height} onValueChange={(v) => update('playerCard', { height: v })} min={100} max={300} unit="px" />
@@ -152,6 +171,39 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <Separator />
             <ColorPicker label="Tło chip-a kraju" value={config.playerCard.countryBg} onChange={(v) => update('playerCard', { countryBg: v })} />
             <ColorPicker label="Kolor tekstu kraju" value={config.playerCard.countryColor} onChange={(v) => update('playerCard', { countryColor: v })} />
+          </>
+        )}
+
+        {element === 'seriesScore' && (
+          <>
+            <Toggle label="Widoczne" value={config.seriesScore.visible} onChange={(v) => update('seriesScore', { visible: v })} />
+            <PositionEditor value={config.seriesScore.position} onChange={(p) => update('seriesScore', { position: p })} />
+            <Separator />
+            <SliderInput label="Rozmiar kropki" value={config.seriesScore.dotSize} onValueChange={(v) => update('seriesScore', { dotSize: v })} min={6} max={48} unit="px" />
+            <SliderInput label="Odstęp kropek" value={config.seriesScore.gap} onValueChange={(v) => update('seriesScore', { gap: v })} min={0} max={32} unit="px" />
+            <SliderInput label="Odstęp grup" value={config.seriesScore.groupGap} onValueChange={(v) => update('seriesScore', { groupGap: v })} min={0} max={120} unit="px" />
+            <SliderInput label="Skew" value={config.seriesScore.skewDeg} onValueChange={(v) => update('seriesScore', { skewDeg: v })} min={-30} max={30} unit="°" />
+            <div className="space-y-2">
+              <Label className="text-xs">Kształt</Label>
+              <Select value={config.seriesScore.shape} onValueChange={(v) => update('seriesScore', { shape: v as 'circle' | 'square' | 'pill' })}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="circle">Koło</SelectItem>
+                  <SelectItem value="square">Kwadrat</SelectItem>
+                  <SelectItem value="pill">Pill</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Separator />
+            <ColorPicker label="Kolor niebieskich" value={config.seriesScore.blueColor} onChange={(v) => update('seriesScore', { blueColor: v })} />
+            <ColorPicker label="Kolor pomarańczowych" value={config.seriesScore.orangeColor} onChange={(v) => update('seriesScore', { orangeColor: v })} />
+            <ColorPicker label="Kolor pustej kropki" value={config.seriesScore.dimColor} onChange={(v) => update('seriesScore', { dimColor: v })} />
+            <ColorPicker label="Kolor obramowania" value={config.seriesScore.borderColor} onChange={(v) => update('seriesScore', { borderColor: v })} />
+            <Separator />
+            <Toggle label="Etykieta (BOx)" value={config.seriesScore.showLabel} onChange={(v) => update('seriesScore', { showLabel: v })} />
+            <ColorPicker label="Kolor etykiety" value={config.seriesScore.labelColor} onChange={(v) => update('seriesScore', { labelColor: v })} />
+            <SliderInput label="Rozmiar etykiety" value={config.seriesScore.labelFontSize} onValueChange={(v) => update('seriesScore', { labelFontSize: v })} min={8} max={48} unit="px" />
+            <FontInput label="Font" value={config.seriesScore.fontFamily} onChange={(v) => update('seriesScore', { fontFamily: v })} />
           </>
         )}
 
