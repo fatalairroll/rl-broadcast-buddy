@@ -3,6 +3,7 @@ import type { MatchMetadata } from '@/types/livestats';
 import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2';
 import { gradientToCss } from '@/lib/gradient-utils';
 import { glowToBoxShadow } from '@/lib/glow-utils';
+import { positionToStyle } from '@/lib/position-utils';
 
 interface Props {
   match: MatchMetadata | null;
@@ -20,17 +21,68 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
 
   const skewOuter = `skewX(${sb.skewDeg}deg)`;
   const skewInner = `skewX(${-sb.skewDeg}deg)`;
+  const detached = config.timer.detached;
+
+  const sbPos = positionToStyle(sb.position);
+  // motion adds animations; merge with positioning
+  const containerStyle = {
+    ...sbPos,
+    gap: sb.gap,
+    fontFamily: sb.fontFamily,
+    opacity: sb.opacity,
+  } as React.CSSProperties;
+
+  const timerNode = (
+    <div
+      className="flex flex-col items-center justify-center border-y-2 border-white/10"
+      style={{
+        padding: `${config.timer.paddingY}px ${config.timer.paddingX}px`,
+        minWidth: config.timer.minWidth,
+        background: config.timer.background,
+        transform: skewOuter,
+        boxShadow: glowToBoxShadow(config.timer.glow),
+        fontFamily: config.timer.fontFamily,
+      }}
+    >
+      <span
+        className="tabular-nums tracking-wider"
+        style={{
+          transform: skewInner,
+          fontFamily: config.timer.fontFamily,
+          fontSize: config.timer.fontSize,
+          fontWeight: 900,
+          color: config.timer.textColor,
+        }}
+      >
+        {timer}
+      </span>
+      {ot && config.timer.showOvertimeLabel && (
+        <span
+          className="text-xs font-bold uppercase tracking-[0.3em] mt-1 animate-pulse"
+          style={{
+            transform: skewInner,
+            color: config.timer.overtimeLabelColor,
+            textShadow: `0 0 8px ${config.timer.overtimeLabelColor}`,
+          }}
+        >
+          Overtime
+        </span>
+      )}
+    </div>
+  );
 
   return (
-    <motion.div
-      initial={{ y: -40, opacity: 0 }}
-      animate={{ y: 0, opacity: sb.opacity }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className="absolute top-0 left-1/2 -translate-x-1/2 flex items-stretch select-none"
-      style={{ paddingTop: sb.topOffset, gap: sb.gap, fontFamily: sb.fontFamily }}
-    >
-      {/* Blue */}
-      <div
+    <>
+      <div style={containerStyle}>
+      <motion.div
+        initial={{ y: -40, opacity: 0 }}
+        animate={{ y: 0, opacity: sb.opacity }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="flex items-stretch select-none"
+        style={{ gap: sb.gap, fontFamily: sb.fontFamily }}
+      >
+        {/* Blue */}
+        <div
         className="flex items-center justify-center"
         style={{
           padding: `${config.scoreBlue.paddingY}px ${config.scoreBlue.paddingX}px`,
@@ -54,42 +106,8 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
         </span>
       </div>
 
-      {/* Timer */}
-      <div
-        className="flex flex-col items-center justify-center border-y-2 border-white/10"
-        style={{
-          padding: `${config.timer.paddingY}px ${config.timer.paddingX}px`,
-          minWidth: config.timer.minWidth,
-          background: config.timer.background,
-          transform: skewOuter,
-          boxShadow: glowToBoxShadow(config.timer.glow),
-        }}
-      >
-        <span
-          className="tabular-nums tracking-wider"
-          style={{
-            transform: skewInner,
-            fontFamily: config.timer.fontFamily,
-            fontSize: config.timer.fontSize,
-            fontWeight: 900,
-            color: config.timer.textColor,
-          }}
-        >
-          {timer}
-        </span>
-        {ot && config.timer.showOvertimeLabel && (
-          <span
-            className="text-xs font-bold uppercase tracking-[0.3em] mt-1 animate-pulse"
-            style={{
-              transform: skewInner,
-              color: config.timer.overtimeLabelColor,
-              textShadow: `0 0 8px ${config.timer.overtimeLabelColor}`,
-            }}
-          >
-            Overtime
-          </span>
-        )}
-      </div>
+      {/* Timer (inline mode) */}
+      {!detached && timerNode}
 
       {/* Orange */}
       <div
@@ -115,6 +133,13 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
           {orange}
         </span>
       </div>
-    </motion.div>
+      </motion.div>
+      </div>
+
+      {/* Timer (detached mode) */}
+      {detached && (
+        <div style={positionToStyle(config.timer.position)}>{timerNode}</div>
+      )}
+    </>
   );
 }
