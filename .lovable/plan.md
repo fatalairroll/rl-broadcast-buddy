@@ -1,69 +1,90 @@
-# Etap 1 — Kill legacy overlay + odpięcie Kreatora
+# Pełna kontrola pozycji elementów overlaya V2
 
-Cel: w UI zostaje tylko Overlay V2. Legacy `/overlay` znika, Kreator (który dziś edytuje tylko legacy) zostaje wyłączony z UI, ale plik nie jest jeszcze kasowany — w razie gdybyś chciał go w Etapie 2 przepiąć pod V2 zamiast wywalać.
+## Problem
 
-## Co robię
+Aktualnie pozycje są częściowo zaszyte w komponentach:
+- **Scoreboard** — twardo wycentrowany (`left-1/2 -translate-x-1/2`), edytowalny tylko `topOffset`.
+- **Boost stack L/R** — można ustawić `sideOffset` (od krawędzi) i `verticalAlign` (% wysokości), ale nie ma niezależnego X/Y w pikselach ani osobnych ustawień dla lewego i prawego stacka.
+- **Karta gracza** — twardo wycentrowana w poziomie, edytowalny tylko `bottomOffset`.
+- **Timer** — nie da się przesunąć niezależnie od scoreboarda.
 
-1. **Routing (`src/App.tsx`)**
-   - Usuwam import `Overlay` i `Creator`.
-   - Usuwam trasy `/overlay` i `/creator`. Wejście na te ścieżki trafi na `NotFound`.
-   - Przy okazji usuwam zduplikowany `<Route path="*" element={<NotFound />} />`.
+Cel: każdy element ma jednolity model pozycjonowania (anchor + X/Y w px).
 
-2. **Dashboard (`src/pages/Dashboard.tsx`)**
-   - Usuwam przycisk „Overlay" (link do `/overlay`).
-   - Usuwam przycisk „Kreator" (link do `/creator`).
-   - Zostają: Overlay V2, Studio, Admin, Players V2, Logout.
-   - Przycisk „Overlay V2" przemianowuję na samo „Overlay" (skoro legacy już nie ma — nie ma z czym mylić). Ikona `Radio` zostaje.
+## Model pozycjonowania
 
-3. **MatchControls (`src/components/dashboard/MatchControls.tsx`)**
-   - Usuwam sekcję „Preset overlay" (Select wybierający `overlay_preset_id`). Presety dotyczyły wyłącznie legacy, V2 ma styl hardkodowany. Zostawiam pole `overlay_preset_id` w typie/sesji bez ruszania DB — po prostu nie edytuję go z UI.
-   - Usuwam props `presets` i powiązany `useOverlayPresets()` z Dashboardu (import + użycie).
+Wprowadzamy wspólny typ `PositionV2`:
 
-4. **Strona startowa (`src/pages/Index.tsx`)**
-   - Karta „Kreator Overlay" → zamieniam na coś sensownego dla obecnego stanu, np. „Studio & MMRivals" (krótki opis modułu turniejowego), żeby nie obiecywać funkcji której nie ma. Reszta strony bez zmian.
+```ts
+type AnchorH = 'left' | 'center' | 'right';
+type AnchorV = 'top' | 'middle' | 'bottom';
 
-5. **Pliki, których NIE ruszam w tym etapie** (świadoma decyzja, czekają na Etap 2):
-   - `src/pages/Overlay.tsx`
-   - `src/pages/Creator.tsx` + `src/components/creator/*`
-   - `src/config/overlayTemplates.ts`
-   - hook `useOverlayPresets` w `src/hooks/useBroadcast.tsx`
-   - tabela `overlay_presets` w bazie
-   
-   Powód: są niepodpięte pod żaden aktywny route ani UI, więc nie szkodzą. Skasujemy je hurtem w Etapie 2 razem z decyzją „Kreator pod V2 czy w pełni wywalamy".
-
-## Po wdrożeniu — Twoja decyzja na Etap 2
-
-Powiedz w następnej wiadomości, którą drogą lecimy:
-
-- **A. Pełen kill** — kasuję `Overlay.tsx`, `Creator.tsx`, `components/creator/*`, `overlayTemplates.ts`, `useOverlayPresets`, kolumnę `overlay_preset_id` z `broadcast_sessions` i tabelę `overlay_presets`. Czysto, bez powrotu.
-- **B. Kreator → V2** — refaktoruję `ScoreboardV2`, `BoostStackV2`, `PlayerCardV2` tak, by przyjmowały `OverlayConfig` (skew, kolory HSL, fonty), Kreator zaczyna edytować V2, presety V2 lądują w nowej tabeli (`overlay_presets_v2`) albo w istniejącej z polem `version`.
-
-## Szczegóły techniczne
-
-```text
-src/App.tsx
-  - import Overlay from "./pages/Overlay";        DELETE
-  - import Creator from "./pages/Creator";        DELETE
-  - <Route path="/overlay" .../>                  DELETE
-  - <Route path="/creator" .../>                  DELETE
-  - duplikat <Route path="*" .../>                DELETE (zostaje 1)
-
-src/pages/Dashboard.tsx
-  - usunięcie 2 <Button> (Overlay legacy, Kreator)
-  - { presets } z useOverlayPresets()             DELETE
-  - <MatchControls presets={presets} ... />       DELETE prop presets
-  - import useOverlayPresets                      DELETE jeśli nieużywany
-  - przycisk "Overlay V2" -> label "Overlay"
-
-src/components/dashboard/MatchControls.tsx
-  - prop presets: OverlayPreset[]                 DELETE
-  - cała sekcja "Preset overlay" (Label+Select)   DELETE
-  - import Palette z lucide-react                 DELETE jeśli osierocony
-  - import OverlayPreset z types/broadcast        DELETE jeśli nieużywany
-
-src/pages/Index.tsx
-  - karta "Kreator Overlay"                       REPLACE tytuł/opis
-    np. "Studio turniejowe" / "Bracket, najbliższe i ostatnie mecze MMRivals"
+interface PositionV2 {
+  anchorH: AnchorH;   // krawędź ekranu, do której liczymy offsetX
+  anchorV: AnchorV;   // krawędź ekranu, do której liczymy offsetY
+  offsetX: number;    // px, dodatni = w prawo
+  offsetY: number;    // px, dodatni = w dół
+}
 ```
 
-Brak zmian w bazie, brak migracji w tym etapie.
+Renderer mapuje `PositionV2` na CSS:
+```text
+left:   anchorH=left   -> left: offsetX
+        anchorH=right  -> right: -offsetX
+        anchorH=center -> left: 50% + transform translateX(-50% + offsetX)
+top:    analogicznie dla anchorV
+```
+
+Domyślne ustawienia odtwarzają obecny układ (scoreboard center/top, lewy stack left/middle itd.), więc istniejące presety w bazie nie zmienią wyglądu po `mergeV2Config`.
+
+## Zmiany w schemacie configu (`src/types/overlayV2.ts`)
+
+Dodajemy `position: PositionV2` do:
+- `ScoreboardV2Style` — pozycja całego paska (zastępuje `topOffset`, ale `topOffset` zostawiamy jako legacy fallback w `mergeV2Config`).
+- `TimerStyle` — **opcjonalne** odpięcie timera od scoreboarda (`detached: boolean`); gdy `detached=false` (domyślnie), timer renderuje się jak teraz wewnątrz scoreboarda.
+- `BoostBarV2Style` — rozbicie na dwa osobne pola pozycji: `positionLeft` i `positionRight`. Stare `sideOffset` i `verticalAlign` zostają jako fallback w `mergeV2Config` (mapowane na nowe pozycje).
+- `PlayerCardV2Style` — pozycja karty (zastępuje `bottomOffset`, fallback j.w.).
+
+`mergeV2Config` zostaje rozszerzony, żeby presety zapisane przed zmianą działały dalej (deep-merge + mapowanie legacy pól na nowe `PositionV2`).
+
+## Zmiany w komponentach
+
+- `src/components/v2/ScoreboardV2.tsx` — usuwamy `top-0 left-1/2 -translate-x-1/2`, czytamy z `config.scoreboard.position`. Jeśli `config.timer.detached`, timer renderuje się jako osobny element absolutny z własnym `position`.
+- `src/components/v2/BoostStackV2.tsx` — przyjmuje `position` z `boostBar.positionLeft` lub `boostBar.positionRight` w zależności od `side`. Zachowujemy logikę `gap` między barami.
+- `src/components/v2/PlayerCardV2.tsx` — czyta `c.position` zamiast `bottom-X left-1/2`.
+- Nowy helper `src/lib/position-utils.ts` z funkcją `positionToStyle(pos: PositionV2): CSSProperties` używaną przez wszystkie komponenty (DRY + spójność).
+
+## Zmiany w Kreatorze (`src/components/creator/StyleEditorV2.tsx`)
+
+Dodajemy reusable komponent `PositionEditor` z:
+- dwa Select-y (Anchor H: left/center/right, Anchor V: top/middle/bottom),
+- dwa `SliderInput` (Offset X od -1920 do 1920 px, Offset Y od -1080 do 1080 px).
+
+Wstawiamy go w sekcjach: `scoreboard`, `timer` (z toggle "Odepnij timer"), `boostBar` (dwa bloki: "Pozycja lewy stack" i "Pozycja prawy stack"), `playerCard`.
+
+Stare suwaki `topOffset`, `bottomOffset`, `sideOffset`, `verticalAlign` zostają usunięte z UI (ich rola przechodzi na `PositionEditor`). `mergeV2Config` migruje istniejące presety w locie przy ładowaniu, więc nic nie tracimy.
+
+## Migracja danych
+
+Brak zmian w bazie. Nie ruszamy tabeli `overlay_presets_v2`. Migracja istniejących configów odbywa się client-side w `mergeV2Config`:
+- jeśli `scoreboard.position` brak → `{ anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: scoreboard.topOffset ?? 24 }`,
+- jeśli `boostBar.positionLeft` brak → `{ anchorH: 'left', anchorV: 'middle', offsetX: boostBar.sideOffset, offsetY: ((verticalAlign-50)/100)*1080 }`,
+- analogicznie `positionRight`,
+- `playerCard.position` brak → `{ anchorH: 'center', anchorV: 'bottom', offsetX: 0, offsetY: -(bottomOffset ?? 60) }`,
+- `timer.detached` domyślnie `false`, `timer.position` używane tylko gdy `detached=true`.
+
+Przy najbliższym zapisie presetu w Kreatorze nowe pola zostaną utrwalone w JSONB.
+
+## Lista plików do edycji
+
+1. `src/types/overlayV2.ts` — typy `PositionV2`, dodanie pól, rozszerzenie `defaultOverlayV2Config` i `mergeV2Config`.
+2. `src/lib/position-utils.ts` — **nowy** helper.
+3. `src/components/v2/ScoreboardV2.tsx` — pozycjonowanie + opcjonalny detached timer.
+4. `src/components/v2/BoostStackV2.tsx` — czyta `positionLeft` / `positionRight`.
+5. `src/components/v2/PlayerCardV2.tsx` — pozycjonowanie z `c.position`.
+6. `src/components/creator/StyleEditorV2.tsx` — komponent `PositionEditor`, podpięcie do każdej sekcji, usunięcie starych suwaków pozycji.
+
+## Co zostaje jak było
+
+- DnD w podglądzie: **nie**, zgodnie z wcześniejszą decyzją zostajemy przy numerycznym X/Y.
+- Realtime sync z `OverlayV2`: bez zmian (dalej działa przez `useActiveV2Config`).
+- Mock/Live toggle, presety, gradient/glow editory: bez zmian.

@@ -3,9 +3,21 @@ import type { GradientConfig } from '@/lib/gradient-utils';
 import { defaultGlow } from '@/lib/glow-utils';
 import { defaultGradient } from '@/lib/gradient-utils';
 
+export type AnchorH = 'left' | 'center' | 'right';
+export type AnchorV = 'top' | 'middle' | 'bottom';
+
+export interface PositionV2 {
+  anchorH: AnchorH;
+  anchorV: AnchorV;
+  offsetX: number;
+  offsetY: number;
+}
+
 export interface ScoreboardV2Style {
   visible: boolean;
-  topOffset: number;       // px from top
+  /** @deprecated use position. Kept for legacy presets. */
+  topOffset?: number;
+  position: PositionV2;
   gap: number;             // px between blue / timer / orange
   fontFamily: string;
   opacity: number;
@@ -36,14 +48,21 @@ export interface TimerStyle {
   showOvertimeLabel: boolean;
   overtimeLabelColor: string;
   glow: GlowConfig;
+  /** When true, timer is rendered as its own absolute element using `position`. */
+  detached: boolean;
+  position: PositionV2;
 }
 
 export interface BoostBarV2Style {
   visible: boolean;
   width: number;             // total bar card width
   gap: number;               // px between bars in stack
-  sideOffset: number;        // px from left/right edge
-  verticalAlign: number;     // 0..100, % of screen height of stack center
+  /** @deprecated use positionLeft/positionRight. */
+  sideOffset?: number;
+  /** @deprecated use positionLeft/positionRight. */
+  verticalAlign?: number;
+  positionLeft: PositionV2;
+  positionRight: PositionV2;
   background: string;
   borderColor: string;
   paddingX: number;
@@ -72,7 +91,9 @@ export interface BoostBarV2Style {
 
 export interface PlayerCardV2Style {
   visible: boolean;
-  bottomOffset: number;
+  /** @deprecated use position. */
+  bottomOffset?: number;
+  position: PositionV2;
   width: number;
   height: number;
   skewDeg: number;
@@ -146,7 +167,7 @@ const ORANGE_GLOW = 'hsl(24 95% 60%)';
 export const defaultOverlayV2Config: OverlayV2Config = {
   scoreboard: {
     visible: true,
-    topOffset: 24,
+    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: 24 },
     gap: 8,
     fontFamily: 'Rajdhani, sans-serif',
     opacity: 1,
@@ -185,13 +206,15 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     showOvertimeLabel: true,
     overtimeLabelColor: 'hsl(48 100% 60%)',
     glow: { ...defaultGlow, enabled: false },
+    detached: false,
+    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: 24 },
   },
   boostBar: {
     visible: true,
     width: 300,
     gap: 12,
-    sideOffset: 32,
-    verticalAlign: 50,
+    positionLeft: { anchorH: 'left', anchorV: 'middle', offsetX: 32, offsetY: 0 },
+    positionRight: { anchorH: 'right', anchorV: 'middle', offsetX: 32, offsetY: 0 },
     background: 'rgba(0,0,0,0.8)',
     borderColor: 'rgba(255,255,255,0.1)',
     paddingX: 12,
@@ -215,7 +238,7 @@ export const defaultOverlayV2Config: OverlayV2Config = {
   },
   playerCard: {
     visible: true,
-    bottomOffset: 60,
+    position: { anchorH: 'center', anchorV: 'bottom', offsetX: 0, offsetY: -60 },
     width: 640,
     height: 160,
     skewDeg: -15,
@@ -249,13 +272,35 @@ export const defaultOverlayV2Config: OverlayV2Config = {
 export function mergeV2Config(partial: unknown): OverlayV2Config {
   if (!partial || typeof partial !== 'object') return defaultOverlayV2Config;
   const p = partial as Partial<OverlayV2Config>;
+  const sb = { ...defaultOverlayV2Config.scoreboard, ...(p.scoreboard ?? {}) } as ScoreboardV2Style;
+  if (!(p.scoreboard as any)?.position && (p.scoreboard as any)?.topOffset != null) {
+    sb.position = { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: (p.scoreboard as any).topOffset };
+  }
+  const tm = { ...defaultOverlayV2Config.timer, ...(p.timer ?? {}) } as TimerStyle;
+  const bb = { ...defaultOverlayV2Config.boostBar, ...(p.boostBar ?? {}) } as BoostBarV2Style;
+  const legacySide = (p.boostBar as any)?.sideOffset;
+  const legacyVA = (p.boostBar as any)?.verticalAlign;
+  if (!(p.boostBar as any)?.positionLeft && (legacySide != null || legacyVA != null)) {
+    const off = legacySide ?? 32;
+    const vy = legacyVA != null ? ((legacyVA - 50) / 100) * 1080 : 0;
+    bb.positionLeft = { anchorH: 'left', anchorV: 'middle', offsetX: off, offsetY: vy };
+  }
+  if (!(p.boostBar as any)?.positionRight && (legacySide != null || legacyVA != null)) {
+    const off = legacySide ?? 32;
+    const vy = legacyVA != null ? ((legacyVA - 50) / 100) * 1080 : 0;
+    bb.positionRight = { anchorH: 'right', anchorV: 'middle', offsetX: off, offsetY: vy };
+  }
+  const pc = { ...defaultOverlayV2Config.playerCard, ...(p.playerCard ?? {}) } as PlayerCardV2Style;
+  if (!(p.playerCard as any)?.position && (p.playerCard as any)?.bottomOffset != null) {
+    pc.position = { anchorH: 'center', anchorV: 'bottom', offsetX: 0, offsetY: -(p.playerCard as any).bottomOffset };
+  }
   return {
-    scoreboard: { ...defaultOverlayV2Config.scoreboard, ...(p.scoreboard ?? {}) },
+    scoreboard: sb,
     scoreBlue: { ...defaultOverlayV2Config.scoreBlue, ...(p.scoreBlue ?? {}) },
     scoreOrange: { ...defaultOverlayV2Config.scoreOrange, ...(p.scoreOrange ?? {}) },
-    timer: { ...defaultOverlayV2Config.timer, ...(p.timer ?? {}) },
-    boostBar: { ...defaultOverlayV2Config.boostBar, ...(p.boostBar ?? {}) },
-    playerCard: { ...defaultOverlayV2Config.playerCard, ...(p.playerCard ?? {}) },
+    timer: tm,
+    boostBar: bb,
+    playerCard: pc,
     general: { ...defaultOverlayV2Config.general, ...(p.general ?? {}) },
   };
 }
