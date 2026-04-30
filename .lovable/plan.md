@@ -1,65 +1,70 @@
 ## Diagnoza
 
-Na screenie `relay.py` cały czas stoi na:
+Na screenie relay łączy się poprawnie z lokalnym API gry:
 
 ```text
-[WS] Laczenie z ws://127.0.0.1:49123 ...
-events=+0 ... brak danych z RL
+[RL] Polaczono z RL Stats API na 127.0.0.1:49123
 ```
 
-To oznacza, że skrypt nie ustanawia poprawnego połączenia z lokalnym API gry. Po sprawdzeniu oficjalnej dokumentacji i istniejących bibliotek widać ważny niuans: dokumentacja nazywa to „web socket”, ale w aktualnych buildach Rocket League endpoint na `49123` może działać jako zwykły lokalny TCP stream z JSON-em, bez handshake WebSocket. Nasz skrypt po ostatniej zmianie próbuje wyłącznie WebSocket (`websocket-client`), więc może nigdy nie dostać eventów.
+Czyli problem nie jest już w porcie ani transporcie TCP. Błąd:
+
+```text
+[ERR] handle_event: 'str' object has no attribute 'get'
+```
+
+oznacza, że przychodzi prawdziwy event z Rocket League, ale jedna z jego części jest nadal stringiem zamiast obiektem. Obecny skrypt rozpakowuje tylko cały payload, ale nie rozpakowuje osobno pola `Data`. W praktyce API potrafi wysłać np. event jako słownik, gdzie `Data` jest JSON-em zapisanym w stringu. Wtedy `handle_event()` przekazuje string do `handle_update_state()`, a ten próbuje wykonać `data.get(...)`.
 
 ## Plan naprawy
 
-1. **Zamienić transport w `relay.py` na odporny klient TCP**
-   - Połączyć się przez zwykły `socket.create_connection((127.0.0.1, 49123))`.
-   - Czytać ciąg bajtów z portu `49123`.
-   - Parsować kolejne wiadomości JSON z bufora przy pomocy `json.JSONDecoder().raw_decode(...)`, zamiast zakładać WebSocket albo newline-delimited JSON.
-   - Dodać reconnect co kilka sekund, gdy gra nie działa albo API jeszcze nie jest aktywne.
+1. **Dodać uniwersalne rozpakowywanie JSON-stringów w `relay.py`**
+   - W template skryptu na `/relay` dodam helper typu `decode_nested_json(value, max_depth=5)`.
+   - Helper będzie rozpakowywał wartości typu `str`, `bytes`, `bytearray`, jeśli zawierają JSON.
+   - Użyjemy go nie tylko dla całego eventu, ale też dla `evt["Data"]` / `evt["data"]`.
 
-2. **Zostawić aktualny mapping danych z oficjalnego API**
-   - `UpdateState.Data.Players[]` dalej zapisuje `players_live`.
-   - `UpdateState.Data.Game.Teams[]` dalej zapisuje wynik.
-   - `UpdateState.Data.Game.Target` dalej zapisuje aktywną kamerę.
-   - `ClockUpdatedSeconds`, `GoalReplayStart/End`, `MatchPaused/Unpaused`, `ReplayCreated` zostają obsłużone tak jak teraz.
+2. **Uodpornić `handle_event()` na nietypowe kształty eventów**
+   - Po pobraniu `Data` skrypt spróbuje ją zdekodować.
+   - Jeśli po dekodowaniu `Data` nadal nie jest obiektem, event zostanie pominięty z czytelnym komunikatem diagnostycznym, zamiast spamować wyjątkiem.
+   - `GoalScored`, `ClockUpdatedSeconds`, `UpdateState` i replay events będą działały tylko na zwalidowanym `dict`.
 
-3. **Poprawić logi diagnostyczne**
-   - Zamiast `[WS]` używać `[RL]` / `[TCP]`, żeby było jasne, że to nie BakkesMod/SOS i nie klasyczny WebSocket.
-   - Po udanym połączeniu logować: „Połączono z RL Stats API na 127.0.0.1:49123”.
-   - Jeżeli port odmawia połączenia, komunikat będzie sugerował dokładnie:
-     - sprawdź ścieżkę `TAGame/Config/DefaultStatsAPI.ini`,
-     - `PacketSendRate > 0`,
-     - restart Rocket League,
-     - uruchom mecz/replay.
+3. **Uodpornić `handle_update_state()` i listę graczy**
+   - Dodać zabezpieczenia, żeby `Players`, `Game`, `Teams`, `Target` były sprawdzane typami przed `.get()`.
+   - Jeśli pojedynczy gracz w `Players` też przyjdzie jako JSON-string, skrypt spróbuje go zdekodować.
+   - Dzięki temu relay nie wywali obsługi całego eventu przez jeden nietypowy wpis.
 
-4. **Zaktualizować instrukcję na `/relay`**
-   - Usunąć wymóg `websocket-client`, bo nie będzie już potrzebny.
-   - Instalacja będzie:
-     ```text
-     pip install supabase requests
-     ```
-   - Dodać krótką notkę, że skrypt używa oficjalnego RL Stats API na porcie `49123` przez lokalny TCP stream.
+4. **Dodać krótki diagnostyczny podgląd pierwszych eventów**
+   - Dodam licznik typu `raw_debug_printed`, który pokaże 1–3 pierwsze rozpoznane eventy i typ pola `Data`.
+   - To pomoże szybko potwierdzić, czy API wysyła `UpdateState` oraz ile graczy jest w `Players`.
+   - Logi będą krótkie i nie będą zalewać konsoli.
+
+5. **Zaktualizować stronę `/relay`**
+   - Podmienię generowany `relay.py` w `src/pages/Relay.tsx`.
+   - Dodam informację, że jeśli ktoś widzi błąd `str object has no attribute get`, musi ponownie pobrać najnowszy skrypt z `/relay`.
 
 ## Pliki do zmiany
 
 - `src/pages/Relay.tsx`
-  - podmiana template stringa `getRelayScript()` w części transportu,
-  - korekta tekstów instalacyjnych.
+  - zmiana template stringa z Pythonem,
+  - mała aktualizacja instrukcji diagnostycznej.
 
 ## Bez zmian
 
 - Nie ruszamy bazy danych.
-- Nie ruszamy overlayu `/v2/overlay` ani hooka `useLiveStatsV2`.
-- Nie wracamy do SOS Plugin/BakkesMod.
-- Nie przywracamy dummy botów.
+- Nie zmieniamy tabel `players_live`, `match_metadata`, `active_camera`.
+- Nie wracamy do SOS/BakkesMod.
+- Nie dodajemy dummy/animowanych danych.
 
-## Efekt po wdrożeniu
+## Oczekiwany efekt
 
-Po pobraniu nowego `relay.py` i uruchomieniu go podczas meczu lub replaya powinieneś zobaczyć w konsoli:
+Po pobraniu nowego `relay.py` i uruchomieniu go na replayu powinno zniknąć:
 
 ```text
-[RL] Polaczono z RL Stats API na 127.0.0.1:49123
-[HB] mode=... events=+... players_seen=...
+[ERR] handle_event: 'str' object has no attribute 'get'
 ```
 
-A overlay powinien zacząć dostawać realnych graczy z replaya/meczu, zamiast stać na pustych danych.
+Zamiast tego heartbeat powinien zacząć pokazywać realne eventy i graczy, np.:
+
+```text
+[HB] mode=replay events=+... players_seen=10 | DB: match=+... players=+...
+```
+
+A overlay V2 zacznie dostawać realne dane z meczu/replaya.
