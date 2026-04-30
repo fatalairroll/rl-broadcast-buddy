@@ -365,6 +365,9 @@ def handle_event(evt: Dict[str, Any]) -> None:
         in_replay = False
         clock_running = False
         stats["mode"] = "live"
+        # Nowy mecz / replay -> czyscimy poprzednia liste graczy,
+        # zeby zalegle wpisy (np. boty z poprzedniej sesji) nie zostaly w overlay.
+        clear_all_players()
         upsert_match()
         return
 
