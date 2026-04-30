@@ -131,6 +131,17 @@ def upsert_players(rows: List[Dict[str, Any]]) -> None:
         print(f"[ERR] players_live upsert: {e}")
 
 
+def prune_stale_players(current_names: List[str]) -> None:
+    """Kasuje z players_live wpisy graczy, ktorych nie ma w aktualnym snapie z gry.
+    Dzieki temu po przelaczeniu replaya/meczu nie zostaja stare boty/gracze."""
+    if not current_names:
+        return
+    try:
+        sb.table("players_live").delete().not_.in_("player_name", current_names).execute()
+    except Exception as e:
+        print(f"[ERR] players_live prune: {e}")
+
+
 def upsert_camera(target: Optional[str]) -> None:
     global last_camera_write, last_active_camera
     if target == last_active_camera:
@@ -250,6 +261,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         })
     if rows:
         upsert_players(rows)
+        prune_stale_players([r["player_name"] for r in rows])
 
 
 def handle_clock_updated(data: Dict[str, Any]) -> None:
