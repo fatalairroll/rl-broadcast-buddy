@@ -1,70 +1,30 @@
-## Diagnoza
+Potwierdziłem dwie rzeczy:
 
-Na screenie relay łączy się poprawnie z lokalnym API gry:
+1. W samym Overlay V2 nie ma zahardcodowanych nazw `BLUE BOT 1`, `BLUE BOT 2`, `ORANGE BOT 1`, `ORANGE BOT 2`. Komponent `/v2/overlay` pobiera listę wyłącznie z tabeli `players_live` przez `useLiveStatsV2`.
+2. Te 4 wpisy nadal siedzą w bazie jako stare rekordy. Mają `updated_at` ok. 15:34, a prawdziwi gracze są nowsi. Dlatego overlay je pokazuje.
 
-```text
-[RL] Polaczono z RL Stats API na 127.0.0.1:49123
-```
+Problem wygląda na to, że obecne czyszczenie w wygenerowanym `relay.py` nie usuwa ich skutecznie — najpewniej przez składnię `.not_.in_(...)` w pythonowym kliencie albo dlatego, że czyszczenie dzieje się tylko po udanym upsercie i może być pomijane/throttlowane.
 
-Czyli problem nie jest już w porcie ani transporcie TCP. Błąd:
+Plan naprawy:
 
-```text
-[ERR] handle_event: 'str' object has no attribute 'get'
-```
+1. Poprawić wygenerowany `relay.py` w `src/pages/Relay.tsx`
+   - Zastąpić aktualne `prune_stale_players(...).not_.in_(...)` bezpieczniejszą logiką:
+     - pobierz aktualne `player_name` z `players_live`,
+     - porównaj z nazwami graczy z bieżącego snapshota RL,
+     - usuń rekordy, których nie ma w snapshotcie, pojedynczymi `.delete().eq("player_name", name)`.
+   - Dzięki temu stare wpisy typu `BLUE BOT 1` i `ORANGE BOT 1` znikną niezależnie od problemów z operatorem `not in`.
 
-oznacza, że przychodzi prawdziwy event z Rocket League, ale jedna z jego części jest nadal stringiem zamiast obiektem. Obecny skrypt rozpakowuje tylko cały payload, ale nie rozpakowuje osobno pola `Data`. W praktyce API potrafi wysłać np. event jako słownik, gdzie `Data` jest JSON-em zapisanym w stringu. Wtedy `handle_event()` przekazuje string do `handle_update_state()`, a ten próbuje wykonać `data.get(...)`.
+2. Dodać natychmiastowe czyszczenie przy starcie/zmianie meczu
+   - W eventach `MatchCreated` / `MatchInitialized` wyczyścić `players_live`, żeby nowy mecz/replay zaczynał z pustą listą.
+   - Potem pierwsze `UpdateState` wstawi tylko realnych graczy obecnych w tym meczu.
 
-## Plan naprawy
+3. Dodać awaryjne filtrowanie po świeżości w hooku Overlay V2
+   - W `useLiveStatsV2` odfiltrować ekstremalnie stare wpisy z `players_live` na initial load i realtime state, np. starsze niż kilka minut względem najnowszego `updated_at` w tej samej tabeli.
+   - To zabezpieczy overlay przed zalegającymi rekordami nawet wtedy, gdy relay chwilowo nie zdąży ich usunąć.
+   - Nie będzie to filtrowanie konkretnych nazw botów, tylko ogólna ochrona przed stale data.
 
-1. **Dodać uniwersalne rozpakowywanie JSON-stringów w `relay.py`**
-   - W template skryptu na `/relay` dodam helper typu `decode_nested_json(value, max_depth=5)`.
-   - Helper będzie rozpakowywał wartości typu `str`, `bytes`, `bytearray`, jeśli zawierają JSON.
-   - Użyjemy go nie tylko dla całego eventu, ale też dla `evt["Data"]` / `evt["data"]`.
+4. Jednorazowo wyczyścić obecne stare rekordy z bazy
+   - Usunąć z `players_live` obecne rekordy: `BLUE BOT 1`, `BLUE BOT 2`, `ORANGE BOT 1`, `ORANGE BOT 2`.
+   - To jest operacja na danych, nie migracja schematu.
 
-2. **Uodpornić `handle_event()` na nietypowe kształty eventów**
-   - Po pobraniu `Data` skrypt spróbuje ją zdekodować.
-   - Jeśli po dekodowaniu `Data` nadal nie jest obiektem, event zostanie pominięty z czytelnym komunikatem diagnostycznym, zamiast spamować wyjątkiem.
-   - `GoalScored`, `ClockUpdatedSeconds`, `UpdateState` i replay events będą działały tylko na zwalidowanym `dict`.
-
-3. **Uodpornić `handle_update_state()` i listę graczy**
-   - Dodać zabezpieczenia, żeby `Players`, `Game`, `Teams`, `Target` były sprawdzane typami przed `.get()`.
-   - Jeśli pojedynczy gracz w `Players` też przyjdzie jako JSON-string, skrypt spróbuje go zdekodować.
-   - Dzięki temu relay nie wywali obsługi całego eventu przez jeden nietypowy wpis.
-
-4. **Dodać krótki diagnostyczny podgląd pierwszych eventów**
-   - Dodam licznik typu `raw_debug_printed`, który pokaże 1–3 pierwsze rozpoznane eventy i typ pola `Data`.
-   - To pomoże szybko potwierdzić, czy API wysyła `UpdateState` oraz ile graczy jest w `Players`.
-   - Logi będą krótkie i nie będą zalewać konsoli.
-
-5. **Zaktualizować stronę `/relay`**
-   - Podmienię generowany `relay.py` w `src/pages/Relay.tsx`.
-   - Dodam informację, że jeśli ktoś widzi błąd `str object has no attribute get`, musi ponownie pobrać najnowszy skrypt z `/relay`.
-
-## Pliki do zmiany
-
-- `src/pages/Relay.tsx`
-  - zmiana template stringa z Pythonem,
-  - mała aktualizacja instrukcji diagnostycznej.
-
-## Bez zmian
-
-- Nie ruszamy bazy danych.
-- Nie zmieniamy tabel `players_live`, `match_metadata`, `active_camera`.
-- Nie wracamy do SOS/BakkesMod.
-- Nie dodajemy dummy/animowanych danych.
-
-## Oczekiwany efekt
-
-Po pobraniu nowego `relay.py` i uruchomieniu go na replayu powinno zniknąć:
-
-```text
-[ERR] handle_event: 'str' object has no attribute 'get'
-```
-
-Zamiast tego heartbeat powinien zacząć pokazywać realne eventy i graczy, np.:
-
-```text
-[HB] mode=replay events=+... players_seen=10 | DB: match=+... players=+...
-```
-
-A overlay V2 zacznie dostawać realne dane z meczu/replaya.
+Po wdrożeniu trzeba będzie pobrać/skopiować nowy `relay.py` ze strony `/relay` i uruchomić go ponownie. Overlay V2 powinien wtedy pokazywać tylko graczy faktycznie przychodzących z aktualnego meczu/replaya.
