@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useBroadcast, useOverlayPresets } from '@/hooks/useBroadcast';
+import { useBroadcast } from '@/hooks/useBroadcast';
 import { supabase } from '@/integrations/supabase/client';
 import { TeamEditor } from '@/components/dashboard/TeamEditor';
 import { MatchControls } from '@/components/dashboard/MatchControls';
@@ -13,7 +13,6 @@ import {
   LogOut,
   Settings,
   Monitor,
-  Palette,
   Users,
   Loader2,
   ExternalLink,
@@ -41,7 +40,6 @@ export default function Dashboard() {
     resetGameScore,
   } = useBroadcast();
 
-  const { presets } = useOverlayPresets();
   // useEffect(() => {
   //   if (!authLoading && !user) {
   //     navigate('/auth');
@@ -117,29 +115,15 @@ export default function Dashboard() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => window.open('/overlay', '_blank')}
-            >
-              <Monitor className="mr-2 h-4 w-4" />
-              Overlay
-              <ExternalLink className="ml-1 h-3 w-3" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
               onClick={() => window.open('/v2/overlay', '_blank')}
             >
               <Radio className="mr-2 h-4 w-4" />
-              Overlay V2
+              Overlay
               <ExternalLink className="ml-1 h-3 w-3" />
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/studio')}>
               <Monitor className="mr-2 h-4 w-4" />
               Studio
-            </Button>
-            {/* Tymczasowo bez sprawdzania isAdmin - dev mode */}
-            <Button variant="ghost" size="sm" onClick={() => navigate('/creator')}>
-              <Palette className="mr-2 h-4 w-4" />
-              Kreator
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/admin')}>
               <Users className="mr-2 h-4 w-4" />
@@ -184,7 +168,6 @@ export default function Dashboard() {
             {/* Match Controls */}
             <MatchControls
               session={session}
-              presets={presets}
               onUpdate={updateSession}
               onResetGameScore={resetGameScore}
               onBroadcast={handleBroadcast}

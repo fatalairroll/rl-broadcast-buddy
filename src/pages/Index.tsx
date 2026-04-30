@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Gamepad2, Monitor, Settings, ArrowRight } from 'lucide-react';
+import { Gamepad2, Monitor, Trophy, ArrowRight } from 'lucide-react';
 
 export default function Index() {
   const navigate = useNavigate();
@@ -26,10 +26,10 @@ export default function Index() {
             </p>
           </div>
           <div className="p-6 bg-card rounded-lg border border-border">
-            <Settings className="h-8 w-8 text-primary mb-3 mx-auto" />
-            <h3 className="font-semibold mb-2">Kreator Overlay</h3>
+            <Trophy className="h-8 w-8 text-primary mb-3 mx-auto" />
+            <h3 className="font-semibold mb-2">Studio turniejowe</h3>
             <p className="text-sm text-muted-foreground">
-              Pełna personalizacja wyglądu i zapisywanie presetów
+              Bracket, najbliższe i ostatnie mecze z MMRivals
             </p>
           </div>
           <div className="p-6 bg-card rounded-lg border border-border">

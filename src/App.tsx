@@ -7,8 +7,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
-import Overlay from "./pages/Overlay";
-import Creator from "./pages/Creator";
 import Admin from "./pages/Admin";
 import Relay from "./pages/Relay";
 import Studio from "./pages/Studio";
@@ -30,15 +28,12 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/overlay" element={<Overlay />} />
-            <Route path="/creator" element={<Creator />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/relay" element={<Relay />} />
             <Route path="/studio" element={<Studio />} />
             <Route path="/studio/render" element={<StudioRender />} />
             <Route path="/v2/overlay" element={<OverlayV2 />} />
             <Route path="/v2/admin/players" element={<PlayersRegistryAdmin />} />
-            <Route path="*" element={<NotFound />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
