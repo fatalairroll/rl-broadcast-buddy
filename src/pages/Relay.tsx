@@ -8,14 +8,18 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2 (Python) — oficjalne RL Stats API (WebSocket)
+RL Broadcast Relay V2 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
 
 Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
+Endpoint w aktualnych buildach RL zachowuje sie jak zwykly lokalny TCP stream JSON,
+a nie jak klasyczny WebSocket (mimo nazwy w dokumentacji). Ten skrypt laczy sie
+bezposrednio przez TCP i parsuje strumien JSON-ow przy uzyciu raw_decode.
+
 Dziala w meczach competitive online, meczach z botami oraz w replayach z Match History.
 
 INSTALACJA:
   1) Python 3.10+
-  2) pip install websocket-client supabase requests
+  2) pip install supabase requests
   3) Wlacz w grze plik DefaultStatsAPI.ini (patrz /relay w aplikacji).
   4) python relay.py
 
@@ -23,6 +27,7 @@ Plik wygenerowany na stronie /relay — nie musisz nic edytowac.
 """
 
 import json
+import socket
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -31,28 +36,23 @@ try:
     from supabase import create_client, Client  # type: ignore
 except Exception as e:
     raise SystemExit(
-        "Brakuje pakietu 'supabase'. Uruchom: pip install supabase requests websocket-client\\n"
-        f"Szczegol: {e}"
-    )
-
-try:
-    import websocket  # type: ignore  # websocket-client
-except Exception as e:
-    raise SystemExit(
-        "Brakuje pakietu 'websocket-client'. Uruchom: pip install websocket-client\\n"
+        "Brakuje pakietu 'supabase'. Uruchom: pip install supabase requests\\n"
         f"Szczegol: {e}"
     )
 
 # === KONFIGURACJA (wstrzykiwana przez Lovable) ===
 SUPABASE_URL = '${SUPABASE_URL}'
 SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
-RL_WS_URL = "ws://127.0.0.1:49123"
+RL_HOST = "127.0.0.1"
+RL_PORT = 49123
 
 WRITE_INTERVAL_S = 0.25      # throttle zapisow do DB (~4/s na rodzaj)
 HEARTBEAT_S = 5.0
 WATCHDOG_TIMEOUT_S = 0.5     # po tylu s bez updateu z gry zatrzymujemy lokalny zegar
 LOCAL_TICK_S = 0.1
 NO_DATA_WARN_S = 10.0
+RECONNECT_DELAY_S = 3.0
+RECV_CHUNK = 65536
 
 sb: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -342,13 +342,12 @@ def heartbeat_loop() -> None:
             stats["camera_writes_delta"] = 0
 
 
-# === WEBSOCKET ===
-def on_message(ws, message):  # type: ignore
+# === TCP STREAM (lokalny RL Stats API) ===
+_decoder = json.JSONDecoder()
+
+
+def _process_payload(evt: Dict[str, Any]) -> None:
     global last_event_at
-    try:
-        evt = json.loads(message)
-    except Exception:
-        return
     with state_lock:
         stats["events"] += 1
         stats["events_delta"] += 1
@@ -359,46 +358,74 @@ def on_message(ws, message):  # type: ignore
         print(f"[ERR] handle_event: {e}")
 
 
-def on_error(ws, error):  # type: ignore
-    print(f"[WS] Blad: {error}")
-
-
-def on_close(ws, status_code, msg):  # type: ignore
-    print(f"[WS] Polaczenie zamkniete (code={status_code}).")
-
-
-def on_open(ws):  # type: ignore
-    print("[WS] Polaczono z RL Stats API.")
-
-
-def ws_loop() -> None:
+def _drain_buffer(buf: str) -> str:
+    """Wyciaga z bufora kolejne kompletne JSON-y (raw_decode tolerujace whitespace)."""
     while True:
+        s = buf.lstrip()
+        if not s:
+            return ""
         try:
-            print(f"[WS] Laczenie z {RL_WS_URL} ...")
-            ws_app = websocket.WebSocketApp(
-                RL_WS_URL,
-                on_open=on_open,
-                on_message=on_message,
-                on_error=on_error,
-                on_close=on_close,
+            obj, end = _decoder.raw_decode(s)
+        except json.JSONDecodeError:
+            return s  # niekompletny / czesciowy obiekt — czekamy na kolejne dane
+        if isinstance(obj, dict):
+            _process_payload(obj)
+        buf = s[end:]
+
+
+def tcp_loop() -> None:
+    print(f"[RL] Klient lokalnego TCP streamu RL Stats API ({RL_HOST}:{RL_PORT}).")
+    while True:
+        sock: Optional[socket.socket] = None
+        try:
+            print(f"[RL] Laczenie z {RL_HOST}:{RL_PORT} ...")
+            sock = socket.create_connection((RL_HOST, RL_PORT), timeout=5.0)
+            sock.settimeout(None)
+            print(f"[RL] Polaczono z RL Stats API na {RL_HOST}:{RL_PORT}.")
+            buf = ""
+            while True:
+                chunk = sock.recv(RECV_CHUNK)
+                if not chunk:
+                    print("[RL] Strumien zamkniety przez gre.")
+                    break
+                try:
+                    buf += chunk.decode("utf-8", errors="replace")
+                except Exception:
+                    continue
+                buf = _drain_buffer(buf)
+        except ConnectionRefusedError:
+            print(
+                "[RL] Polaczenie odrzucone. Sprawdz:\\n"
+                "     - TAGame/Config/DefaultStatsAPI.ini ma PacketSendRate>0 i Port=49123\\n"
+                "     - Rocket League jest uruchomiony i bylo restartowane po edycji ini\\n"
+                "     - jestes w meczu / replayu (przed startem rozgrywki port moze byc nieaktywny)"
             )
-            ws_app.run_forever(ping_interval=10, ping_timeout=5)
+        except socket.timeout:
+            print("[RL] Timeout polaczenia.")
+        except OSError as e:
+            print(f"[RL] Blad gniazda: {e}")
         except Exception as e:
-            print(f"[WS] Wyjatek: {e}")
-        print("[WS] Reconnect za 3s...")
-        time.sleep(3)
+            print(f"[RL] Wyjatek: {e}")
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+        print(f"[RL] Reconnect za {RECONNECT_DELAY_S:.0f}s ...")
+        time.sleep(RECONNECT_DELAY_S)
 
 
 def main() -> None:
     print("== RL Broadcast Relay V2 (Python) ==")
-    print(f"   Stats API: {RL_WS_URL}")
+    print(f"   Stats API: tcp://{RL_HOST}:{RL_PORT} (lokalny JSON stream)")
     print(f"   Supabase:  {SUPABASE_URL}")
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
 
     threading.Thread(target=heartbeat_loop, daemon=True).start()
     threading.Thread(target=clock_loop, daemon=True).start()
-    ws_loop()
+    tcp_loop()
 
 
 if __name__ == "__main__":
@@ -482,7 +509,7 @@ PacketSendRate=30`}</pre>
                 <h3 className="font-semibold">3. Uruchomienie relay</h3>
                 <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
                   <li>Pobierz plik <code className="bg-secondary px-1 rounded">relay.py</code></li>
-                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install websocket-client supabase requests</code></li>
+                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install supabase requests</code></li>
                   <li>Uruchom: <code className="bg-secondary px-1 rounded">python relay.py</code></li>
                 </ol>
               </div>
@@ -491,7 +518,7 @@ PacketSendRate=30`}</pre>
                 <p className="text-sm text-blue-300">
                   <strong>Dziala w trzech trybach</strong>
                   <br />
-                  Mecze online (competitive), mecze z botami / custom offline oraz replaye z Match History. Boost i speed sa widoczne tylko gdy spectatujesz lub gracz jest na Twojej druzynie (ograniczenie API).
+                  Mecze online (competitive), mecze z botami / custom offline oraz replaye z Match History. Skrypt laczy sie z oficjalnym RL Stats API jako lokalny TCP stream (port 49123). Boost i speed sa widoczne tylko gdy spectatujesz lub gracz jest na Twojej druzynie (ograniczenie API).
                 </p>
               </div>
 
