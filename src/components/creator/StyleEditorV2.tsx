@@ -183,7 +183,6 @@ function ScoreSideEditor({
       <Separator />
       <SliderInput label="Padding X" value={value.paddingX} onValueChange={(v) => onChange({ paddingX: v })} min={0} max={120} unit="px" />
       <SliderInput label="Padding Y" value={value.paddingY} onValueChange={(v) => onChange({ paddingY: v })} min={0} max={60} unit="px" />
-      <SliderInput label="Min. szerokość" value={value.minWidth} onValueChange={(v) => onChange({ minWidth: v })} min={80} max={400} unit="px" />
       <SliderInput label="Rozmiar fontu" value={value.fontSize} onValueChange={(v) => onChange({ fontSize: v })} min={20} max={140} unit="px" />
       <SliderInput label="Grubość" value={value.fontWeight} onValueChange={(v) => onChange({ fontWeight: v })} min={300} max={900} step={100} />
       <ColorPicker label="Kolor tekstu" value={value.textColor} onChange={(v) => onChange({ textColor: v })} />
