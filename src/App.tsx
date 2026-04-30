@@ -13,6 +13,8 @@ import Admin from "./pages/Admin";
 import Relay from "./pages/Relay";
 import Studio from "./pages/Studio";
 import StudioRender from "./pages/StudioRender";
+import OverlayV2 from "./pages/OverlayV2";
+import PlayersRegistryAdmin from "./pages/PlayersRegistryAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/relay" element={<Relay />} />
             <Route path="/studio" element={<Studio />} />
             <Route path="/studio/render" element={<StudioRender />} />
+            <Route path="/v2/overlay" element={<OverlayV2 />} />
+            <Route path="/v2/admin/players" element={<PlayersRegistryAdmin />} />
             <Route path="*" element={<NotFound />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
