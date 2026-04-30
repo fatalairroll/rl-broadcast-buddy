@@ -73,12 +73,13 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
 
   return (
     <>
+      <div style={containerStyle}>
       <motion.div
         initial={{ y: -40, opacity: 0 }}
         animate={{ y: 0, opacity: sb.opacity }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="flex items-stretch select-none"
-        style={containerStyle}
+        style={{ gap: sb.gap, fontFamily: sb.fontFamily }}
       >
         {/* Blue */}
         <div
