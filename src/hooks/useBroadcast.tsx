@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { BroadcastSession, GameState, OverlayPreset, Team, SeriesType, OverlayConfig } from '@/types/broadcast';
-import { defaultOverlayConfig } from '@/types/broadcast';
+import type { BroadcastSession, GameState, Team } from '@/types/broadcast';
 
 const BROADCAST_CHANNEL = 'rl_broadcast_room';
 
 export function useBroadcast(sessionId?: string) {
   const [session, setSession] = useState<BroadcastSession | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [overlayConfig, setOverlayConfig] = useState<OverlayConfig>(defaultOverlayConfig);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,37 +48,6 @@ export function useBroadcast(sessionId?: string) {
     }
     setLoading(false);
   }, [sessionId]);
-
-  // Fetch overlay preset when session changes
-  const fetchOverlayPreset = useCallback(async (presetId: string) => {
-    const { data, error } = await supabase
-      .from('overlay_presets')
-      .select('*')
-      .eq('id', presetId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error fetching overlay preset:', error);
-      return;
-    }
-
-    if (data && data.config) {
-      // Merge with defaults to ensure all fields exist
-      setOverlayConfig({
-        ...defaultOverlayConfig,
-        ...(data.config as unknown as OverlayConfig),
-      });
-    }
-  }, []);
-
-  // Watch for overlay_preset_id changes
-  useEffect(() => {
-    if (session?.overlay_preset_id) {
-      fetchOverlayPreset(session.overlay_preset_id);
-    } else {
-      setOverlayConfig(defaultOverlayConfig);
-    }
-  }, [session?.overlay_preset_id, fetchOverlayPreset]);
 
   // Subscribe to realtime updates
   useEffect(() => {
@@ -177,7 +144,6 @@ export function useBroadcast(sessionId?: string) {
   return {
     session,
     gameState,
-    overlayConfig,
     loading,
     error,
     updateSession,
@@ -243,72 +209,4 @@ export function useTeams() {
   };
 
   return { teams, loading, createTeam, updateTeam, deleteTeam };
-}
-
-export function useOverlayPresets() {
-  const [presets, setPresets] = useState<OverlayPreset[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchPresets = async () => {
-      const { data } = await supabase
-        .from('overlay_presets')
-        .select('*')
-        .order('name');
-      setPresets((data as unknown as OverlayPreset[]) || []);
-      setLoading(false);
-    };
-    fetchPresets();
-  }, []);
-
-  const createPreset = async (preset: Omit<OverlayPreset, 'id' | 'created_at' | 'updated_at'>) => {
-    const { data, error } = await supabase
-      .from('overlay_presets')
-      .insert([{
-        name: preset.name,
-        description: preset.description || null,
-        config: JSON.parse(JSON.stringify(preset.config)),
-        thumbnail_url: preset.thumbnail_url || null,
-        is_default: preset.is_default ?? false,
-        created_by: preset.created_by || null,
-      }])
-      .select()
-      .single();
-    
-    if (data) {
-      setPresets((prev) => [...prev, data as unknown as OverlayPreset]);
-    }
-    return { data: data as unknown as OverlayPreset | null, error };
-  };
-
-  const updatePreset = async (id: string, updates: Partial<OverlayPreset>) => {
-    const updateData: Record<string, unknown> = {};
-    if (updates.name !== undefined) updateData.name = updates.name;
-    if (updates.description !== undefined) updateData.description = updates.description;
-    if (updates.config !== undefined) updateData.config = JSON.parse(JSON.stringify(updates.config));
-    if (updates.thumbnail_url !== undefined) updateData.thumbnail_url = updates.thumbnail_url;
-    if (updates.is_default !== undefined) updateData.is_default = updates.is_default;
-
-    const { error } = await supabase
-      .from('overlay_presets')
-      .update(updateData)
-      .eq('id', id);
-    
-    if (!error) {
-      setPresets((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
-      );
-    }
-    return { error };
-  };
-
-  const deletePreset = async (id: string) => {
-    const { error } = await supabase.from('overlay_presets').delete().eq('id', id);
-    if (!error) {
-      setPresets((prev) => prev.filter((p) => p.id !== id));
-    }
-    return { error };
-  };
-
-  return { presets, loading, createPreset, updatePreset, deletePreset };
 }
