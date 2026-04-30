@@ -133,6 +133,7 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
             </div>
           </div>
         </motion.div>
+        </div>
       )}
     </AnimatePresence>
   );
