@@ -1,79 +1,33 @@
-## Problem
+Plan naprawy obejmuje dwa niezależne problemy:
 
-Wynik serii (kropki BO) zmienia położenie w poziomie po zmianie długości serii (BO1/BO3/BO5/BO7). Obecnie cały rząd `[kropki niebieskie] [BO5] [kropki pomarańczowe]` jest jednym flex-containerem wycentrowanym przez `translateX(-50%)`. To wycentruje **prostokąt rzędu**, ale punkt "środkowy" wizualnie (etykieta BO) wędruje, gdy:
+1. Wynik serii: stabilne centrowanie względem ekranu
+- Przebuduję `SeriesScoreV2` tak, aby pozycja `offsetX=0` oznaczała zawsze punkt X=960 w scenie 1920x1080, niezależnie od długości BO i szerokości kropek.
+- Zrezygnuję z używania `positionToStyle()` dla tego konkretnego komponentu, bo obecna implementacja ma `width: 0`, a przy anchorze `center` dodaje jeszcze `translateX(-50%)`. Dla elementu o zerowej szerokości to teoretycznie nie powinno przesuwać, ale w praktyce animacja/transform rodzica i absolutne dzieci dają niestabilne zachowanie.
+- Zamiast tego komponent dostanie własny stały anchor:
+  - `left: 960 + offsetX`
+  - `top: 540 + offsetY`
+  - bez `translateX(-50%)`
+- Niebieskie kropki będą absolutnie po lewej stronie punktu, pomarańczowe po prawej.
+- Etykieta BO będzie wycentrowana na punkcie anchor, ale nie będzie wpływać na położenie grup kropek.
+- Dodam kontener z `overflow: visible`, `pointerEvents: none` i kontrolowanymi transformami, żeby zmiana BO1/BO3/BO5/BO7 nie przesuwała środka.
+- Opcjonalnie dodam krótką podpowiedź w edytorze pozycji serii, że dla tego elementu `Anchor X=Środek` i `Offset X=0` oznacza środek ekranu.
 
-- liczba kropek po obu stronach rośnie/maleje,
-- (a w niektórych przypadkach) szerokości grup nie są idealnie równe (np. inny `shape: 'pill'` dla niektórych presetów, inne `gap` itp.).
+2. Ikony rang w live: poprawne pobieranie i fallback
+- Obecnie w bazie `players_live.mmr` jest puste (`null`) dla rzeczywistych graczy, więc fallback z live bota nie ma z czego wyliczyć rangi.
+- Aktywna sesja ma natomiast wybrany turniej/mecz MMRivals i `player_pairings`, więc ranga/MMR powinny być brane z danych MMRivals, tak jak w Studio.
+- Poprawię `useActivePlayerMmrInfo`, aby działał tak jak `MatchCard` w Studio:
+  - najpierw bierze MMR zależny od trybu gry (`1v1`, `2v2`, `3v3`), najlepiej z danych turnieju/meczu,
+  - jeżeli pole ranku z API jest nieprawidłowe (np. obecnie API zwraca `"v"`), ignoruje je,
+  - wtedy wylicza nazwę rangi z MMR przez `getRankFromMmr()`.
+- Dzięki temu live overlay będzie mógł wyświetlić ikonę nawet wtedy, gdy `players_live.mmr` jest `null`, pod warunkiem że gracz jest sparowany z zawodnikiem MMRivals.
+- Dodatkowo dopasuję rozpoznawanie trybu gry do wartości turniejowych (`2v2OPEN`, `3v3`, itp.), zamiast zgadywać po liczbie graczy w drużynie, bo liczba może nie zawsze jednoznacznie oddawać tryb.
 
-Użytkownik chce: po ustawieniu `offsetX = 0` środek (etykieta BO) ma siedzieć dokładnie na środku ekranu (X=960) — i nie ruszać się przy zmianie BO1↔BO7.
+3. Ujednolicenie logiki ikon rang
+- Wykorzystam istniejące `isValidRank`, `normalizeRankName` i `getRankFromMmr`, żeby overlay live zachowywał się tak samo jak Studio.
+- W `PlayerCardV2` zostanie priorytet:
+  1. MMRivals override z parowania aktywnego gracza,
+  2. `players_registry`,
+  3. `players_live.mmr`, jeżeli kiedyś bot zacznie je przesyłać.
+- Tekst rangi nie będzie renderowany w karcie gracza — zostanie sama grafika.
 
-## Rozwiązanie
-
-Przebudować layout `SeriesScoreV2` tak, aby **etykieta BO była twardym punktem kotwiczącym** w wybranym `position`, a obie grupy kropek były pozycjonowane absolutnie *względem etykiety*: niebieska grupa „rośnie w lewo" od lewej krawędzi etykiety, pomarańczowa „rośnie w prawo" od prawej. Wtedy etykieta zawsze siedzi w (offsetX, offsetY) niezależnie od liczby kropek.
-
-### Zmiana w `src/components/v2/SeriesScoreV2.tsx`
-
-Zamiast jednego flex-rzędu:
-
-```tsx
-<motion.div style={{ ...positionToStyle(s.position), display: 'flex', gap: s.groupGap }}>
-  <BlueGroup /> <Label /> <OrangeGroup />
-</motion.div>
-```
-
-zrobić **kontener-punkt** (zerowych wymiarów) zakotwiczony w `s.position`, z trzema warstwami:
-
-```tsx
-<motion.div style={{ ...positionToStyle(s.position) }}>
-  {/* Etykieta — to ona definiuje centrum */}
-  <span style={{
-    display: 'inline-block',
-    transform: 'translate(-50%, -50%)',   // środek etykiety = punkt kotwiczenia
-    position: 'absolute', left: 0, top: 0,
-    whiteSpace: 'nowrap',
-    color: s.labelColor, fontSize: s.labelFontSize,
-  }}>
-    {s.showLabel ? type.toUpperCase() : ''}
-  </span>
-
-  {/* Grupa niebieska — przykleja PRAWĄ krawędź do lewej krawędzi etykiety */}
-  <div style={{
-    position: 'absolute',
-    right: `calc(50% + ${s.groupGap}px)`,   // odstęp od środka etykiety
-    top: '50%',
-    transform: 'translateY(-50%)',
-    display: 'flex', gap: s.gap,
-    direction: 'rtl',  // żeby kropki rosły od środka na zewnątrz
-  }}>
-    {blueDots.map(...)}
-  </div>
-
-  {/* Grupa pomarańczowa — przykleja LEWĄ krawędź do prawej krawędzi etykiety */}
-  <div style={{
-    position: 'absolute',
-    left: `calc(50% + ${s.groupGap}px)`,
-    top: '50%',
-    transform: 'translateY(-50%)',
-    display: 'flex', gap: s.gap,
-  }}>
-    {orangeDots.map(...)}
-  </div>
-</motion.div>
-```
-
-Uwagi techniczne:
-- Kontener `motion.div` zachowuje `positionToStyle(s.position)` i ma `width: 0; height: 0`, więc anchor `center/middle` plus `translate(-50%, -50%)` na etykiecie precyzyjnie kładzie środek etykiety w (960 + offsetX, 540 + offsetY).
-- `groupGap` mierzony jest **od środka etykiety**, nie od jej krawędzi — żeby zachować symetrię nawet gdy zmienia się szerokość tekstu (BO1/BO3/BO5/BO7 mają różną szerokość). Dzięki temu lewy/prawy odstęp są zawsze równe.
-- `direction: 'rtl'` na grupie niebieskiej sprawia, że pierwsza kropka (oznaczająca pierwszą wygraną grę) jest najbliżej środka, a kolejne dorzucane kropki rosną w lewo — co jest wizualnie spójne z grupą pomarańczową (która rośnie w prawo).
-- `s.shape === 'square'` dalej dostaje `skewX(${s.skewDeg}deg)`; grupowy gap pozostaje bez zmian.
-- Gdy `s.showLabel === false`, etykieta renderowana jest jako pusty `<span>` — i tak utrzymuje punkt zerowej szerokości w środku, więc kropki w obu grupach są rozdzielone samym `2 * groupGap` (czyli przerwa między najbliższymi kropkami niebieską i pomarańczową = `2 * groupGap`). To zachowuje wizualną „lukę środkową" nawet bez tekstu.
-
-### Efekt
-
-- `offsetX = 0` → etykieta dokładnie na środku ekranu (X=960).
-- Zmiana BO1 → BO3 → BO5 → BO7 dorzuca/usuwa kropki na zewnątrz — środek się nie rusza.
-- Asymetryczne wyniki (np. 2:0) też nie przesuwają środka, bo kropki tylko zmieniają wypełnienie, nie ich liczbę.
-
-### Pliki do edycji
-
-- `src/components/v2/SeriesScoreV2.tsx` — wyłączny zakres zmian. Bez zmian w typach, schemacie konfiguracji ani w innych komponentach (defaulty, edytor, OverlayV2).
+Po wdrożeniu sprawdzę jeszcze, czy aktywny przypadek z obecnej bazy (`players_live.mmr = null`, ale aktywna sesja ma MMRivals pairings) powinien rozwiązać się do ikony rangi z MMRivals MMR.
