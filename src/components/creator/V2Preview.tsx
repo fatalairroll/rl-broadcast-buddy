@@ -2,6 +2,7 @@ import { ScoreboardV2 } from '@/components/v2/ScoreboardV2';
 import { BoostStackV2 } from '@/components/v2/BoostStackV2';
 import { PlayerCardV2 } from '@/components/v2/PlayerCardV2';
 import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
+import { TeamNameV2 } from '@/components/v2/TeamNameV2';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
 import { useBroadcast } from '@/hooks/useBroadcast';
@@ -46,6 +47,8 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
     : live.activeRegistry;
   const series = useMock ? MOCK_SERIES : liveSeries;
   const mmrOverride = useMock ? null : liveMmrOverride;
+  const blueName = useMock ? 'TEAM BLUE' : (session?.team_a_name ?? '');
+  const orangeName = useMock ? 'TEAM ORANGE' : (session?.team_b_name ?? '');
 
   return (
     <div
@@ -81,6 +84,8 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
           orangeScore={series.orangeScore}
           config={config}
         />
+        <TeamNameV2 name={blueName} style={config.teamNameBlue} team="blue" />
+        <TeamNameV2 name={orangeName} style={config.teamNameOrange} team="orange" />
         <BoostStackV2 players={blue} registryMap={registryMap} side="left" activeName={activeName} config={config} />
           <BoostStackV2 players={orange} registryMap={registryMap} side="right" activeName={activeName} config={config} />
           <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} mmrOverride={mmrOverride} />
