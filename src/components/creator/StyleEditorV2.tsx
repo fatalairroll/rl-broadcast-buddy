@@ -172,6 +172,10 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <Separator />
             <ColorPicker label="Tło chip-a kraju" value={config.playerCard.countryBg} onChange={(v) => update('playerCard', { countryBg: v })} />
             <ColorPicker label="Kolor tekstu kraju" value={config.playerCard.countryColor} onChange={(v) => update('playerCard', { countryColor: v })} />
+            <Separator />
+            <SliderInput label="Rozmiar ikony rangi" value={config.playerCard.rankIconSize ?? 36} onValueChange={(v) => update('playerCard', { rankIconSize: v })} min={16} max={160} unit="px" />
+            <SliderInput label="Ranga - offset X" value={config.playerCard.rankOffsetX ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetX: v })} min={-200} max={200} unit="px" />
+            <SliderInput label="Ranga - offset Y" value={config.playerCard.rankOffsetY ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetY: v })} min={-200} max={200} unit="px" />
           </>
         )}
 
