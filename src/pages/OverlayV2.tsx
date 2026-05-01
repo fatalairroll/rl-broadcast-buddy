@@ -46,18 +46,28 @@ export default function OverlayV2() {
     return () => window.removeEventListener('resize', compute);
   }, []);
 
+  const stageScale = fit * config.general.globalScale;
+
   return (
     <div
       className="fixed inset-0 overflow-hidden flex items-center justify-center"
       style={{ background: 'transparent' }}
     >
       <div
-        className="relative"
+        className="relative shrink-0"
+        style={{
+          width: 1920 * stageScale,
+          height: 1080 * stageScale,
+          flex: '0 0 auto',
+        }}
+      >
+        <div
+          className="relative"
         style={{
           width: 1920,
           height: 1080,
-          transform: `scale(${fit * config.general.globalScale})`,
-          transformOrigin: 'center center',
+            transform: `scale(${stageScale})`,
+            transformOrigin: 'top left',
         }}
       >
         <ScoreboardV2 match={match} config={config} />
@@ -82,6 +92,7 @@ export default function OverlayV2() {
           config={config}
         />
         <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} />
+        </div>
       </div>
     </div>
   );
