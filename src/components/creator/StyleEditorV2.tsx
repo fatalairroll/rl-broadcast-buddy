@@ -13,6 +13,7 @@ import {
   type PositionV2,
   type AnchorH,
   type AnchorV,
+  type TeamNameStyle,
 } from '@/types/overlayV2';
 import type { GlowConfig } from '@/lib/glow-utils';
 import type { GradientConfig, GradientStop } from '@/lib/gradient-utils';
@@ -214,8 +215,78 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <SliderInput label="Globalna skala" value={config.general.globalScale} onValueChange={(v) => update('general', { globalScale: v })} min={0.5} max={1.5} step={0.05} />
           </>
         )}
+
+        {(element === 'teamNameBlue' || element === 'teamNameOrange') && (
+          <TeamNameEditor
+            value={element === 'teamNameBlue' ? config.teamNameBlue : config.teamNameOrange}
+            onChange={(patch) => update(element, patch)}
+          />
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+function TeamNameEditor({
+  value,
+  onChange,
+}: {
+  value: TeamNameStyle;
+  onChange: (patch: Partial<TeamNameStyle>) => void;
+}) {
+  return (
+    <>
+      <Toggle label="Widoczna" value={value.visible} onChange={(v) => onChange({ visible: v })} />
+      <PositionEditor value={value.position} onChange={(p) => onChange({ position: p })} />
+      <Separator />
+      <SliderInput label="Padding X" value={value.paddingX} onValueChange={(v) => onChange({ paddingX: v })} min={0} max={120} unit="px" />
+      <SliderInput label="Padding Y" value={value.paddingY} onValueChange={(v) => onChange({ paddingY: v })} min={-30} max={60} unit="px" />
+      <SliderInput label="Min. szerokość" value={value.minWidth} onValueChange={(v) => onChange({ minWidth: v })} min={0} max={600} unit="px" />
+      <SliderInput label="Skew" value={value.skewDeg} onValueChange={(v) => onChange({ skewDeg: v })} min={-30} max={30} unit="°" />
+      <SliderInput label="Opacity" value={value.opacity} onValueChange={(v) => onChange({ opacity: v })} min={0} max={1} step={0.05} />
+      <Separator />
+      <FontInput label="Font" value={value.fontFamily} onChange={(v) => onChange({ fontFamily: v })} />
+      <SliderInput label="Rozmiar fontu" value={value.fontSize} onValueChange={(v) => onChange({ fontSize: v })} min={12} max={120} unit="px" />
+      <SliderInput label="Grubość" value={value.fontWeight} onValueChange={(v) => onChange({ fontWeight: v })} min={300} max={900} step={100} />
+      <ColorPicker label="Kolor tekstu" value={value.textColor} onChange={(v) => onChange({ textColor: v })} />
+      <SliderInput label="Letter spacing" value={value.letterSpacing} onValueChange={(v) => onChange({ letterSpacing: v })} min={-2} max={20} step={0.5} unit="px" />
+      <div className="space-y-2">
+        <Label className="text-xs">Wyrównanie tekstu</Label>
+        <Select value={value.textAlign} onValueChange={(v) => onChange({ textAlign: v as 'left' | 'center' | 'right' })}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="left">Lewo</SelectItem>
+            <SelectItem value="center">Środek</SelectItem>
+            <SelectItem value="right">Prawo</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <Toggle label="Wielkie litery" value={value.uppercase} onChange={(v) => onChange({ uppercase: v })} />
+      <SliderInput label="Max znaków (0 = bez limitu)" value={value.maxChars} onValueChange={(v) => onChange({ maxChars: v })} min={0} max={40} />
+      <Separator />
+      <div className="space-y-2">
+        <Label className="text-xs">Kształt</Label>
+        <Select value={value.shape} onValueChange={(v) => onChange({ shape: v as TeamNameStyle['shape'] })}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sharp">Prostokąt</SelectItem>
+            <SelectItem value="rounded">Zaokrąglony</SelectItem>
+            <SelectItem value="pill">Pill</SelectItem>
+            <SelectItem value="parallelogram">Parallelogram (skew)</SelectItem>
+            <SelectItem value="hexagon">Hexagon</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <SliderInput label="Border radius" value={value.borderRadius} onValueChange={(v) => onChange({ borderRadius: v })} min={0} max={48} unit="px" />
+      <ColorPicker label="Kolor obramowania" value={value.borderColor} onChange={(v) => onChange({ borderColor: v })} />
+      <SliderInput label="Grubość obramowania" value={value.borderWidth} onValueChange={(v) => onChange({ borderWidth: v })} min={0} max={8} unit="px" />
+      <Separator />
+      <ColorPicker label="Tło (fallback)" value={value.background} onChange={(v) => onChange({ background: v })} />
+      <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Gradient tła</h4>
+      <GradientEditor value={value.gradient} onChange={(g) => onChange({ gradient: g })} />
+      <Separator />
+      <GlowEditor value={value.glow} onChange={(g) => onChange({ glow: g })} />
+    </>
   );
 }
 
