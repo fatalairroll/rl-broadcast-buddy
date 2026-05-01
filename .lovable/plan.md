@@ -1,63 +1,45 @@
-## Diagnoza
+## Cel
 
-Porównanie zrzutów (kreator vs overlay w przeglądarce/OBS) pokazuje dwa niezależne błędy:
+Rozszerzyć zakres suwaków „Padding Y" tak, aby można było mocniej zmniejszyć wysokość kafelków w scoreboardzie (wynik niebieskich, wynik pomarańczowych, timer). Kontener scoreboardu nie ma własnego `paddingY` — ma tylko `gap` i odstępy dziedziczy z kafelków, więc to właśnie te trzy suwaki sterują "kompresją" całego paska wyniku.
 
-### 1. Overlay w OBS jest „przeskalowany" i nie mieści się na ekranie
+## Zmiany
 
-W `src/pages/OverlayV2.tsx` zewnętrzny kontener ma stały rozmiar **1920×1080 px**, ale wewnątrz dodajemy `transform: scale(globalScale)` z `origin-top-left`. Gdy `globalScale = 1` to OK, jednak:
+Plik: `src/components/creator/StyleEditorV2.tsx`
 
-- W OBS Browser Source rzadko ustawia się dokładnie 1920×1080 — często mniejsze (np. 1600×900) lub większe, a wtedy stała ramka 1920×1080 jest rozciągana/przycinana przez OBS.
-- Brakuje „auto-fit" do okna OBS (overlay powinien się sam skalować do faktycznych wymiarów Browser Source, zachowując 16:9).
-- Dodatkowo `globalScale` mnoży się ze skalą OBS i rozjazd robi się bardzo widoczny.
+1. **Timer — Padding Y** (linia 69)
+   - obecnie: `min={0} max={60}`
+   - po zmianie: `min={-30} max={60}` (ujemne wartości pozwalają wciągnąć kafelek w siebie i uzyskać niższy timer niż naturalna wysokość fontu)
 
-### 2. Podgląd w kreatorze nie pokrywa się z overlayem 1:1
+2. **Wynik niebieskich / pomarańczowych — Padding Y** (linia 237, wspólny `ScoreSideEditor`)
+   - obecnie: `min={0} max={60}`
+   - po zmianie: `min={-30} max={60}`
 
-W `V2Preview.tsx` ramka ma rozmiar `1920 * scale × 1080 * scale` (np. 960×540 dla scale=0.5), a wewnętrzny div jest skalowany przez `scale * config.general.globalScale`. To oznacza, że `globalScale` w kreatorze **dodatkowo zmniejsza/powiększa zawartość wewnątrz tej samej ramki 960×540**, więc np. przy `globalScale=0.9` elementy w kreatorze są przy lewym górnym rogu i odsłania się czarne tło — ale w OBS skalowane jest całe 1920×1080. Stąd „karta na 100%" wygląda inaczej w obu miejscach.
+Dla spójności rozszerzymy też `Padding X` do `min={-30}` przy okazji? — **nie**, użytkownik prosił tylko o Y, więc X zostawiam.
 
-Drugorzędnie: ramka kreatora rysowana przez `border` (`<div className="border border-border shadow-2xl">`) jest pixel-perfect 960×540, ale przeglądarka renderuje overlay w pełnym viewport. Jeżeli ktoś porównuje „na oko" rozstaw na obu screenshotach (overlay w przeglądarce nie jest 1:1 do okna), wygląda to jakby elementy były w innych miejscach — w rzeczywistości chodzi tylko o procent zoomu strony.
+## Uwaga techniczna
 
-## Plan naprawy
+CSS `padding` z wartością ujemną nie jest obsługiwane przez przeglądarkę — zostanie zclampowane do 0. Żeby ujemne wartości faktycznie zmniejszały kafelek, w renderze trzeba je zmapować na ujemny `marginTop`/`marginBottom` (lub `padding: max(0, v)` + `margin: min(0, v)`).
 
-### A. `src/pages/OverlayV2.tsx` — auto-fit do viewportu OBS
+Plik: `src/components/v2/ScoreboardV2.tsx`
 
-Zamienić sztywny kontener 1920×1080 na **odporny na rozmiar Browser Source** układ:
+- Dla bloków „Blue", „Orange" i „Timer" zamiast:
+  ```
+  padding: `${paddingY}px ${paddingX}px`
+  ```
+  zastosować:
+  ```
+  paddingTop: Math.max(0, paddingY),
+  paddingBottom: Math.max(0, paddingY),
+  paddingLeft: paddingX,
+  paddingRight: paddingX,
+  marginTop: Math.min(0, paddingY),
+  marginBottom: Math.min(0, paddingY),
+  ```
+  (lub równoważnie ujemny margin tylko gdy `paddingY < 0`).
 
-```text
-[outer = 100vw × 100vh, transparent, flex center]
-  └─ [stage = 1920×1080, transform: scale(fit) , origin: center]
-       └─ ScoreboardV2, SeriesScoreV2, BoostStackV2 ×2, PlayerCardV2
-```
-
-- `fit = min(window.innerWidth / 1920, window.innerHeight / 1080) * config.general.globalScale`
-- Liczone w `useEffect` + `ResizeObserver` na window, trzymane w stanie i wstawiane do `transform: scale(...)`.
-- `origin: center center` żeby przy mniejszej rozdzielczości overlay siedział na środku, a nie wyjeżdżał w prawy/dolny róg.
-- Dzięki temu Browser Source 1920×1080 → fit=1 (identycznie jak teraz). Browser Source 1600×900 → fit≈0.833, wszystko mieści się.
-
-### B. `src/components/creator/V2Preview.tsx` — 1:1 z overlayem
-
-Poprawić tak, by podgląd zachowywał się tak samo jak `OverlayV2`:
-
-- Zewnętrzna ramka pozostaje `1920*scale × 1080*scale` (to jest „okno" na canvas, np. 960×540).
-- Wewnętrzny stage 1920×1080 transformowany przez `scale(scale * globalScale)` z `origin: top-left`, ALE owinięty w dodatkowy wrapper, który również domyka rozmiar do `1920*scale*globalScale × 1080*scale*globalScale`, żeby tło/border kreatora odzwierciedlał faktyczną wielkość overlaya (gdy globalScale<1 ramka się kurczy, gdy >1 rośnie).
-- Alternatywnie (prostsze i bliższe rzeczywistości OBS): zachować ramkę `1920*scale × 1080*scale` i skalować zawartość przez `scale * globalScale` z origin **center**, identycznie jak overlay. Wtedy widok w kreatorze odzwierciedla 1:1 to, co zobaczy OBS przy Browser Source 1920×1080.
-
-Wybieram drugi wariant — daje pełną zgodność „kreator vs overlay vs OBS".
-
-### C. Drobne porządki
-
-- Usunąć z `V2Preview.tsx` mnożenie `transform: scale(scale * globalScale)` z `origin-top-left` na rzecz `origin: center` (zgodne z A).
-- W `OverlayV2.tsx` dodać `overflow: hidden` na outer, żeby `globalScale > 1` nie generował scrollbarów w OBS.
-- Usunąć tło-szachownicę z `V2Preview` poza obszarem stage'a (zostaje tylko jako tło canvasu, nie nakłada się na content), aby ramka kreatora pokrywała się z faktyczną granicą overlaya.
+Dzięki temu suwak działa jak „kompresja pionowa": dodatnie = większy odstęp, ujemne = mniejsza wysokość kafelka niż domyślna.
 
 ## Pliki do edycji
 
-- `src/pages/OverlayV2.tsx` — auto-fit do viewportu, center origin, ResizeObserver.
-- `src/components/creator/V2Preview.tsx` — center origin + spójna logika skalowania z overlayem.
-
-Brak zmian w bazie danych, brak zmian w typach. Zachowuje się obecny system koordynat (0,0 = środek ekranu).
-
-## Weryfikacja po wdrożeniu
-
-1. Otworzyć `/creator` i `/v2/overlay?key=...` w dwóch oknach 1920×1080 → elementy w identycznych miejscach.
-2. Zmienić `globalScale` na 0.8 w kreatorze → overlay w przeglądarce powinien zmniejszyć się o 20%, środek na środku.
-3. W OBS Browser Source 1600×900 → cały overlay mieści się w kadrze, proporcjonalnie zmniejszony.
+- `src/components/creator/StyleEditorV2.tsx` — rozszerzenie `min` w 2 miejscach (timer + ScoreSideEditor)
+- `src/components/v2/ScoreboardV2.tsx` — mapowanie ujemnych wartości `paddingY` na ujemny margines pionowy w 3 blokach (blue, orange, timer)

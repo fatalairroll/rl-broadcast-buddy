@@ -66,7 +66,7 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <SliderInput label="Rozmiar fontu" value={config.timer.fontSize} onValueChange={(v) => update('timer', { fontSize: v })} min={20} max={120} unit="px" />
             <ColorPicker label="Kolor tekstu" value={config.timer.textColor} onChange={(v) => update('timer', { textColor: v })} />
             <SliderInput label="Padding X" value={config.timer.paddingX} onValueChange={(v) => update('timer', { paddingX: v })} min={0} max={120} unit="px" />
-            <SliderInput label="Padding Y" value={config.timer.paddingY} onValueChange={(v) => update('timer', { paddingY: v })} min={0} max={60} unit="px" />
+            <SliderInput label="Padding Y" value={config.timer.paddingY} onValueChange={(v) => update('timer', { paddingY: v })} min={-30} max={60} unit="px" />
             <Separator />
             <Toggle label="Etykieta Overtime" value={config.timer.showOvertimeLabel} onChange={(v) => update('timer', { showOvertimeLabel: v })} />
             <ColorPicker label="Kolor etykiety OT" value={config.timer.overtimeLabelColor} onChange={(v) => update('timer', { overtimeLabelColor: v })} />
@@ -234,7 +234,7 @@ function ScoreSideEditor({
       <GlowEditor value={value.glow} onChange={(g) => onChange({ glow: g })} />
       <Separator />
       <SliderInput label="Padding X" value={value.paddingX} onValueChange={(v) => onChange({ paddingX: v })} min={0} max={120} unit="px" />
-      <SliderInput label="Padding Y" value={value.paddingY} onValueChange={(v) => onChange({ paddingY: v })} min={0} max={60} unit="px" />
+      <SliderInput label="Padding Y" value={value.paddingY} onValueChange={(v) => onChange({ paddingY: v })} min={-30} max={60} unit="px" />
       <SliderInput label="Rozmiar fontu" value={value.fontSize} onValueChange={(v) => onChange({ fontSize: v })} min={20} max={140} unit="px" />
       <SliderInput label="Grubość" value={value.fontWeight} onValueChange={(v) => onChange({ fontWeight: v })} min={300} max={900} step={100} />
       <ColorPicker label="Kolor tekstu" value={value.textColor} onChange={(v) => onChange({ textColor: v })} />
