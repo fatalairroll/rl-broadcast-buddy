@@ -3,6 +3,7 @@ import { ScoreboardV2 } from '@/components/v2/ScoreboardV2';
 import { BoostStackV2 } from '@/components/v2/BoostStackV2';
 import { PlayerCardV2 } from '@/components/v2/PlayerCardV2';
 import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
+import { TeamNameV2 } from '@/components/v2/TeamNameV2';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useActiveV2Config } from '@/hooks/useOverlayV2Config';
 import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
@@ -85,6 +86,8 @@ export default function OverlayV2() {
           orangeScore={series.orangeScore}
           config={config}
         />
+        <TeamNameV2 name={session?.team_a_name ?? ''} style={config.teamNameBlue} team="blue" />
+        <TeamNameV2 name={session?.team_b_name ?? ''} style={config.teamNameOrange} team="orange" />
         <BoostStackV2
           players={blue}
           registryMap={registryMap}

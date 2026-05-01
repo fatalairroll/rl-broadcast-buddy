@@ -175,6 +175,33 @@ export interface SeriesScoreStyle {
   shape: 'circle' | 'square' | 'pill';
 }
 
+export type TeamNameShape = 'sharp' | 'rounded' | 'pill' | 'parallelogram' | 'hexagon';
+
+export interface TeamNameStyle {
+  visible: boolean;
+  position: PositionV2;
+  paddingX: number;
+  paddingY: number;
+  minWidth: number;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  textColor: string;
+  letterSpacing: number;
+  textAlign: 'left' | 'center' | 'right';
+  background: string;
+  gradient: GradientConfig;
+  shape: TeamNameShape;
+  borderRadius: number;
+  borderColor: string;
+  borderWidth: number;
+  skewDeg: number;
+  glow: GlowConfig;
+  opacity: number;
+  maxChars: number; // 0 = unlimited
+  uppercase: boolean;
+}
+
 export interface OverlayV2Config {
   scoreboard: ScoreboardV2Style;
   scoreBlue: ScoreSideStyle;
@@ -183,6 +210,8 @@ export interface OverlayV2Config {
   boostBar: BoostBarV2Style;
   playerCard: PlayerCardV2Style;
   seriesScore: SeriesScoreStyle;
+  teamNameBlue: TeamNameStyle;
+  teamNameOrange: TeamNameStyle;
   general: GeneralV2Style;
 }
 
@@ -194,6 +223,8 @@ export type V2EditableElement =
   | 'boostBar'
   | 'playerCard'
   | 'seriesScore'
+  | 'teamNameBlue'
+  | 'teamNameOrange'
   | 'general';
 
 export const V2_ELEMENT_LABELS: Record<V2EditableElement, string> = {
@@ -204,6 +235,8 @@ export const V2_ELEMENT_LABELS: Record<V2EditableElement, string> = {
   boostBar: 'Paski boosta graczy',
   playerCard: 'Karta aktywnego gracza',
   seriesScore: 'Wynik serii (BO)',
+  teamNameBlue: 'Nazwa drużyny niebieskiej',
+  teamNameOrange: 'Nazwa drużyny pomarańczowej',
   general: 'Ogólne',
 };
 
@@ -332,6 +365,54 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     skewDeg: -15,
     shape: 'circle',
   },
+  teamNameBlue: {
+    visible: true,
+    position: { anchorH: 'right', anchorV: 'top', offsetX: -210, offsetY: -516 },
+    paddingX: 28,
+    paddingY: 16,
+    minWidth: 220,
+    fontFamily: 'Rajdhani, sans-serif',
+    fontSize: 36,
+    fontWeight: 700,
+    textColor: '#ffffff',
+    letterSpacing: 2,
+    textAlign: 'center',
+    background: BLUE_FROM,
+    gradient: defaultGradient(BLUE_FROM, BLUE_TO),
+    shape: 'parallelogram',
+    borderRadius: 0,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 0,
+    skewDeg: -15,
+    glow: { ...defaultGlow, enabled: true, color: BLUE_GLOW, blur: 24, intensity: 0.4 },
+    opacity: 1,
+    maxChars: 0,
+    uppercase: true,
+  },
+  teamNameOrange: {
+    visible: true,
+    position: { anchorH: 'left', anchorV: 'top', offsetX: 210, offsetY: -516 },
+    paddingX: 28,
+    paddingY: 16,
+    minWidth: 220,
+    fontFamily: 'Rajdhani, sans-serif',
+    fontSize: 36,
+    fontWeight: 700,
+    textColor: '#ffffff',
+    letterSpacing: 2,
+    textAlign: 'center',
+    background: ORANGE_FROM,
+    gradient: defaultGradient(ORANGE_FROM, ORANGE_TO),
+    shape: 'parallelogram',
+    borderRadius: 0,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 0,
+    skewDeg: -15,
+    glow: { ...defaultGlow, enabled: true, color: ORANGE_GLOW, blur: 24, intensity: 0.4 },
+    opacity: 1,
+    maxChars: 0,
+    uppercase: true,
+  },
   general: {
     animationsEnabled: true,
     transitionDuration: 350,
@@ -376,6 +457,8 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   if (!pc.fields) pc.fields = { ...defaultOverlayV2Config.playerCard.fields };
   if (!pc.stats) pc.stats = { ...defaultOverlayV2Config.playerCard.stats };
   const ss = { ...defaultOverlayV2Config.seriesScore, ...((p as any).seriesScore ?? {}) } as SeriesScoreStyle;
+  const tnb = { ...defaultOverlayV2Config.teamNameBlue, ...((p as any).teamNameBlue ?? {}) } as TeamNameStyle;
+  const tno = { ...defaultOverlayV2Config.teamNameOrange, ...((p as any).teamNameOrange ?? {}) } as TeamNameStyle;
   return {
     scoreboard: sb,
     scoreBlue: { ...defaultOverlayV2Config.scoreBlue, ...(p.scoreBlue ?? {}) },
@@ -384,6 +467,8 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
     boostBar: bb,
     playerCard: pc,
     seriesScore: ss,
+    teamNameBlue: tnb,
+    teamNameOrange: tno,
     general: { ...defaultOverlayV2Config.general, ...(p.general ?? {}) },
   };
 }
