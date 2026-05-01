@@ -40,11 +40,10 @@ export function TeamNameV2({ name, style, team }: Props) {
     display = display.slice(0, Math.max(1, style.maxChars - 1)) + '…';
   }
 
-  // For parallelogram we apply skew on outer + counter-skew on inner text;
-  // for any other shape we don't skew the box (skew only the text optically).
-  const useSkew = style.shape === 'parallelogram';
-  const skewOuter = useSkew ? `skewX(${style.skewDeg}deg)` : undefined;
-  const skewInner = useSkew ? `skewX(${-style.skewDeg}deg)` : undefined;
+  // Skew ALWAYS applies to the outer box (background + border + clip-path).
+  // The inner text gets a counter-skew so glyphs stay vertical regardless of shape.
+  const skewOuter = style.skewDeg ? `skewX(${style.skewDeg}deg)` : undefined;
+  const skewInner = style.skewDeg ? `skewX(${-style.skewDeg}deg)` : undefined;
 
   const compressY = (py: number) => ({
     paddingTop: Math.max(0, py),
@@ -57,6 +56,7 @@ export function TeamNameV2({ name, style, team }: Props) {
 
   return (
     <div style={{ ...positionToStyle(style.position), opacity: style.opacity }} data-team={team}>
+      <div style={{ transform: `translate(${style.offsetX ?? 0}px, ${style.offsetY ?? 0}px)` }}>
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -92,6 +92,7 @@ export function TeamNameV2({ name, style, team }: Props) {
           {display}
         </span>
       </motion.div>
+      </div>
     </div>
   );
 }
