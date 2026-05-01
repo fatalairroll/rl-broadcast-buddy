@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { MatchData } from '@/types/studio';
 import type { BroadcastSession } from '@/types/broadcast';
-import { getRankFromMmr, normalizeRankName } from '@/lib/rank-utils';
+import { getRankFromMmr, isValidRank, normalizeRankName } from '@/lib/rank-utils';
 
 export interface MmrOverride {
   mmr: number | null;
@@ -48,8 +48,13 @@ export function useActivePlayerMmrInfo(
       mmr = player.mmr_3v3 ?? null;
       rank = player.rank_3v3 ?? null;
     }
-    if (rank) rank = normalizeRankName(rank);
-    if (!rank && mmr != null) rank = getRankFromMmr(mmr);
+    // API potrafi zwrócić zaślepkę typu "v" — odrzucamy nieprawidłowe nazwy
+    // i wyliczamy rangę z MMR (tak samo jak Studio MatchCard).
+    if (rank && isValidRank(rank)) {
+      rank = normalizeRankName(rank);
+    } else {
+      rank = mmr != null ? getRankFromMmr(mmr) : null;
+    }
     if (mmr == null && rank == null) return null;
     return { mmr, rank };
   }, [session, match, activePlayerName]);
