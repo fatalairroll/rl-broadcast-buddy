@@ -207,6 +207,36 @@ export type Database = {
         }
         Relationships: []
       }
+      overlay_presets_v2_backup_20260430: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          is_default: boolean | null
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_default?: boolean | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_default?: boolean | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       players_live: {
         Row: {
           assists: number

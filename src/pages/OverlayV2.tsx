@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ScoreboardV2 } from '@/components/v2/ScoreboardV2';
 import { BoostStackV2 } from '@/components/v2/BoostStackV2';
 import { PlayerCardV2 } from '@/components/v2/PlayerCardV2';
@@ -32,17 +32,32 @@ export default function OverlayV2() {
     };
   }, []);
 
+  // Auto-fit the 1920x1080 stage to whatever size OBS Browser Source uses,
+  // preserving 16:9 and centering. globalScale multiplies on top.
+  const [fit, setFit] = useState(1);
+  useEffect(() => {
+    const compute = () => {
+      const w = window.innerWidth || 1920;
+      const h = window.innerHeight || 1080;
+      setFit(Math.min(w / 1920, h / 1080));
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
+
   return (
     <div
-      className="relative overflow-hidden"
-      style={{ width: 1920, height: 1080, background: 'transparent' }}
+      className="fixed inset-0 overflow-hidden flex items-center justify-center"
+      style={{ background: 'transparent' }}
     >
       <div
-        className="absolute top-0 left-0 origin-top-left"
+        className="relative"
         style={{
           width: 1920,
           height: 1080,
-          transform: `scale(${config.general.globalScale})`,
+          transform: `scale(${fit * config.general.globalScale})`,
+          transformOrigin: 'center center',
         }}
       >
         <ScoreboardV2 match={match} config={config} />
