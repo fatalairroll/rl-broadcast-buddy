@@ -10,6 +10,9 @@ interface Props {
   config?: OverlayV2Config;
 }
 
+const STAGE_W = 1920;
+const STAGE_H = 1080;
+
 export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) {
   const sb = config.scoreboard;
   if (!sb.visible) return null;
@@ -23,7 +26,6 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
   const skewInner = `skewX(${-sb.skewDeg}deg)`;
   const detached = config.timer.detached;
 
-  const sbPos = positionToStyle(sb.position);
   // Allow negative paddingY values to compress tile height below natural size
   // by mapping the negative portion to negative vertical margin.
   const compressY = (py: number) => ({
@@ -32,13 +34,26 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
     marginTop: Math.min(0, py),
     marginBottom: Math.min(0, py),
   });
-  // motion adds animations; merge with positioning
-  const containerStyle = {
-    ...sbPos,
-    gap: sb.gap,
-    fontFamily: sb.fontFamily,
-    opacity: sb.opacity,
-  } as React.CSSProperties;
+
+  // Fixed-anchor positioning: the visual center of the scoreboard (timer center
+  // when inline, mid-gap when detached) is glued to (960 + offsetX). Vertical
+  // anchor behaviour mirrors positionToStyle so existing layouts keep working.
+  const anchorLeft = STAGE_W / 2 + sb.position.offsetX;
+  const anchorTop = STAGE_H / 2 + sb.position.offsetY;
+  const verticalTransform =
+    sb.position.anchorV === 'middle'
+      ? 'translateY(-50%)'
+      : sb.position.anchorV === 'bottom'
+        ? 'translateY(-100%)'
+        : '';
+
+  // Estimated half-width of the inline timer tile (M:SS, tabular-nums) so the
+  // Blue/Orange slots can be placed symmetrically around the anchor without
+  // measuring the DOM. Tabular-nums keeps width stable across digits.
+  const inlineTimerHalf = !detached
+    ? config.timer.paddingX + config.timer.fontSize * 1.2
+    : 0;
+  const halfCenter = inlineTimerHalf + sb.gap;
 
   const timerNode = (
     <div
@@ -80,72 +95,124 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
     </div>
   );
 
+  // Common style for Blue and Orange tiles
+  const blueTile = (
+    <div
+      className="flex items-center justify-center"
+      style={{
+        ...compressY(config.scoreBlue.paddingY),
+        paddingLeft: config.scoreBlue.paddingX,
+        paddingRight: config.scoreBlue.paddingX,
+        transform: skewOuter,
+        background: gradientToCss(config.scoreBlue.gradient),
+        boxShadow: glowToBoxShadow(config.scoreBlue.glow),
+      }}
+    >
+      <span
+        className="tabular-nums tracking-tight"
+        style={{
+          transform: skewInner,
+          fontSize: config.scoreBlue.fontSize,
+          fontWeight: config.scoreBlue.fontWeight,
+          color: config.scoreBlue.textColor,
+          textShadow: config.scoreBlue.textShadow,
+        }}
+      >
+        {blue}
+      </span>
+    </div>
+  );
+
+  const orangeTile = (
+    <div
+      className="flex items-center justify-center"
+      style={{
+        ...compressY(config.scoreOrange.paddingY),
+        paddingLeft: config.scoreOrange.paddingX,
+        paddingRight: config.scoreOrange.paddingX,
+        transform: skewOuter,
+        background: gradientToCss(config.scoreOrange.gradient),
+        boxShadow: glowToBoxShadow(config.scoreOrange.glow),
+      }}
+    >
+      <span
+        className="tabular-nums tracking-tight"
+        style={{
+          transform: skewInner,
+          fontSize: config.scoreOrange.fontSize,
+          fontWeight: config.scoreOrange.fontWeight,
+          color: config.scoreOrange.textColor,
+          textShadow: config.scoreOrange.textShadow,
+        }}
+      >
+        {orange}
+      </span>
+    </div>
+  );
+
   return (
     <>
-      <div style={containerStyle}>
+      {/* Zero-size anchor stuck at (960 + offsetX, top + offsetY). Blue grows
+          to the left of it, Orange grows to the right, the inline timer is
+          perfectly centered on it. This guarantees that offsetX = 0 always
+          puts the visual centre of the scoreboard at screen-x = 960,
+          regardless of asymmetric tile widths or skew. */}
       <motion.div
         initial={{ y: -40, opacity: 0 }}
         animate={{ y: 0, opacity: sb.opacity }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="flex items-stretch select-none"
-        style={{ gap: sb.gap, fontFamily: sb.fontFamily }}
+        className="select-none"
+        style={{
+          position: 'absolute',
+          left: anchorLeft,
+          top: anchorTop,
+          width: 0,
+          height: 0,
+          fontFamily: sb.fontFamily,
+          transform: verticalTransform || undefined,
+        }}
       >
-        {/* Blue */}
+        {/* Blue: right edge sits at (anchor − halfCenter) */}
         <div
-        className="flex items-center justify-center"
-        style={{
-          ...compressY(config.scoreBlue.paddingY),
-          paddingLeft: config.scoreBlue.paddingX,
-          paddingRight: config.scoreBlue.paddingX,
-          transform: skewOuter,
-          background: gradientToCss(config.scoreBlue.gradient),
-          boxShadow: glowToBoxShadow(config.scoreBlue.glow),
-        }}
-      >
-        <span
-          className="tabular-nums tracking-tight"
           style={{
-            transform: skewInner,
-            fontSize: config.scoreBlue.fontSize,
-            fontWeight: config.scoreBlue.fontWeight,
-            color: config.scoreBlue.textColor,
-            textShadow: config.scoreBlue.textShadow,
+            position: 'absolute',
+            right: halfCenter,
+            top: 0,
+            display: 'flex',
+            alignItems: 'stretch',
           }}
         >
-          {blue}
-        </span>
-      </div>
+          {blueTile}
+        </div>
 
-      {/* Timer (inline mode) */}
-      {!detached && timerNode}
+        {/* Timer (inline) — centered on the anchor */}
+        {!detached && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              transform: 'translateX(-50%)',
+              display: 'flex',
+            }}
+          >
+            {timerNode}
+          </div>
+        )}
 
-      {/* Orange */}
-      <div
-        className="flex items-center justify-center"
-        style={{
-          ...compressY(config.scoreOrange.paddingY),
-          paddingLeft: config.scoreOrange.paddingX,
-          paddingRight: config.scoreOrange.paddingX,
-          transform: skewOuter,
-          background: gradientToCss(config.scoreOrange.gradient),
-          boxShadow: glowToBoxShadow(config.scoreOrange.glow),
-        }}
-      >
-        <span
-          className="tabular-nums tracking-tight"
+        {/* Orange: left edge sits at (anchor + halfCenter) */}
+        <div
           style={{
-            transform: skewInner,
-            fontSize: config.scoreOrange.fontSize,
-            fontWeight: config.scoreOrange.fontWeight,
-            color: config.scoreOrange.textColor,
-            textShadow: config.scoreOrange.textShadow,
+            position: 'absolute',
+            left: halfCenter,
+            top: 0,
+            display: 'flex',
+            alignItems: 'stretch',
           }}
         >
-          {orange}
-        </span>
-      </div>
+          {orangeTile}
+        </div>
       </motion.div>
-      </div>
 
       {/* Timer (detached mode) */}
       {detached && (
