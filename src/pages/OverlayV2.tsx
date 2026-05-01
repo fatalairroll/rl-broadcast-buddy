@@ -6,6 +6,9 @@ import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useActiveV2Config } from '@/hooks/useOverlayV2Config';
 import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
+import { useBroadcast } from '@/hooks/useBroadcast';
+import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
+import { useActivePlayerMmrInfo } from '@/hooks/useActivePlayerMmrInfo';
 
 export default function OverlayV2() {
   const {
@@ -19,6 +22,10 @@ export default function OverlayV2() {
   } = useLiveStatsV2();
   const { config } = useActiveV2Config();
   const series = useBroadcastSeries();
+  const { session } = useBroadcast();
+  const { matches } = useMmrivalsBracket(session?.mmr_tournament_id ?? null);
+  const activeMmrMatch = findMatchById(matches, session?.mmr_match_id ?? null);
+  const mmrOverride = useActivePlayerMmrInfo(session, activeMmrMatch, activeCameraTarget);
 
   // Transparent body for OBS capture
   useEffect(() => {
@@ -92,7 +99,7 @@ export default function OverlayV2() {
           activeName={activeCameraTarget}
           config={config}
         />
-          <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} />
+          <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} mmrOverride={mmrOverride} />
         </div>
       </div>
     </div>
