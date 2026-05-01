@@ -141,6 +141,44 @@ export function useBroadcast(sessionId?: string) {
   const resetGameScore = () =>
     updateSession({ team_a_game_score: 0, team_b_game_score: 0 });
 
+  const resetSeriesScore = () =>
+    updateSession({ team_a_series_score: 0, team_b_series_score: 0 });
+
+  const swapTeams = () => {
+    if (!session) return Promise.resolve({ error: new Error('No session') });
+    return updateSession({
+      team_a_name: session.team_b_name,
+      team_b_name: session.team_a_name,
+      team_a_color: session.team_b_color,
+      team_b_color: session.team_a_color,
+      team_a_logo: session.team_b_logo,
+      team_b_logo: session.team_a_logo,
+      team_a_id: session.team_b_id,
+      team_b_id: session.team_a_id,
+      team_a_series_score: session.team_b_series_score,
+      team_b_series_score: session.team_a_series_score,
+      team_a_game_score: session.team_b_game_score,
+      team_b_game_score: session.team_a_game_score,
+      mmr_team_a_id: session.mmr_team_b_id ?? null,
+      mmr_team_b_id: session.mmr_team_a_id ?? null,
+    });
+  };
+
+  const clearManualData = () =>
+    updateSession({
+      team_a_name: null as unknown as string | undefined,
+      team_b_name: null as unknown as string | undefined,
+      team_a_logo: null as unknown as string | undefined,
+      team_b_logo: null as unknown as string | undefined,
+      team_a_series_score: 0,
+      team_b_series_score: 0,
+      mmr_tournament_id: null,
+      mmr_match_id: null,
+      mmr_team_a_id: null,
+      mmr_team_b_id: null,
+      player_pairings: {},
+    });
+
   return {
     session,
     gameState,
@@ -153,6 +191,9 @@ export function useBroadcast(sessionId?: string) {
     incrementTeamBSeriesScore,
     decrementTeamBSeriesScore,
     resetGameScore,
+    resetSeriesScore,
+    swapTeams,
+    clearManualData,
     refetch: fetchSession,
   };
 }

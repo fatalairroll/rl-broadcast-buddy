@@ -38,8 +38,13 @@ export type Database = {
           created_by: string | null
           id: string
           is_active: boolean | null
+          mmr_match_id: string | null
+          mmr_team_a_id: string | null
+          mmr_team_b_id: string | null
+          mmr_tournament_id: string | null
           name: string
           overlay_v2_preset_id: string | null
+          player_pairings: Json
           series_type: string | null
           team_a_color: string | null
           team_a_game_score: number | null
@@ -60,8 +65,13 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_active?: boolean | null
+          mmr_match_id?: string | null
+          mmr_team_a_id?: string | null
+          mmr_team_b_id?: string | null
+          mmr_tournament_id?: string | null
           name?: string
           overlay_v2_preset_id?: string | null
+          player_pairings?: Json
           series_type?: string | null
           team_a_color?: string | null
           team_a_game_score?: number | null
@@ -82,8 +92,13 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_active?: boolean | null
+          mmr_match_id?: string | null
+          mmr_team_a_id?: string | null
+          mmr_team_b_id?: string | null
+          mmr_tournament_id?: string | null
           name?: string
           overlay_v2_preset_id?: string | null
+          player_pairings?: Json
           series_type?: string | null
           team_a_color?: string | null
           team_a_game_score?: number | null

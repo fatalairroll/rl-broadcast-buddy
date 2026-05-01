@@ -41,6 +41,11 @@ export interface BroadcastSession {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  mmr_tournament_id?: string | null;
+  mmr_match_id?: string | null;
+  mmr_team_a_id?: string | null;
+  mmr_team_b_id?: string | null;
+  player_pairings?: Record<string, { discord_id: string; status: 'auto' | 'manual' | 'none' }> | null;
 }
 
 // Game state from SOS Plugin (still used by useBroadcast realtime channel)

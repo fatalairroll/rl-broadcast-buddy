@@ -11,6 +11,7 @@ interface Props {
   player: PlayerLive | null;
   registry: PlayerRegistry | null;
   config?: OverlayV2Config;
+  mmrOverride?: { mmr: number | null; rank: string | null } | null;
 }
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -22,7 +23,7 @@ function useDebounced<T>(value: T, ms: number): T {
   return v;
 }
 
-export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config }: Props) {
+export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config, mmrOverride }: Props) {
   const c = config.playerCard;
   const debounced = useDebounced(player?.player_name ?? null, 250);
   const visible = c.visible && debounced != null && player != null && debounced === player.player_name;
@@ -70,7 +71,7 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
                 opacity: c.mmrOpacity,
               }}
             >
-              {registry?.mmr ?? player.mmr ?? ''}
+              {mmrOverride?.mmr ?? registry?.mmr ?? player.mmr ?? ''}
             </div>}
 
             {/* Photo */}
@@ -111,11 +112,11 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
                 </span>
               </div>
 
-              {c.fields.rank && registry?.rank_name && (
+              {c.fields.rank && (mmrOverride?.rank || registry?.rank_name) && (
                 <div className="flex items-center gap-2">
-                  <RankIcon rank={registry.rank_name} size="sm" />
+                  <RankIcon rank={mmrOverride?.rank ?? registry?.rank_name ?? null} size="sm" />
                   <span className="text-white/80 text-sm font-semibold uppercase tracking-wider">
-                    {registry.rank_name}
+                    {mmrOverride?.rank ?? registry?.rank_name}
                   </span>
                 </div>
               )}
