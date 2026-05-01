@@ -4,6 +4,9 @@ import { PlayerCardV2 } from '@/components/v2/PlayerCardV2';
 import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
+import { useBroadcast } from '@/hooks/useBroadcast';
+import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
+import { useActivePlayerMmrInfo } from '@/hooks/useActivePlayerMmrInfo';
 import {
   MOCK_MATCH,
   MOCK_PLAYERS,
@@ -22,6 +25,10 @@ interface Props {
 export function V2Preview({ config, mode, scale = 0.5 }: Props) {
   const live = useLiveStatsV2();
   const liveSeries = useBroadcastSeries();
+  const { session } = useBroadcast();
+  const { matches } = useMmrivalsBracket(mode === 'live' ? session?.mmr_tournament_id ?? null : null);
+  const activeMmrMatch = findMatchById(matches, session?.mmr_match_id ?? null);
+  const liveMmrOverride = useActivePlayerMmrInfo(session, activeMmrMatch, live.activeCameraTarget);
   const safeGlobalScale = Number.isFinite(config.general.globalScale) ? config.general.globalScale : 1;
   const stageScale = scale * safeGlobalScale;
 
@@ -38,6 +45,7 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
     ? buildMockRegistryMap().get(MOCK_CAMERA.target_name ?? '') ?? null
     : live.activeRegistry;
   const series = useMock ? MOCK_SERIES : liveSeries;
+  const mmrOverride = useMock ? null : liveMmrOverride;
 
   return (
     <div
@@ -75,7 +83,7 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
         />
         <BoostStackV2 players={blue} registryMap={registryMap} side="left" activeName={activeName} config={config} />
           <BoostStackV2 players={orange} registryMap={registryMap} side="right" activeName={activeName} config={config} />
-          <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} />
+          <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} mmrOverride={mmrOverride} />
         </div>
       </div>
     </div>
