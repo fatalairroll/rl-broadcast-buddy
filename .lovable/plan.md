@@ -1,62 +1,63 @@
-## Problem
+## Diagnoza
 
-Po wczorajszej zmianie semantyki `positionToStyle` (offsetX/Y są teraz względem środka ekranu, nie krawędzi), **wszystkie presety zapisane wcześniej w bazie** zawierają wartości z poprzedniego układu (offset od krawędzi). Skutek:
+Porównanie zrzutów (kreator vs overlay w przeglądarce/OBS) pokazuje dwa niezależne błędy:
 
-- **Kreator** wygląda OK, dopóki używasz świeżych defaultów.
-- **/v2/overlay i OBS** ładują z DB stare wartości – scoreboard ląduje na środku ekranu zamiast u góry, paski boosta zlepiają się w środku zamiast po bokach, karta gracza spada do środka.
+### 1. Overlay w OBS jest „przeskalowany" i nie mieści się na ekranie
 
-Konkretnie preset **Default V2** (is_default=true) zawiera m.in.:
-- `scoreboard.position.offsetY = 24` (nowo: 24px **poniżej** środka; powinno: -516, czyli 24px od góry ekranu)
-- `boostBar.positionLeft.offsetX = 32` (nowo: 32px na prawo od środka; powinno: -928, czyli 32px od lewej krawędzi)
-- `boostBar.positionRight.offsetX = 95` (powinno: 928)
-- `playerCard.position.offsetY = -1` (powinno: 480, czyli 60px od dołu ekranu)
-- `seriesScore.position = NULL` (brak; defaulta podstawia merge)
+W `src/pages/OverlayV2.tsx` zewnętrzny kontener ma stały rozmiar **1920×1080 px**, ale wewnątrz dodajemy `transform: scale(globalScale)` z `origin-top-left`. Gdy `globalScale = 1` to OK, jednak:
 
-## Rozwiązanie
+- W OBS Browser Source rzadko ustawia się dokładnie 1920×1080 — często mniejsze (np. 1600×900) lub większe, a wtedy stała ramka 1920×1080 jest rozciągana/przycinana przez OBS.
+- Brakuje „auto-fit" do okna OBS (overlay powinien się sam skalować do faktycznych wymiarów Browser Source, zachowując 16:9).
+- Dodatkowo `globalScale` mnoży się ze skalą OBS i rozjazd robi się bardzo widoczny.
 
-Migracja SQL przeliczająca `position` we wszystkich istniejących wierszach `overlay_presets_v2` ze starego układu (offset = piksele od krawędzi wskazanej przez anchor) do nowego (offset = piksele od środka ekranu, z anchorem decydującym, który punkt elementu jest tam glued).
+### 2. Podgląd w kreatorze nie pokrywa się z overlayem 1:1
 
-### Reguły konwersji
+W `V2Preview.tsx` ramka ma rozmiar `1920 * scale × 1080 * scale` (np. 960×540 dla scale=0.5), a wewnętrzny div jest skalowany przez `scale * config.general.globalScale`. To oznacza, że `globalScale` w kreatorze **dodatkowo zmniejsza/powiększa zawartość wewnątrz tej samej ramki 960×540**, więc np. przy `globalScale=0.9` elementy w kreatorze są przy lewym górnym rogu i odsłania się czarne tło — ale w OBS skalowane jest całe 1920×1080. Stąd „karta na 100%" wygląda inaczej w obu miejscach.
 
-Stage = 1920×1080. Dla każdej pozycji `{anchorH, anchorV, offsetX, offsetY}`:
+Drugorzędnie: ramka kreatora rysowana przez `border` (`<div className="border border-border shadow-2xl">`) jest pixel-perfect 960×540, ale przeglądarka renderuje overlay w pełnym viewport. Jeżeli ktoś porównuje „na oko" rozstaw na obu screenshotach (overlay w przeglądarce nie jest 1:1 do okna), wygląda to jakby elementy były w innych miejscach — w rzeczywistości chodzi tylko o procent zoomu strony.
+
+## Plan naprawy
+
+### A. `src/pages/OverlayV2.tsx` — auto-fit do viewportu OBS
+
+Zamienić sztywny kontener 1920×1080 na **odporny na rozmiar Browser Source** układ:
 
 ```text
-Horizontal:
-  anchorH = left   →  newOffsetX = offsetX_old - 960
-  anchorH = right  →  newOffsetX = 960 - offsetX_old
-  anchorH = center →  newOffsetX = offsetX_old             (bez zmian)
-
-Vertical:
-  anchorV = top    →  newOffsetY = offsetY_old - 540
-  anchorV = bottom →  newOffsetY = 540 - offsetY_old
-  anchorV = middle →  newOffsetY = offsetY_old             (bez zmian)
+[outer = 100vw × 100vh, transparent, flex center]
+  └─ [stage = 1920×1080, transform: scale(fit) , origin: center]
+       └─ ScoreboardV2, SeriesScoreV2, BoostStackV2 ×2, PlayerCardV2
 ```
 
-Zastosować do `config.scoreboard.position`, `config.timer.position`, `config.boostBar.positionLeft`, `config.boostBar.positionRight`, `config.playerCard.position`, `config.seriesScore.position` (jeśli istnieje).
+- `fit = min(window.innerWidth / 1920, window.innerHeight / 1080) * config.general.globalScale`
+- Liczone w `useEffect` + `ResizeObserver` na window, trzymane w stanie i wstawiane do `transform: scale(...)`.
+- `origin: center center` żeby przy mniejszej rozdzielczości overlay siedział na środku, a nie wyjeżdżał w prawy/dolny róg.
+- Dzięki temu Browser Source 1920×1080 → fit=1 (identycznie jak teraz). Browser Source 1600×900 → fit≈0.833, wszystko mieści się.
 
-### Idempotencja
+### B. `src/components/creator/V2Preview.tsx` — 1:1 z overlayem
 
-Migracja musi działać dokładnie raz. Dodajemy flagę markera w `config._coordsV2 = true` i pomijamy wiersze, które ją już mają. Bezpieczne na ponowne uruchomienie.
+Poprawić tak, by podgląd zachowywał się tak samo jak `OverlayV2`:
 
-### Backup
+- Zewnętrzna ramka pozostaje `1920*scale × 1080*scale` (to jest „okno" na canvas, np. 960×540).
+- Wewnętrzny stage 1920×1080 transformowany przez `scale(scale * globalScale)` z `origin: top-left`, ALE owinięty w dodatkowy wrapper, który również domyka rozmiar do `1920*scale*globalScale × 1080*scale*globalScale`, żeby tło/border kreatora odzwierciedlał faktyczną wielkość overlaya (gdy globalScale<1 ramka się kurczy, gdy >1 rośnie).
+- Alternatywnie (prostsze i bliższe rzeczywistości OBS): zachować ramkę `1920*scale × 1080*scale` i skalować zawartość przez `scale * globalScale` z origin **center**, identycznie jak overlay. Wtedy widok w kreatorze odzwierciedla 1:1 to, co zobaczy OBS przy Browser Source 1920×1080.
 
-Przed UPDATE robimy `CREATE TABLE overlay_presets_v2_backup_20260430 AS SELECT * FROM overlay_presets_v2;` żeby można było cofnąć.
+Wybieram drugi wariant — daje pełną zgodność „kreator vs overlay vs OBS".
 
-### Edge case: brak `seriesScore.position`
+### C. Drobne porządki
 
-Stare presety mają `seriesScore = NULL` lub bez klucza `position`. Dla nich nic nie robimy – `mergeV2Config` w runtime'ie podstawi default w nowym układzie (już poprawny: `{center, top, 0, -440}`).
+- Usunąć z `V2Preview.tsx` mnożenie `transform: scale(scale * globalScale)` z `origin-top-left` na rzecz `origin: center` (zgodne z A).
+- W `OverlayV2.tsx` dodać `overflow: hidden` na outer, żeby `globalScale > 1` nie generował scrollbarów w OBS.
+- Usunąć tło-szachownicę z `V2Preview` poza obszarem stage'a (zostaje tylko jako tło canvasu, nie nakłada się na content), aby ramka kreatora pokrywała się z faktyczną granicą overlaya.
 
-## Zakres zmian
+## Pliki do edycji
 
-- **Jedna migracja SQL** w `supabase/migrations/...` z funkcją `jsonb` przeliczającą i UPDATE-em wszystkich wierszy bez markera.
-- Brak zmian w kodzie front-endu – logika `position-utils.ts` i `mergeV2Config` jest już poprawna.
+- `src/pages/OverlayV2.tsx` — auto-fit do viewportu, center origin, ResizeObserver.
+- `src/components/creator/V2Preview.tsx` — center origin + spójna logika skalowania z overlayem.
 
-## Po migracji
+Brak zmian w bazie danych, brak zmian w typach. Zachowuje się obecny system koordynat (0,0 = środek ekranu).
 
-Sprawdzimy w preview `/v2/overlay`, że:
-- Scoreboard jest u góry-środka ekranu.
-- Paski boosta są przy lewej i prawej krawędzi, wyśrodkowane pionowo.
-- Karta aktywnego gracza siedzi u dołu-środka.
-- Wynik serii (BO) jest tuż pod scoreboardem.
+## Weryfikacja po wdrożeniu
 
-Jeśli któryś preset (np. „Test skala") był ręcznie ustawiany **już w nowym układzie**, jego wartości też zostaną przeliczone (potencjalnie psując go). Strategia: bo do tej pory nikt nie wiedział że układ się zmienił, traktujemy **wszystkie** presety bez markera `_coordsV2` jako stare. Jeśli „Test skala" był zapisany po zmianie semantyki – użytkownik poprawi go ręcznie w kreatorze (jeden klik „Reset" + ustawienie pozycji). Ten preset nie jest defaultem, więc nie wpływa na overlay/OBS.
+1. Otworzyć `/creator` i `/v2/overlay?key=...` w dwóch oknach 1920×1080 → elementy w identycznych miejscach.
+2. Zmienić `globalScale` na 0.8 w kreatorze → overlay w przeglądarce powinien zmniejszyć się o 20%, środek na środku.
+3. W OBS Browser Source 1600×900 → cały overlay mieści się w kadrze, proporcjonalnie zmniejszony.
