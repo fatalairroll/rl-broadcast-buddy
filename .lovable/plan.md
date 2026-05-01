@@ -1,76 +1,46 @@
 ## Cel
 
-Dodać do overlay V2 dwa nowe, niezależnie pozycjonowane elementy: **Nazwa drużyny niebieskiej** i **Nazwa drużyny pomarańczowej**, oraz odpowiednie sekcje w Kreatorze do ich pełnej stylizacji (offsety, padding, kolor, gradient, kształt, font, glow).
+1. **Skew dotyczy całego boxa nazwy drużyny** (tła + obramowania + glow) niezależnie od wybranego kształtu, a tekst pozostaje pionowy (counter-skew).
+2. **Dodać jawne suwaki Offset X / Offset Y** w sekcji Nazwa drużyny, niezależnie od istniejącego `PositionEditor` (który ustawia anchor + bazową pozycję). Pozwoli to przesuwać element bez ruszania anchorów.
 
-## Co zobaczy użytkownik
+## Zmiany
 
-- W lewym pasku Kreatora (lista elementów) pojawiają się dwie nowe pozycje:
-  - „Nazwa drużyny niebieskiej”
-  - „Nazwa drużyny pomarańczowej”
-- Po kliknięciu w którąkolwiek z nich pokazuje się pełny edytor stylu z polami: widoczność, pozycja (anchor + offsetX/Y), szerokość/wysokość (auto/min), padding X, padding Y, font + rozmiar + waga, kolor tekstu, tło (jednolity kolor lub gradient), kształt (sharp / rounded / pill / parallelogram / hexagon — taki sam zestaw jak w innych elementach V2), skew, border (kolor + grubość), glow, opacity, max długość / line-wrap, alignment.
-- Tekst jest pobierany z `broadcast_sessions.team_a_name` / `team_b_name` (te same pola, które edytuje BroadcastControlsPanel i które auto-uzupełnia loader MMRivals). W trybie `mock` używa stałych „TEAM BLUE” / „TEAM ORANGE”.
-- Nazwy drużyn renderują się jako osobne elementy absolutne (nie wewnątrz scoreboardu), więc ich pozycję można dowolnie przesuwać — niezależnie od scoreboardu.
+### 1. `src/components/v2/TeamNameV2.tsx`
 
-## Zmiany w kodzie
+- Usunąć warunek `useSkew = style.shape === 'parallelogram'`. Skew **zawsze** aplikujemy na zewnętrznym `motion.div` (box: tło, border, glow, clip-path), counter-skew na wewnętrznym `<span>` z tekstem.
+- Dla `shape === 'hexagon'` nadal działa `clip-path` — clip-path jest aplikowany przed transformacją, więc pochylony hex też wygląda poprawnie.
+- Dla `shape === 'parallelogram'` `skewDeg` po prostu nadaje pochylenie (zachowanie identyczne jak dziś), ale teraz `sharp`/`rounded`/`pill`/`hexagon` też dają się pochylić.
 
-### 1. `src/types/overlayV2.ts`
-- Nowy interfejs `TeamNameStyle`:
-  - `visible`, `position: PositionV2`
-  - `paddingX`, `paddingY`, `minWidth`
-  - `fontFamily`, `fontSize`, `fontWeight`, `textColor`, `letterSpacing`, `textAlign`
-  - `background: string` (fallback) + `gradient: GradientConfig`
-  - `shape: 'sharp' | 'rounded' | 'pill' | 'parallelogram' | 'hexagon'`
-  - `borderRadius`, `borderColor`, `borderWidth`
-  - `skewDeg`, `glow: GlowConfig`, `opacity`
-  - `maxChars` (0 = brak limitu), `uppercase: boolean`
-- Dodać `teamNameBlue` i `teamNameOrange` do `OverlayV2Config`.
-- Rozszerzyć `V2EditableElement` o `'teamNameBlue' | 'teamNameOrange'` oraz dodać etykiety w `V2_ELEMENT_LABELS`.
-- Dodać sensowne wartości domyślne:
-  - blue: anchor `left/top`, offsetX ok. -700, offsetY ok. -540, gradient niebieski (taki sam zestaw HSL co `scoreBlue`), shape `parallelogram`, skew -15°.
-  - orange: lustrzane (`right/top`), gradient pomarańczowy.
-- Uzupełnić `mergeV2Config`, by tworzył domyślne `teamNameBlue/Orange`, gdy zapisana w DB konfiguracja ich jeszcze nie ma (kompatybilność wsteczna).
+### 2. `src/types/overlayV2.ts`
 
-### 2. Nowy komponent `src/components/v2/TeamNameV2.tsx`
-- Props: `name: string | null`, `style: TeamNameStyle`, `team: 'blue' | 'orange'`.
-- Renderuje jeden, niezależnie pozycjonowany kafelek (`positionToStyle`) z:
-  - zewnętrznym `transform: skewX(...)` + wewnętrznym kontr-skewem na tekście (analogicznie do `ScoreboardV2`),
-  - tłem z `gradientToCss(style.gradient, style.background)`,
-  - `boxShadow` z `glowToBoxShadow`,
-  - kształt mapowany do CSS: `sharp` → 0, `rounded` → `borderRadius`, `pill` → 9999, `parallelogram` → przez skew (już jest), `hexagon` → `clip-path: polygon(...)`.
-- Truncate / uppercase wg konfiguracji.
-- Jeśli `!visible` lub `name` puste → nic nie renderuje.
+- Dodać do `TeamNameStyle` dwa pola: `offsetX: number`, `offsetY: number` (domyślnie `0`). To są **dodatkowe** offsety nakładane na pozycję wyliczoną z `PositionEditor` — fine-tuning bez zmiany anchora.
+- Zaktualizować `defaultOverlayV2Config.teamNameBlue` i `teamNameOrange` o `offsetX: 0, offsetY: 0`.
+- W loaderze presetów (linie 460–471) zachować backward-compat (spread defaultu obsłuży brakujące pola).
 
-### 3. `src/components/creator/V2Preview.tsx`
-- Pobrać `session?.team_a_name` / `team_b_name` z `useBroadcast()` (już jest `session`).
-- W trybie `mock` użyć `'TEAM BLUE'` / `'TEAM ORANGE'`.
-- Wyrenderować `<TeamNameV2 team="blue" name={...} style={config.teamNameBlue} />` i analogicznie dla orange, jako rodzeństwo `ScoreboardV2` (poza nim).
+### 3. `src/components/v2/TeamNameV2.tsx` — zastosowanie offsetX/Y
 
-### 4. `src/pages/OverlayV2.tsx`
-- Identycznie zamontować `TeamNameV2` z danymi z sesji broadcastu.
+Owinąć element w dodatkowy `<div>` z `transform: translate(${offsetX}px, ${offsetY}px)` **na zewnątrz** kontenera pozycjonującego, żeby nie kolidował ze skewem boxa. Schemat:
 
-### 5. `src/components/creator/ElementListV2.tsx`
-- Dodać `'teamNameBlue'` i `'teamNameOrange'` do `ORDER` (np. zaraz po `scoreOrange`).
+```
+positionToStyle wrapper
+ └─ translate(offsetX, offsetY) wrapper   ← NOWE
+     └─ motion.div [skew + bg + border + clip-path]
+         └─ span [counter-skew, tekst]
+```
 
-### 6. `src/components/creator/StyleEditorV2.tsx`
-- Nowa gałąź `element === 'teamNameBlue' || element === 'teamNameOrange'`:
-  - `Toggle` widoczność,
-  - `PositionEditor`,
-  - `SliderInput` paddingX (0–80), paddingY (-30–60, jak inne),
-  - `FontInput` + rozmiar (16–96), waga (300–900), `ColorPicker` kolor tekstu,
-  - `Select` shape (sharp / rounded / pill / parallelogram / hexagon), slider `borderRadius` (0–48),
-  - `ColorPicker` tło (fallback) + pełny `GradientEditor` (jak w `scoreBlue`),
-  - `ColorPicker` border + slider `borderWidth` (0–6),
-  - `SliderInput` skew (-30..30), `SliderInput` opacity (0–1, krok 0.05),
-  - `GlowEditor`,
-  - `Toggle` uppercase, `SliderInput` letterSpacing, `SliderInput` maxChars (0 = bez limitu).
-- Wykorzystać istniejący `GradientEditor` / `ColorPicker` z pliku (już używany dla `scoreBlue/Orange`).
+### 4. `src/components/creator/StyleEditorV2.tsx`
 
-### 7. Brak zmian w bazie
-- Nazwy drużyn już istnieją w `broadcast_sessions` (`team_a_name`, `team_b_name`).
-- Stylizacja jest częścią `OverlayV2Config`, który jest już zapisywany do `overlay_v2_configs` jako JSON — nowe pola dojdą automatycznie.
+W `TeamNameEditor`, tuż pod `PositionEditor` (linia 240), dodać dwa suwaki:
 
-## Co celowo poza zakresem
+```tsx
+<SliderInput label="Offset X (fine)" value={value.offsetX} onValueChange={(v) => onChange({ offsetX: v })} min={-960} max={960} unit="px" />
+<SliderInput label="Offset Y (fine)" value={value.offsetY} onValueChange={(v) => onChange({ offsetY: v })} min={-540} max={540} unit="px" />
+```
 
-- Logo drużyn (ikony) — ten task dotyczy wyłącznie nazw tekstowych.
-- Animacje wjazdu/zjazdu nazw — używamy istniejącego, statycznego renderu (animacje można dodać później bez zmiany API).
-- Edycja nazw z poziomu tego edytora — nazwy nadal edytuje się w `BroadcastControlsPanel` (lub auto-uzupełnia z MMRivals).
+Etykieta przy istniejącym suwaku **Skew** pozostaje, ale opisowo zaktualizujemy ją na `"Skew (box)"` żeby było jasne, że pochyla cały kontener.
+
+## Akceptacja
+
+- Ustawienie `shape = rounded` + `skewDeg = -15°` pochyla cały zaokrąglony box, tekst w środku jest pionowy.
+- Suwaki Offset X/Y przesuwają nazwę drużyny w obu osiach o zadaną liczbę pikseli, niezależnie od ustawień anchorów.
+- Istniejące presety z `parallelogram` wyglądają identycznie jak przed zmianą.

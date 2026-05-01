@@ -200,6 +200,9 @@ export interface TeamNameStyle {
   opacity: number;
   maxChars: number; // 0 = unlimited
   uppercase: boolean;
+  /** Fine-tune offsets applied AFTER position anchor resolution, in px. */
+  offsetX: number;
+  offsetY: number;
 }
 
 export interface OverlayV2Config {
@@ -388,6 +391,8 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     opacity: 1,
     maxChars: 0,
     uppercase: true,
+    offsetX: 0,
+    offsetY: 0,
   },
   teamNameOrange: {
     visible: true,
@@ -412,6 +417,8 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     opacity: 1,
     maxChars: 0,
     uppercase: true,
+    offsetX: 0,
+    offsetY: 0,
   },
   general: {
     animationsEnabled: true,

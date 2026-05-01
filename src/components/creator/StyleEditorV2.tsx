@@ -238,11 +238,13 @@ function TeamNameEditor({
     <>
       <Toggle label="Widoczna" value={value.visible} onChange={(v) => onChange({ visible: v })} />
       <PositionEditor value={value.position} onChange={(p) => onChange({ position: p })} />
+      <SliderInput label="Offset X (fine)" value={value.offsetX ?? 0} onValueChange={(v) => onChange({ offsetX: v })} min={-960} max={960} unit="px" />
+      <SliderInput label="Offset Y (fine)" value={value.offsetY ?? 0} onValueChange={(v) => onChange({ offsetY: v })} min={-540} max={540} unit="px" />
       <Separator />
       <SliderInput label="Padding X" value={value.paddingX} onValueChange={(v) => onChange({ paddingX: v })} min={0} max={120} unit="px" />
       <SliderInput label="Padding Y" value={value.paddingY} onValueChange={(v) => onChange({ paddingY: v })} min={-30} max={60} unit="px" />
       <SliderInput label="Min. szerokość" value={value.minWidth} onValueChange={(v) => onChange({ minWidth: v })} min={0} max={600} unit="px" />
-      <SliderInput label="Skew" value={value.skewDeg} onValueChange={(v) => onChange({ skewDeg: v })} min={-30} max={30} unit="°" />
+      <SliderInput label="Skew (box)" value={value.skewDeg} onValueChange={(v) => onChange({ skewDeg: v })} min={-30} max={30} unit="°" />
       <SliderInput label="Opacity" value={value.opacity} onValueChange={(v) => onChange({ opacity: v })} min={0} max={1} step={0.05} />
       <Separator />
       <FontInput label="Font" value={value.fontFamily} onChange={(v) => onChange({ fontFamily: v })} />
