@@ -22,7 +22,8 @@ interface Props {
 export function V2Preview({ config, mode, scale = 0.5 }: Props) {
   const live = useLiveStatsV2();
   const liveSeries = useBroadcastSeries();
-  const stageScale = scale * config.general.globalScale;
+  const safeGlobalScale = Number.isFinite(config.general.globalScale) ? config.general.globalScale : 1;
+  const stageScale = scale * safeGlobalScale;
 
   const useMock = mode === 'mock';
   const match = useMock ? MOCK_MATCH : live.match;
