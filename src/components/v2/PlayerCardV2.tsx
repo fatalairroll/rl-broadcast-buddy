@@ -45,6 +45,11 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
     (effectiveMmr != null ? getRankFromMmr(effectiveMmr) : null);
   const rankIconSrc = effectiveRank ? getRankIcon(effectiveRank) : null;
 
+  // Anchors for absolute child elements inside the card. The body area
+  // starts after the optional photo. Nick sits ~30% from top, stats ~70%.
+  const photoOffset = c.fields.photo && registry?.photo_url ? c.photoWidth : 0;
+  const bodyLeft = photoOffset + 32;
+
   return (
     <AnimatePresence mode="wait">
       {visible && player && (
@@ -91,9 +96,7 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
               <div
                 className="absolute pointer-events-none"
                 style={{
-                  left:
-                    (c.fields.photo && registry?.photo_url ? c.photoWidth : 0) +
-                    24,
+                  left: photoOffset + 24,
                   top: '50%',
                   transform: `translateY(-50%) translate(${c.rankOffsetX ?? 0}px, ${c.rankOffsetY ?? 0}px) ${skewInner}`,
                   transformOrigin: 'left center',
@@ -124,41 +127,58 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
               </div>
             )}
 
-            {/* Body */}
-            <div className="flex-1 flex flex-col justify-center px-8 gap-2" style={{ transform: skewInner }}>
-              <div className="flex items-center gap-3">
-                {c.fields.country && registry?.country_code && (
-                  <span
-                    className="font-bold uppercase px-2 py-0.5 tracking-widest border border-white/20"
-                    style={{ fontSize: 12, background: c.countryBg, color: c.countryColor }}
-                  >
-                    {registry.country_code}
-                  </span>
-                )}
+            {/* Nick row (absolute — font size / offsets do not affect anything else) */}
+            <div
+              className="absolute flex items-center gap-3"
+              style={{
+                left: bodyLeft,
+                top: '32%',
+                transform: `translateY(-50%) translate(${c.nickOffsetX ?? 0}px, ${c.nickOffsetY ?? 0}px) ${skewInner}`,
+                transformOrigin: 'left center',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {c.fields.country && registry?.country_code && (
                 <span
-                  className="font-black uppercase tracking-tight"
-                  style={{
-                    fontFamily: c.nickFontFamily,
-                    fontSize: c.nickFontSize,
-                    color: c.nickColor,
-                    textShadow: '0 2px 8px rgba(0,0,0,0.7)',
-                  }}
+                  className="font-bold uppercase px-2 py-0.5 tracking-widest border border-white/20"
+                  style={{ fontSize: 12, background: c.countryBg, color: c.countryColor }}
                 >
-                  {registry?.display_name ?? player.player_name}
+                  {registry.country_code}
                 </span>
-              </div>
-
-              <div
-                className="flex items-center gap-5 mt-1"
-                style={{ color: c.statsColor, fontSize: c.statsFontSize }}
+              )}
+              <span
+                className="font-black uppercase tracking-tight"
+                style={{
+                  fontFamily: c.nickFontFamily,
+                  fontSize: c.nickFontSize,
+                  color: c.nickColor,
+                  textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+                  lineHeight: 1,
+                }}
               >
-                {c.stats.goals && <Stat label="G" value={player.goals} size={c.statsFontSize} />}
-                {c.stats.assists && <Stat label="A" value={player.assists} size={c.statsFontSize} />}
-                {c.stats.saves && <Stat label="SV" value={player.saves} size={c.statsFontSize} />}
-                {c.stats.shots && <Stat label="SH" value={player.shots} size={c.statsFontSize} />}
-                {c.stats.demos && <Stat label="D" value={player.demos} size={c.statsFontSize} />}
-                {c.stats.boost && <BoostStat boost={player.boost} supersonic={player.is_supersonic} size={c.statsFontSize} />}
-              </div>
+                {registry?.display_name ?? player.player_name}
+              </span>
+            </div>
+
+            {/* Stats row (absolute — independent of nick) */}
+            <div
+              className="absolute flex items-center gap-5"
+              style={{
+                left: bodyLeft,
+                top: '72%',
+                transform: `translateY(-50%) translate(${c.statsOffsetX ?? 0}px, ${c.statsOffsetY ?? 0}px) ${skewInner}`,
+                transformOrigin: 'left center',
+                color: c.statsColor,
+                fontSize: c.statsFontSize,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {c.stats.goals && <Stat label="G" value={player.goals} size={c.statsFontSize} />}
+              {c.stats.assists && <Stat label="A" value={player.assists} size={c.statsFontSize} />}
+              {c.stats.saves && <Stat label="SV" value={player.saves} size={c.statsFontSize} />}
+              {c.stats.shots && <Stat label="SH" value={player.shots} size={c.statsFontSize} />}
+              {c.stats.demos && <Stat label="D" value={player.demos} size={c.statsFontSize} />}
+              {c.stats.boost && <BoostStat boost={player.boost} supersonic={player.is_supersonic} size={c.statsFontSize} />}
             </div>
           </div>
         </motion.div>
@@ -181,7 +201,7 @@ function Stat({ label, value, size }: { label: string; value: number; size: numb
 
 function BoostStat({ boost, supersonic, size }: { boost: number; supersonic: boolean; size: number }) {
   return (
-    <div className="flex items-center gap-2 ml-auto">
+    <div className="flex items-center gap-2 ml-3">
       <div className="relative w-[120px] h-2 bg-white/10 overflow-hidden">
         <div
           className="absolute inset-y-0 left-0 transition-all"

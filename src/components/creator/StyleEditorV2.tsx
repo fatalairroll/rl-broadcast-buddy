@@ -176,6 +176,14 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <SliderInput label="Rozmiar ikony rangi" value={config.playerCard.rankIconSize ?? 36} onValueChange={(v) => update('playerCard', { rankIconSize: v })} min={16} max={160} unit="px" />
             <SliderInput label="Ranga - offset X" value={config.playerCard.rankOffsetX ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetX: v })} min={-200} max={200} unit="px" />
             <SliderInput label="Ranga - offset Y" value={config.playerCard.rankOffsetY ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetY: v })} min={-200} max={200} unit="px" />
+            <Separator />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja nicku</h4>
+            <SliderInput label="Nick - offset X" value={config.playerCard.nickOffsetX ?? 0} onValueChange={(v) => update('playerCard', { nickOffsetX: v })} min={-400} max={400} unit="px" />
+            <SliderInput label="Nick - offset Y" value={config.playerCard.nickOffsetY ?? 0} onValueChange={(v) => update('playerCard', { nickOffsetY: v })} min={-200} max={200} unit="px" />
+            <Separator />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja statystyk</h4>
+            <SliderInput label="Statystyki - offset X" value={config.playerCard.statsOffsetX ?? 0} onValueChange={(v) => update('playerCard', { statsOffsetX: v })} min={-400} max={400} unit="px" />
+            <SliderInput label="Statystyki - offset Y" value={config.playerCard.statsOffsetY ?? 0} onValueChange={(v) => update('playerCard', { statsOffsetY: v })} min={-200} max={200} unit="px" />
           </>
         )}
 
