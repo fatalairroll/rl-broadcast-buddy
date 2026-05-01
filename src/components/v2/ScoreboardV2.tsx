@@ -24,6 +24,14 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
   const detached = config.timer.detached;
 
   const sbPos = positionToStyle(sb.position);
+  // Allow negative paddingY values to compress tile height below natural size
+  // by mapping the negative portion to negative vertical margin.
+  const compressY = (py: number) => ({
+    paddingTop: Math.max(0, py),
+    paddingBottom: Math.max(0, py),
+    marginTop: Math.min(0, py),
+    marginBottom: Math.min(0, py),
+  });
   // motion adds animations; merge with positioning
   const containerStyle = {
     ...sbPos,
@@ -36,7 +44,9 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
     <div
       className="flex flex-col items-center justify-center border-y-2 border-white/10"
       style={{
-        padding: `${config.timer.paddingY}px ${config.timer.paddingX}px`,
+        ...compressY(config.timer.paddingY),
+        paddingLeft: config.timer.paddingX,
+        paddingRight: config.timer.paddingX,
         background: config.timer.background,
         transform: skewOuter,
         boxShadow: glowToBoxShadow(config.timer.glow),
@@ -84,7 +94,9 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
         <div
         className="flex items-center justify-center"
         style={{
-          padding: `${config.scoreBlue.paddingY}px ${config.scoreBlue.paddingX}px`,
+          ...compressY(config.scoreBlue.paddingY),
+          paddingLeft: config.scoreBlue.paddingX,
+          paddingRight: config.scoreBlue.paddingX,
           transform: skewOuter,
           background: gradientToCss(config.scoreBlue.gradient),
           boxShadow: glowToBoxShadow(config.scoreBlue.glow),
@@ -111,7 +123,9 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
       <div
         className="flex items-center justify-center"
         style={{
-          padding: `${config.scoreOrange.paddingY}px ${config.scoreOrange.paddingX}px`,
+          ...compressY(config.scoreOrange.paddingY),
+          paddingLeft: config.scoreOrange.paddingX,
+          paddingRight: config.scoreOrange.paddingX,
           transform: skewOuter,
           background: gradientToCss(config.scoreOrange.gradient),
           boxShadow: glowToBoxShadow(config.scoreOrange.glow),
