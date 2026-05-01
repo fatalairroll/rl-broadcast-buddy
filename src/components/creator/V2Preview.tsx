@@ -38,15 +38,22 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
   const series = useMock ? MOCK_SERIES : liveSeries;
 
   return (
-    <div className="relative shrink-0" style={{ width: 1920 * scale, height: 1080 * scale }}>
+    <div
+      className="relative shrink-0 overflow-hidden"
+      style={{
+        width: 1920 * scale,
+        height: 1080 * scale,
+        background:
+          'repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 12px, transparent 12px 24px), #0a0a0a',
+      }}
+    >
       <div
-        className="absolute top-0 left-0 origin-top-left"
+        className="absolute top-1/2 left-1/2"
         style={{
           width: 1920,
           height: 1080,
-          transform: `scale(${scale * config.general.globalScale})`,
-          background:
-            'repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 12px, transparent 12px 24px), #0a0a0a',
+          transform: `translate(-50%, -50%) scale(${scale * config.general.globalScale})`,
+          transformOrigin: 'center center',
         }}
       >
         <ScoreboardV2 match={match} config={config} />
