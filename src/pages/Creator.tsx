@@ -27,6 +27,7 @@ import { useV2Presets } from '@/hooks/useOverlayV2Config';
 import { ElementListV2 } from '@/components/creator/ElementListV2';
 import { StyleEditorV2 } from '@/components/creator/StyleEditorV2';
 import { V2Preview } from '@/components/creator/V2Preview';
+import { BroadcastControlsPanel } from '@/components/creator/BroadcastControlsPanel';
 
 export default function Creator() {
   const navigate = useNavigate();
@@ -207,10 +208,11 @@ export default function Creator() {
         </aside>
 
         {/* Center: live preview */}
-        <main className="flex-1 overflow-auto p-6 bg-grid-pattern flex items-start justify-center">
+        <main className="flex-1 overflow-auto p-6 bg-grid-pattern flex flex-col items-center gap-6">
           <div className="border border-border shadow-2xl">
             <V2Preview config={config} mode={previewMode} scale={0.5} />
           </div>
+          {previewMode === 'live' && <BroadcastControlsPanel />}
         </main>
 
         {/* Right column: style editor */}
