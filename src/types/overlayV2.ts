@@ -144,6 +144,10 @@ export interface PlayerCardV2Style {
   // Country chip
   countryBg: string;
   countryColor: string;
+  // Rank icon
+  rankIconSize: number;
+  rankOffsetX: number;
+  rankOffsetY: number;
   // Visibility toggles
   fields: PlayerCardFieldsToggle;
   stats: PlayerCardStatsToggle;
@@ -348,6 +352,9 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     statsColor: '#ffffff',
     countryBg: 'rgba(0,0,0,0.4)',
     countryColor: '#ffffff',
+    rankIconSize: 36,
+    rankOffsetX: 0,
+    rankOffsetY: 0,
     fields: { country: true, rank: true, mmrWatermark: true, photo: true },
     stats: { goals: true, assists: true, saves: true, shots: false, demos: true, boost: true },
   },
