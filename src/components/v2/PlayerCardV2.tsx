@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { RankIcon } from '@/components/studio/RankIcon';
+import { getRankIcon } from '@/lib/rank-utils';
 import type { PlayerLive, PlayerRegistry } from '@/types/livestats';
 import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2';
 import { gradientToCss } from '@/lib/gradient-utils';
@@ -112,14 +112,28 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
                 </span>
               </div>
 
-              {c.fields.rank && (mmrOverride?.rank || registry?.rank_name) && (
-                <div className="flex items-center gap-2">
-                  <RankIcon rank={mmrOverride?.rank ?? registry?.rank_name ?? null} size="sm" />
-                  <span className="text-white/80 text-sm font-semibold uppercase tracking-wider">
-                    {mmrOverride?.rank ?? registry?.rank_name}
-                  </span>
-                </div>
-              )}
+              {c.fields.rank && (() => {
+                const rankName = mmrOverride?.rank ?? registry?.rank_name ?? null;
+                const iconSrc = rankName ? getRankIcon(rankName) : null;
+                if (!iconSrc) return null;
+                return (
+                  <div
+                    className="flex items-center"
+                    style={{
+                      transform: `translate(${c.rankOffsetX ?? 0}px, ${c.rankOffsetY ?? 0}px)`,
+                    }}
+                  >
+                    <img
+                      src={iconSrc}
+                      alt={rankName ?? ''}
+                      width={c.rankIconSize}
+                      height={c.rankIconSize}
+                      className="object-contain drop-shadow-lg"
+                      draggable={false}
+                    />
+                  </div>
+                );
+              })()}
 
               <div
                 className="flex items-center gap-5 mt-1"
