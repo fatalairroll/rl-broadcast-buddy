@@ -63,13 +63,13 @@ export default function OverlayV2() {
       >
         <div
           className="relative"
-        style={{
-          width: 1920,
-          height: 1080,
+          style={{
+            width: 1920,
+            height: 1080,
             transform: `scale(${stageScale})`,
             transformOrigin: 'top left',
-        }}
-      >
+          }}
+        >
         <ScoreboardV2 match={match} config={config} />
         <SeriesScoreV2
           type={series.type}
@@ -91,7 +91,7 @@ export default function OverlayV2() {
           activeName={activeCameraTarget}
           config={config}
         />
-        <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} />
+          <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} />
         </div>
       </div>
     </div>
