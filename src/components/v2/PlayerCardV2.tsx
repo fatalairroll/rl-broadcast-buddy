@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
-import { getRankIcon } from '@/lib/rank-utils';
+import { getRankIcon, getRankFromMmr } from '@/lib/rank-utils';
 import type { PlayerLive, PlayerRegistry } from '@/types/livestats';
 import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2';
 import { gradientToCss } from '@/lib/gradient-utils';
@@ -33,6 +33,17 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
 
   const skewOuter = `skewX(${c.skewDeg}deg)`;
   const skewInner = `skewX(${-c.skewDeg}deg)`;
+
+  // Resolve effective MMR / rank with fallback chain so the rank icon
+  // shows up in live mode (where players_registry can be empty) by
+  // deriving the rank from players_live.mmr supplied by the Python bot.
+  const effectiveMmr =
+    mmrOverride?.mmr ?? registry?.mmr ?? player?.mmr ?? null;
+  const effectiveRank =
+    mmrOverride?.rank ??
+    registry?.rank_name ??
+    (effectiveMmr != null ? getRankFromMmr(effectiveMmr) : null);
+  const rankIconSrc = effectiveRank ? getRankIcon(effectiveRank) : null;
 
   return (
     <AnimatePresence mode="wait">
@@ -71,8 +82,33 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
                 opacity: c.mmrOpacity,
               }}
             >
-              {mmrOverride?.mmr ?? registry?.mmr ?? player.mmr ?? ''}
+              {effectiveMmr ?? ''}
             </div>}
+
+            {/* Rank icon — absolutely positioned so its size/offset
+                never affects nick or stats layout. */}
+            {c.fields.rank && rankIconSrc && (
+              <div
+                className="absolute pointer-events-none"
+                style={{
+                  left:
+                    (c.fields.photo && registry?.photo_url ? c.photoWidth : 0) +
+                    24,
+                  top: '50%',
+                  transform: `translateY(-50%) translate(${c.rankOffsetX ?? 0}px, ${c.rankOffsetY ?? 0}px) ${skewInner}`,
+                  transformOrigin: 'left center',
+                }}
+              >
+                <img
+                  src={rankIconSrc}
+                  alt={effectiveRank ?? ''}
+                  width={c.rankIconSize}
+                  height={c.rankIconSize}
+                  className="object-contain drop-shadow-lg"
+                  draggable={false}
+                />
+              </div>
+            )}
 
             {/* Photo */}
             {c.fields.photo && registry?.photo_url && (
@@ -111,29 +147,6 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
                   {registry?.display_name ?? player.player_name}
                 </span>
               </div>
-
-              {c.fields.rank && (() => {
-                const rankName = mmrOverride?.rank ?? registry?.rank_name ?? null;
-                const iconSrc = rankName ? getRankIcon(rankName) : null;
-                if (!iconSrc) return null;
-                return (
-                  <div
-                    className="flex items-center"
-                    style={{
-                      transform: `translate(${c.rankOffsetX ?? 0}px, ${c.rankOffsetY ?? 0}px)`,
-                    }}
-                  >
-                    <img
-                      src={iconSrc}
-                      alt={rankName ?? ''}
-                      width={c.rankIconSize}
-                      height={c.rankIconSize}
-                      className="object-contain drop-shadow-lg"
-                      draggable={false}
-                    />
-                  </div>
-                );
-              })()}
 
               <div
                 className="flex items-center gap-5 mt-1"
