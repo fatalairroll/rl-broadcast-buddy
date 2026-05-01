@@ -148,6 +148,12 @@ export interface PlayerCardV2Style {
   rankIconSize: number;
   rankOffsetX: number;
   rankOffsetY: number;
+  // Nick offset (independent from font size so resizing nick doesn't move stats/photo).
+  nickOffsetX: number;
+  nickOffsetY: number;
+  // Stats row offset (independent of nick/photo/rank).
+  statsOffsetX: number;
+  statsOffsetY: number;
   // Visibility toggles
   fields: PlayerCardFieldsToggle;
   stats: PlayerCardStatsToggle;
@@ -355,6 +361,10 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     rankIconSize: 36,
     rankOffsetX: 0,
     rankOffsetY: 0,
+    nickOffsetX: 0,
+    nickOffsetY: 0,
+    statsOffsetX: 0,
+    statsOffsetY: 0,
     fields: { country: true, rank: true, mmrWatermark: true, photo: true },
     stats: { goals: true, assists: true, saves: true, shots: false, demos: true, boost: true },
   },
