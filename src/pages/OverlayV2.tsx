@@ -46,7 +46,8 @@ export default function OverlayV2() {
     return () => window.removeEventListener('resize', compute);
   }, []);
 
-  const stageScale = fit * config.general.globalScale;
+  const safeGlobalScale = Number.isFinite(config.general.globalScale) ? config.general.globalScale : 1;
+  const stageScale = fit * safeGlobalScale;
 
   return (
     <div
