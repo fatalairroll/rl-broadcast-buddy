@@ -67,28 +67,81 @@ export function SeriesScoreV2({ type, blueScore, orangeScore, config = defaultOv
       transition={{ duration: 0.4, ease: 'easeOut' }}
       style={{
         ...positionToStyle(s.position),
-        display: 'flex',
-        alignItems: 'center',
-        gap: s.groupGap,
         fontFamily: s.fontFamily,
+        // Zerowy „punkt" — etykieta BO jest twardo zakotwiczona w środku
+        // tego punktu, a obie grupy kropek rozrastają się symetrycznie
+        // na zewnątrz. Dzięki temu zmiana BO1↔BO7 nie przesuwa środka.
+        width: 0,
+        height: 0,
       }}
     >
-      <div className="flex items-center" style={{ gap: s.gap }}>
-        {blueDots.map((f, i) => (
-          <Dot key={`b-${i}`} filled={f} color={s.blueColor} size={s.dotSize} border={s.borderColor} shape={s.shape} skew={s.skewDeg} />
-        ))}
-      </div>
+      {/* Etykieta BO — środek etykiety = punkt kotwiczenia (offsetX, offsetY) */}
       {s.showLabel && (
         <span
           className="uppercase font-black tracking-widest"
-          style={{ color: s.labelColor, fontSize: s.labelFontSize }}
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            transform: 'translate(-50%, -50%)',
+            whiteSpace: 'nowrap',
+            color: s.labelColor,
+            fontSize: s.labelFontSize,
+            lineHeight: 1,
+          }}
         >
           {type.toUpperCase()}
         </span>
       )}
-      <div className="flex items-center" style={{ gap: s.gap }}>
+
+      {/* Niebieskie kropki — rosną w lewo od środka, najnowsza najbliżej etykiety */}
+      <div
+        style={{
+          position: 'absolute',
+          right: `calc(0px + ${s.groupGap}px)`,
+          top: 0,
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: s.gap,
+          direction: 'rtl',
+        }}
+      >
+        {blueDots.map((f, i) => (
+          <Dot
+            key={`b-${i}`}
+            filled={f}
+            color={s.blueColor}
+            size={s.dotSize}
+            border={s.borderColor}
+            shape={s.shape}
+            skew={s.skewDeg}
+          />
+        ))}
+      </div>
+
+      {/* Pomarańczowe kropki — rosną w prawo od środka */}
+      <div
+        style={{
+          position: 'absolute',
+          left: `calc(0px + ${s.groupGap}px)`,
+          top: 0,
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: s.gap,
+        }}
+      >
         {orangeDots.map((f, i) => (
-          <Dot key={`o-${i}`} filled={f} color={s.orangeColor} size={s.dotSize} border={s.borderColor} shape={s.shape} skew={s.skewDeg} />
+          <Dot
+            key={`o-${i}`}
+            filled={f}
+            color={s.orangeColor}
+            size={s.dotSize}
+            border={s.borderColor}
+            shape={s.shape}
+            skew={s.skewDeg}
+          />
         ))}
       </div>
     </motion.div>

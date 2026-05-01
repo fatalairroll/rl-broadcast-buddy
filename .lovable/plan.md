@@ -1,80 +1,79 @@
-## Część 1 — Rozmiar ikony rangi nie wpływa na układ karty gracza
+## Problem
 
-### Problem
-W `PlayerCardV2` ikona rangi siedzi w głównym flex-column (między linią z nickiem a rzędem statystyk). Zwiększanie `rankIconSize` przesuwa statystyki w dół i zmienia wysokość treści.
+Wynik serii (kropki BO) zmienia położenie w poziomie po zmianie długości serii (BO1/BO3/BO5/BO7). Obecnie cały rząd `[kropki niebieskie] [BO5] [kropki pomarańczowe]` jest jednym flex-containerem wycentrowanym przez `translateX(-50%)`. To wycentruje **prostokąt rzędu**, ale punkt "środkowy" wizualnie (etykieta BO) wędruje, gdy:
 
-### Rozwiązanie
-Wyciągnąć ikonę rangi z toku układu — renderować ją jako element `position: absolute` wewnątrz karty, jako rodzeństwo bloku `body`. Suwaki `rankIconSize`, `rankOffsetX`, `rankOffsetY` operują tylko na samej ikonie, bez dotykania nicka i statystyk.
+- liczba kropek po obu stronach rośnie/maleje,
+- (a w niektórych przypadkach) szerokości grup nie są idealnie równe (np. inny `shape: 'pill'` dla niektórych presetów, inne `gap` itp.).
 
-### Zmiany w `src/components/v2/PlayerCardV2.tsx`
-1. Usunąć blok renderujący `c.fields.rank` z wnętrza `<div className="flex-1 flex flex-col ...">`.
-2. Dodać go jako rodzeństwo bloku body, jako `absolute`, kontr-skewowany, by stał prosto:
+Użytkownik chce: po ustawieniu `offsetX = 0` środek (etykieta BO) ma siedzieć dokładnie na środku ekranu (X=960) — i nie ruszać się przy zmianie BO1↔BO7.
+
+## Rozwiązanie
+
+Przebudować layout `SeriesScoreV2` tak, aby **etykieta BO była twardym punktem kotwiczącym** w wybranym `position`, a obie grupy kropek były pozycjonowane absolutnie *względem etykiety*: niebieska grupa „rośnie w lewo" od lewej krawędzi etykiety, pomarańczowa „rośnie w prawo" od prawej. Wtedy etykieta zawsze siedzi w (offsetX, offsetY) niezależnie od liczby kropek.
+
+### Zmiana w `src/components/v2/SeriesScoreV2.tsx`
+
+Zamiast jednego flex-rzędu:
 
 ```tsx
-{rankIconSrc && c.fields.rank && (
-  <div
-    className="absolute pointer-events-none"
-    style={{
-      left: (c.fields.photo && registry?.photo_url ? c.photoWidth : 0) + 24,
-      top: '50%',
-      transform: `translateY(-50%) translate(${c.rankOffsetX ?? 0}px, ${c.rankOffsetY ?? 0}px) skewX(${-c.skewDeg}deg)`,
-      transformOrigin: 'left center',
-    }}
-  >
-    <img src={rankIconSrc} width={c.rankIconSize} height={c.rankIconSize}
-         className="object-contain drop-shadow-lg" draggable={false} />
+<motion.div style={{ ...positionToStyle(s.position), display: 'flex', gap: s.groupGap }}>
+  <BlueGroup /> <Label /> <OrangeGroup />
+</motion.div>
+```
+
+zrobić **kontener-punkt** (zerowych wymiarów) zakotwiczony w `s.position`, z trzema warstwami:
+
+```tsx
+<motion.div style={{ ...positionToStyle(s.position) }}>
+  {/* Etykieta — to ona definiuje centrum */}
+  <span style={{
+    display: 'inline-block',
+    transform: 'translate(-50%, -50%)',   // środek etykiety = punkt kotwiczenia
+    position: 'absolute', left: 0, top: 0,
+    whiteSpace: 'nowrap',
+    color: s.labelColor, fontSize: s.labelFontSize,
+  }}>
+    {s.showLabel ? type.toUpperCase() : ''}
+  </span>
+
+  {/* Grupa niebieska — przykleja PRAWĄ krawędź do lewej krawędzi etykiety */}
+  <div style={{
+    position: 'absolute',
+    right: `calc(50% + ${s.groupGap}px)`,   // odstęp od środka etykiety
+    top: '50%',
+    transform: 'translateY(-50%)',
+    display: 'flex', gap: s.gap,
+    direction: 'rtl',  // żeby kropki rosły od środka na zewnątrz
+  }}>
+    {blueDots.map(...)}
   </div>
-)}
+
+  {/* Grupa pomarańczowa — przykleja LEWĄ krawędź do prawej krawędzi etykiety */}
+  <div style={{
+    position: 'absolute',
+    left: `calc(50% + ${s.groupGap}px)`,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    display: 'flex', gap: s.gap,
+  }}>
+    {orangeDots.map(...)}
+  </div>
+</motion.div>
 ```
 
-### Wynik
-Skala ikony 16–160 px nie zmienia pozycji nicka ani statystyk; offset X/Y porusza wyłącznie ikoną.
-
----
-
-## Część 2 — Ikona rangi nie pojawia się dla rzeczywistych graczy (live)
-
-### Diagnoza (potwierdzona z bazy)
-- W trybie **mock** każdy gracz w `MOCK_REGISTRY` ma ustawione `rank_name` (np. „Diamond II"), więc `registry.rank_name` → `getRankIcon` zwraca obrazek.
-- W trybie **live** tabela `players_registry` jest **pusta** (sprawdzone: 0 wierszy), więc `activeRegistry` to `null`. Jedynym źródłem rangi pozostaje `mmrOverride` — a ten działa wyłącznie, gdy:
-  1. w `broadcast_sessions` ustawiony jest aktywny `mmr_match_id`,
-  2. aktywny gracz (z `active_camera.target_name`) ma rekord w `session.player_pairings`,
-  3. po stronie MMRivals roster zawiera gracza z `discord_id`, MMR/rangą.
-
-Jeśli któryś warunek nie jest spełniony (np. mecz MMRivals nie został wczytany w panelu, albo gracz nie został sparowany ręcznie), `mmrOverride` jest `null`, `registry` nie ma `rank_name` — ikona w ogóle się nie renderuje.
-
-Dodatkowo `players_live` zawiera kolumnę `mmr` (przesyłaną przez bota Pythonowego), ale `PlayerCardV2` nigdy z niej nie korzysta jako fallback do wyznaczenia rangi.
-
-### Rozwiązanie — fallback łańcuchowy
-
-W `PlayerCardV2.tsx` policzyć efektywne MMR/rangę raz, na początku komponentu, w kolejności:
-
-```ts
-const effectiveMmr =
-  mmrOverride?.mmr ??
-  registry?.mmr ??
-  player?.mmr ??
-  null;
-
-const effectiveRank =
-  mmrOverride?.rank ??
-  registry?.rank_name ??
-  (effectiveMmr != null ? getRankFromMmr(effectiveMmr) : null);
-
-const rankIconSrc = effectiveRank ? getRankIcon(effectiveRank) : null;
-```
-
-I używać:
-- `effectiveMmr` we wzorcu watermarka MMR (zamiast obecnej drabinki `mmrOverride?.mmr ?? registry?.mmr ?? player.mmr ?? ''`),
-- `rankIconSrc` w nowym, absolutnie pozycjonowanym bloku ikony rangi (Część 1).
+Uwagi techniczne:
+- Kontener `motion.div` zachowuje `positionToStyle(s.position)` i ma `width: 0; height: 0`, więc anchor `center/middle` plus `translate(-50%, -50%)` na etykiecie precyzyjnie kładzie środek etykiety w (960 + offsetX, 540 + offsetY).
+- `groupGap` mierzony jest **od środka etykiety**, nie od jej krawędzi — żeby zachować symetrię nawet gdy zmienia się szerokość tekstu (BO1/BO3/BO5/BO7 mają różną szerokość). Dzięki temu lewy/prawy odstęp są zawsze równe.
+- `direction: 'rtl'` na grupie niebieskiej sprawia, że pierwsza kropka (oznaczająca pierwszą wygraną grę) jest najbliżej środka, a kolejne dorzucane kropki rosną w lewo — co jest wizualnie spójne z grupą pomarańczową (która rośnie w prawo).
+- `s.shape === 'square'` dalej dostaje `skewX(${s.skewDeg}deg)`; grupowy gap pozostaje bez zmian.
+- Gdy `s.showLabel === false`, etykieta renderowana jest jako pusty `<span>` — i tak utrzymuje punkt zerowej szerokości w środku, więc kropki w obu grupach są rozdzielone samym `2 * groupGap` (czyli przerwa między najbliższymi kropkami niebieską i pomarańczową = `2 * groupGap`). To zachowuje wizualną „lukę środkową" nawet bez tekstu.
 
 ### Efekt
-- **Mock** działa jak dotąd (pierwszeństwo `registry.rank_name`).
-- **Live z MMRivals + pairings**: pierwszeństwo `mmrOverride` (dokładna ranga z trybu drużynowego).
-- **Live bez MMRivals/pairings**: ikona wyznaczana z `players_live.mmr` (które bot już wpisuje) → ikona rangi pojawia się dla każdego rzeczywistego gracza, dla którego znamy MMR.
-- Gdy MMR jest też puste — ikona schowana (bez błędu).
+
+- `offsetX = 0` → etykieta dokładnie na środku ekranu (X=960).
+- Zmiana BO1 → BO3 → BO5 → BO7 dorzuca/usuwa kropki na zewnątrz — środek się nie rusza.
+- Asymetryczne wyniki (np. 2:0) też nie przesuwają środka, bo kropki tylko zmieniają wypełnienie, nie ich liczbę.
 
 ### Pliki do edycji
-- `src/components/v2/PlayerCardV2.tsx` — obie zmiany razem (refaktor renderu rangi + import `getRankFromMmr` z `@/lib/rank-utils`).
 
-Bez zmian w typach, schemacie konfiguracji ani w innych komponentach.
+- `src/components/v2/SeriesScoreV2.tsx` — wyłączny zakres zmian. Bez zmian w typach, schemacie konfiguracji ani w innych komponentach (defaulty, edytor, OverlayV2).
