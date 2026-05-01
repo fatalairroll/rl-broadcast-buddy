@@ -46,20 +46,31 @@ export default function OverlayV2() {
     return () => window.removeEventListener('resize', compute);
   }, []);
 
+  const safeGlobalScale = Number.isFinite(config.general.globalScale) ? config.general.globalScale : 1;
+  const stageScale = fit * safeGlobalScale;
+
   return (
     <div
       className="fixed inset-0 overflow-hidden flex items-center justify-center"
       style={{ background: 'transparent' }}
     >
       <div
-        className="relative"
+        className="relative shrink-0"
         style={{
-          width: 1920,
-          height: 1080,
-          transform: `scale(${fit * config.general.globalScale})`,
-          transformOrigin: 'center center',
+          width: 1920 * stageScale,
+          height: 1080 * stageScale,
+          flex: '0 0 auto',
         }}
       >
+        <div
+          className="relative"
+          style={{
+            width: 1920,
+            height: 1080,
+            transform: `scale(${stageScale})`,
+            transformOrigin: 'top left',
+          }}
+        >
         <ScoreboardV2 match={match} config={config} />
         <SeriesScoreV2
           type={series.type}
@@ -81,7 +92,8 @@ export default function OverlayV2() {
           activeName={activeCameraTarget}
           config={config}
         />
-        <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} />
+          <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} />
+        </div>
       </div>
     </div>
   );

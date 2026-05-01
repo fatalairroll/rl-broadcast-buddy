@@ -22,6 +22,8 @@ interface Props {
 export function V2Preview({ config, mode, scale = 0.5 }: Props) {
   const live = useLiveStatsV2();
   const liveSeries = useBroadcastSeries();
+  const safeGlobalScale = Number.isFinite(config.general.globalScale) ? config.general.globalScale : 1;
+  const stageScale = scale * safeGlobalScale;
 
   const useMock = mode === 'mock';
   const match = useMock ? MOCK_MATCH : live.match;
@@ -48,14 +50,22 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
       }}
     >
       <div
-        className="absolute top-1/2 left-1/2"
+        className="absolute top-1/2 left-1/2 overflow-hidden"
         style={{
-          width: 1920,
-          height: 1080,
-          transform: `translate(-50%, -50%) scale(${scale * config.general.globalScale})`,
-          transformOrigin: 'center center',
+          width: 1920 * stageScale,
+          height: 1080 * stageScale,
+          transform: 'translate(-50%, -50%)',
         }}
       >
+        <div
+          className="relative"
+          style={{
+            width: 1920,
+            height: 1080,
+            transform: `scale(${stageScale})`,
+            transformOrigin: 'top left',
+          }}
+        >
         <ScoreboardV2 match={match} config={config} />
         <SeriesScoreV2
           type={series.type}
@@ -64,8 +74,9 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
           config={config}
         />
         <BoostStackV2 players={blue} registryMap={registryMap} side="left" activeName={activeName} config={config} />
-        <BoostStackV2 players={orange} registryMap={registryMap} side="right" activeName={activeName} config={config} />
-        <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} />
+          <BoostStackV2 players={orange} registryMap={registryMap} side="right" activeName={activeName} config={config} />
+          <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} />
+        </div>
       </div>
     </div>
   );
