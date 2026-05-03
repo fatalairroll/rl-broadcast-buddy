@@ -8,7 +8,7 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2.1 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
+RL Broadcast Relay V2.2 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
 
 Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
 Skrypt laczy sie z lokalnym TCP streamem RL i parsuje strumien JSON-ow.
@@ -33,6 +33,8 @@ Plik wygenerowany na stronie /relay — nie musisz nic edytowac.
 
 import json
 import socket
+import signal
+import sys
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -54,7 +56,6 @@ RL_PORT = 49123
 WRITE_INTERVAL_S = 0.25      # tempo workera DB (~4 Hz)
 PRUNE_INTERVAL_S = 2.0       # co ile worker sprzata players_live
 HEARTBEAT_S = 5.0
-WATCHDOG_TIMEOUT_S = 0.5     # po tylu s bez updateu z gry zatrzymujemy lokalny zegar
 LOCAL_TICK_S = 0.1
 NO_DATA_WARN_S = 10.0
 RECONNECT_DELAY_S = 3.0
@@ -83,6 +84,12 @@ orange_score: int = 0
 
 # Snapshot graczy: { player_name -> row dict }. Worker DB go flushuje.
 players_snapshot: Dict[str, Dict[str, Any]] = {}
+
+# Czy aktualnie trwa mecz (sterowane WYLACZNIE eventami z RL Stats API).
+# True  <- MatchCreated / MatchInitialized
+# False <- MatchEnded / MatchDestroyed (lub graceful shutdown bota)
+match_active: bool = False
+shutting_down: bool = False
 
 # Flagi 'dirty' dla workera DB
 dirty_match: bool = False
@@ -310,7 +317,7 @@ def handle_clock_updated(data: Dict[str, Any]) -> None:
 def handle_event(evt: Dict[str, Any]) -> None:
     global current_match_guid, clock_running, in_replay, _dbg_printed
     global blue_score, orange_score, local_time_seconds, is_overtime
-    global dirty_match, clear_requested
+    global dirty_match, clear_requested, match_active
 
     name = evt.get("Event") or evt.get("event") or ""
     raw_data = evt.get("Data")
@@ -367,6 +374,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
         # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
         players_snapshot.clear()
         clear_requested = True
+        match_active = True
         dirty_match = True
         return
 
@@ -374,6 +382,9 @@ def handle_event(evt: Dict[str, Any]) -> None:
         clock_running = False
         if name == "PodiumStart":
             stats["mode"] = "podium"
+        if name in ("MatchEnded", "MatchDestroyed"):
+            match_active = False
+            dirty_match = True
         return
 
     if name == "MatchPaused":
@@ -398,9 +409,6 @@ def clock_loop() -> None:
     while True:
         time.sleep(LOCAL_TICK_S)
         with state_lock:
-            # Watchdog: brak danych z gry => zatrzymaj zegar
-            if last_state_update_at and (time.time() - last_state_update_at) > WATCHDOG_TIMEOUT_S:
-                clock_running = False
             if not clock_running or in_replay:
                 continue
             if is_overtime:
@@ -433,6 +441,7 @@ def db_worker_loop() -> None:
                 "timer": fmt_timer(local_time_seconds),
                 "is_overtime": bool(is_overtime),
                 "match_guid": current_match_guid,
+                "is_active": bool(match_active),
             } if send_match else None
 
             send_camera = dirty_camera
@@ -588,13 +597,56 @@ def tcp_loop() -> None:
         time.sleep(RECONNECT_DELAY_S)
 
 
+# === GRACEFUL SHUTDOWN ===
+def _shutdown_flush() -> None:
+    """Best-effort: zapisz is_active=false zanim proces zniknie."""
+    global shutting_down, match_active
+    if shutting_down:
+        return
+    shutting_down = True
+    try:
+        with state_lock:
+            payload = {
+                "id": 1,
+                "blue_score": int(blue_score),
+                "orange_score": int(orange_score),
+                "time_seconds": int(round(max(0, local_time_seconds))),
+                "timer": fmt_timer(local_time_seconds),
+                "is_overtime": bool(is_overtime),
+                "match_guid": current_match_guid,
+                "is_active": False,
+            }
+            match_active = False
+        try:
+            sb.table("match_metadata").upsert(payload, on_conflict="id").execute()
+            print("[SHUTDOWN] Zapisano is_active=false do match_metadata.")
+        except Exception as e:
+            print(f"[SHUTDOWN] Nie udalo sie zapisac is_active=false: {e}")
+    except Exception as e:
+        print(f"[SHUTDOWN] Wyjatek przy flushu: {e}")
+
+
+def _signal_handler(signum, _frame) -> None:
+    print(f"[SHUTDOWN] Otrzymano sygnal {signum}, koncze prace...")
+    _shutdown_flush()
+    sys.exit(0)
+
+
 def main() -> None:
-    print("== RL Broadcast Relay V2.1 (Python) ==")
+    print("== RL Broadcast Relay V2.2 (Python) ==")
     print(f"   Stats API: tcp://{RL_HOST}:{RL_PORT} (lokalny JSON stream)")
     print(f"   Supabase:  {SUPABASE_URL}")
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
     print("   I/O do Supabase wykonywane TYLKO w osobnym watku (db_worker).")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
+
+    import atexit
+    atexit.register(_shutdown_flush)
+    try:
+        signal.signal(signal.SIGINT, _signal_handler)
+        signal.signal(signal.SIGTERM, _signal_handler)
+    except Exception:
+        pass
 
     threading.Thread(target=heartbeat_loop, daemon=True).start()
     threading.Thread(target=clock_loop, daemon=True).start()
@@ -706,9 +758,9 @@ PacketSendRate=30`}</pre>
 
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                 <p className="text-sm text-red-300">
-                  <strong>Wazna aktualizacja (v2.1)</strong>
+                  <strong>Wazna aktualizacja (v2.2)</strong>
                   <br />
-                  Jesli uzywales starszej wersji <code className="bg-secondary px-1 rounded">relay.py</code> i Rocket League zawieszal sie systematycznie - pobierz ponownie najnowszy plik. Stara wersja wykonywala synchroniczne zapisy do bazy w tym samym watku, ktory czytal dane z gry; gdy siec do bazy lagowala, bufor TCP gry zapelnial sie i RL zamarzal. v2.1 ma osobny watek DB - czytanie z gry nigdy nie czeka na siec.
+                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code>. v2.2 chowa overlay automatycznie dokladnie wtedy, kiedy gra zglosi koniec meczu (<code className="bg-secondary px-1 rounded">MatchEnded</code> / <code className="bg-secondary px-1 rounded">MatchDestroyed</code>) lub kiedy zamkniesz bota (Ctrl+C). Zadne timeouty bezczynnosci nie chowaja overlaya - jesli mecz trwa, overlay stoi, niezaleznie od chwilowych przerw w pakietach. v2.1 (osobny watek DB, brak zawieszen RL) jest zachowane.
                 </p>
               </div>
             </CardContent>
