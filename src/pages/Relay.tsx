@@ -68,6 +68,11 @@ last_state_update_at = 0.0
 current_match_guid: Optional[str] = None
 last_active_camera: Optional[str] = None
 
+# Mapa nick -> ostatnia predkosc gola (uu/s). Frontend po wzroscie
+# 'goals' czyta 'last_goal_speed' jako rekord najszybszego strzalu.
+last_goal_speed_by_player: Dict[str, float] = {}
+match_is_active: bool = False
+
 # Lokalny zegar (interpolacja miedzy snapami z gry)
 local_time_seconds: float = 300.0
 is_overtime: bool = False
@@ -106,6 +111,7 @@ def upsert_match() -> None:
         "timer": fmt_timer(local_time_seconds),
         "is_overtime": bool(is_overtime),
         "match_guid": current_match_guid,
+        "is_active": bool(match_is_active),
     }
     try:
         sb.table("match_metadata").upsert(payload, on_conflict="id").execute()
@@ -290,6 +296,8 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             "demos": int(p.get("Demos", 0) or 0),
             "is_demolished": bool(p.get("bDemolished", False)),
             "is_supersonic": bool(p.get("bSupersonic", False)),
+            "is_on_ground": bool(p.get("bOnGround", True)),
+            "last_goal_speed": float(last_goal_speed_by_player.get(name, 0.0)),
         })
     if rows:
         upsert_players(rows)
@@ -312,6 +320,7 @@ def handle_clock_updated(data: Dict[str, Any]) -> None:
 def handle_event(evt: Dict[str, Any]) -> None:
     global current_match_guid, clock_running, in_replay, _dbg_printed
     global blue_score, orange_score, local_time_seconds, is_overtime
+    global match_is_active
 
     name = evt.get("Event") or evt.get("event") or ""
     raw_data = evt.get("Data")
@@ -332,8 +341,18 @@ def handle_event(evt: Dict[str, Any]) -> None:
         return
 
     if name == "GoalScored":
-        scorer = _coerce_dict(data.get("Scorer")).get("Name", "?")
-        print(f"[GOAL] {scorer}")
+        scorer_name = _coerce_dict(data.get("Scorer")).get("Name", "?")
+        # GoalSpeed bywa w payloadzie zdarzenia jako "GoalSpeed" lub w sub-obiekcie.
+        gs_raw = data.get("GoalSpeed")
+        if gs_raw is None:
+            gs_raw = _coerce_dict(data.get("Goal")).get("Speed")
+        try:
+            gs = float(gs_raw) if gs_raw is not None else 0.0
+        except Exception:
+            gs = 0.0
+        if scorer_name and scorer_name != "?":
+            last_goal_speed_by_player[scorer_name] = gs
+        print(f"[GOAL] {scorer_name} speed={gs:.0f}")
         return
 
     if name == "GoalReplayStart":
@@ -364,6 +383,8 @@ def handle_event(evt: Dict[str, Any]) -> None:
         is_overtime = False
         in_replay = False
         clock_running = False
+        match_is_active = True
+        last_goal_speed_by_player.clear()
         stats["mode"] = "live"
         # Nowy mecz / replay -> czyscimy poprzednia liste graczy,
         # zeby zalegle wpisy (np. boty z poprzedniej sesji) nie zostaly w overlay.
@@ -373,8 +394,10 @@ def handle_event(evt: Dict[str, Any]) -> None:
 
     if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
         clock_running = False
+        match_is_active = False
         if name == "PodiumStart":
             stats["mode"] = "podium"
+        upsert_match()
         return
 
     if name == "MatchPaused":

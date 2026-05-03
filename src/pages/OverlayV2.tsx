@@ -78,7 +78,7 @@ export default function OverlayV2() {
     }
     if (prevActiveRef.current && !isActive) {
       setShowRecap(true);
-      const t = setTimeout(() => setShowRecap(false), 12_000);
+      const t = setTimeout(() => setShowRecap(false), config.postMatchStats.delayMs + config.postMatchStats.durationMs);
       prevActiveRef.current = isActive;
       return () => clearTimeout(t);
     }
@@ -86,7 +86,7 @@ export default function OverlayV2() {
       setShowRecap(false);
     }
     prevActiveRef.current = isActive;
-  }, [match, isActive]);
+  }, [match, isActive, config.postMatchStats.delayMs, config.postMatchStats.durationMs]);
 
   return (
     <div
@@ -164,7 +164,7 @@ export default function OverlayV2() {
                 transformOrigin: 'top left',
               }}
             >
-              <PostMatchStats winners={winners} registryMap={registryMap} />
+              <PostMatchStats winners={winners} registryMap={registryMap} style={config.postMatchStats} />
             </div>
           </div>
         </div>
