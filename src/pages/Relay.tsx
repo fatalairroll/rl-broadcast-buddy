@@ -597,13 +597,56 @@ def tcp_loop() -> None:
         time.sleep(RECONNECT_DELAY_S)
 
 
+# === GRACEFUL SHUTDOWN ===
+def _shutdown_flush() -> None:
+    """Best-effort: zapisz is_active=false zanim proces zniknie."""
+    global shutting_down, match_active
+    if shutting_down:
+        return
+    shutting_down = True
+    try:
+        with state_lock:
+            payload = {
+                "id": 1,
+                "blue_score": int(blue_score),
+                "orange_score": int(orange_score),
+                "time_seconds": int(round(max(0, local_time_seconds))),
+                "timer": fmt_timer(local_time_seconds),
+                "is_overtime": bool(is_overtime),
+                "match_guid": current_match_guid,
+                "is_active": False,
+            }
+            match_active = False
+        try:
+            sb.table("match_metadata").upsert(payload, on_conflict="id").execute()
+            print("[SHUTDOWN] Zapisano is_active=false do match_metadata.")
+        except Exception as e:
+            print(f"[SHUTDOWN] Nie udalo sie zapisac is_active=false: {e}")
+    except Exception as e:
+        print(f"[SHUTDOWN] Wyjatek przy flushu: {e}")
+
+
+def _signal_handler(signum, _frame) -> None:
+    print(f"[SHUTDOWN] Otrzymano sygnal {signum}, koncze prace...")
+    _shutdown_flush()
+    sys.exit(0)
+
+
 def main() -> None:
-    print("== RL Broadcast Relay V2.1 (Python) ==")
+    print("== RL Broadcast Relay V2.2 (Python) ==")
     print(f"   Stats API: tcp://{RL_HOST}:{RL_PORT} (lokalny JSON stream)")
     print(f"   Supabase:  {SUPABASE_URL}")
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
     print("   I/O do Supabase wykonywane TYLKO w osobnym watku (db_worker).")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
+
+    import atexit
+    atexit.register(_shutdown_flush)
+    try:
+        signal.signal(signal.SIGINT, _signal_handler)
+        signal.signal(signal.SIGTERM, _signal_handler)
+    except Exception:
+        pass
 
     threading.Thread(target=heartbeat_loop, daemon=True).start()
     threading.Thread(target=clock_loop, daemon=True).start()
