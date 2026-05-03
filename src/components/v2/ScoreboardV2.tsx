@@ -4,6 +4,8 @@ import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2'
 import { gradientToCss } from '@/lib/gradient-utils';
 import { glowToBoxShadow } from '@/lib/glow-utils';
 import { positionToStyle } from '@/lib/position-utils';
+import { useScoreboardBounds } from '@/lib/scoreboard-bounds-context';
+import { useEffect } from 'react';
 
 interface Props {
   match: MatchMetadata | null;
@@ -15,6 +17,7 @@ const STAGE_H = 1080;
 
 export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) {
   const sb = config.scoreboard;
+  const { setBounds } = useScoreboardBounds();
   if (!sb.visible) return null;
 
   const blue = match?.blue_score ?? 0;
@@ -22,19 +25,15 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
   const timer = match?.timer ?? '5:00';
   const ot = match?.is_overtime ?? false;
 
-  const skewOuter = `skewX(${sb.skewDeg}deg)`;
-  const skewInner = `skewX(${-sb.skewDeg}deg)`;
   const detached = config.timer.detached;
+
+  // Effective skews per sub-component (each can override or inherit parent).
+  const blueSkew = config.scoreBlue.inheritParentSkew ? sb.skewDeg : config.scoreBlue.skewDeg;
+  const orangeSkew = config.scoreOrange.inheritParentSkew ? sb.skewDeg : config.scoreOrange.skewDeg;
+  const timerSkew = config.timer.inheritParentSkew ? sb.skewDeg : config.timer.skewDeg;
 
   // Allow negative paddingY values to compress tile height below natural size
   // by mapping the negative portion to negative vertical margin.
-  const compressY = (py: number) => ({
-    paddingTop: Math.max(0, py),
-    paddingBottom: Math.max(0, py),
-    marginTop: Math.min(0, py),
-    marginBottom: Math.min(0, py),
-  });
-
   // Fixed-anchor positioning: the visual center of the scoreboard (timer center
   // when inline, mid-gap when detached) is glued to (960 + offsetX). Vertical
   // anchor behaviour mirrors positionToStyle so existing layouts keep working.
@@ -47,37 +46,55 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
         ? 'translateY(-100%)'
         : '';
 
-  // Estimated half-width of the inline timer tile (M:SS, tabular-nums) so the
-  // Blue/Orange slots can be placed symmetrically around the anchor without
-  // measuring the DOM. Tabular-nums keeps width stable across digits.
-  const inlineTimerHalf = !detached
-    ? config.timer.paddingX + config.timer.fontSize * 1.2
-    : 0;
+  // Fixed Box Model: timer width is now an explicit dimension.
+  const inlineTimerHalf = !detached ? config.timer.width / 2 : 0;
   const halfCenter = inlineTimerHalf + sb.gap;
+
+  // Publish scoreboard bounds for attached team names. The visual top
+  // is anchorTop offset by anchorV; we approximate with the tallest tile.
+  const tallest = Math.max(
+    config.scoreBlue.height,
+    config.scoreOrange.height,
+    !detached ? config.timer.height : 0,
+  );
+  const verticalShift =
+    sb.position.anchorV === 'middle' ? -tallest / 2 :
+    sb.position.anchorV === 'bottom' ? -tallest : 0;
+  const top = anchorTop + verticalShift;
+  const totalWidth =
+    config.scoreBlue.width + (detached ? 0 : config.timer.width + 2 * sb.gap) + config.scoreOrange.width;
+  const left = anchorLeft - (config.scoreBlue.width + (detached ? 0 : config.timer.width / 2 + sb.gap));
+  useEffect(() => {
+    setBounds({
+      left,
+      right: left + totalWidth,
+      top,
+      bottom: top + tallest,
+      centerX: anchorLeft,
+      centerY: top + tallest / 2,
+    });
+    return () => setBounds(null);
+  }, [left, totalWidth, top, tallest, anchorLeft, setBounds]);
 
   const timerNode = (
     <div
-      className="flex flex-col items-center justify-center border-y-2 border-white/10"
+      className="flex flex-col items-center justify-center border-y-2 border-white/10 overflow-hidden"
       style={{
-        ...compressY(config.timer.paddingY),
-        paddingLeft: config.timer.paddingX,
-        paddingRight: config.timer.paddingX,
+        width: config.timer.width,
+        height: config.timer.height,
         background: config.timer.background,
-        transform: skewOuter,
+        transform: `skewX(${timerSkew}deg)`,
         boxShadow: glowToBoxShadow(config.timer.glow),
         fontFamily: config.timer.fontFamily,
       }}
     >
       <div
         className="flex flex-col items-center"
-        style={{
-          transform: `translate(${config.timer.textOffsetX}px, ${config.timer.textOffsetY}px)`,
-        }}
+        style={{ transform: `skewX(${-timerSkew}deg)` }}
       >
         <span
           className="tabular-nums tracking-wider"
           style={{
-            transform: skewInner,
             fontFamily: config.timer.fontFamily,
             fontSize: config.timer.fontSize,
             fontWeight: 900,
@@ -90,7 +107,6 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
           <span
             className="text-xs font-bold uppercase tracking-[0.3em] mt-1 animate-pulse"
             style={{
-              transform: skewInner,
               color: config.timer.overtimeLabelColor,
               textShadow: `0 0 8px ${config.timer.overtimeLabelColor}`,
             }}
@@ -105,12 +121,11 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
   // Common style for Blue and Orange tiles
   const blueTile = (
     <div
-      className="flex items-center justify-center"
+      className="flex items-center justify-center overflow-hidden"
       style={{
-        ...compressY(config.scoreBlue.paddingY),
-        paddingLeft: config.scoreBlue.paddingX,
-        paddingRight: config.scoreBlue.paddingX,
-        transform: skewOuter,
+        width: config.scoreBlue.width,
+        height: config.scoreBlue.height,
+        transform: `skewX(${blueSkew}deg)`,
         background: gradientToCss(config.scoreBlue.gradient),
         boxShadow: glowToBoxShadow(config.scoreBlue.glow),
       }}
@@ -118,7 +133,8 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
       <span
         className="tabular-nums tracking-tight"
         style={{
-          transform: skewInner,
+          transform: `skewX(${-blueSkew}deg)`,
+          fontFamily: config.scoreBlue.fontFamily,
           fontSize: config.scoreBlue.fontSize,
           fontWeight: config.scoreBlue.fontWeight,
           color: config.scoreBlue.textColor,
@@ -132,12 +148,11 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
 
   const orangeTile = (
     <div
-      className="flex items-center justify-center"
+      className="flex items-center justify-center overflow-hidden"
       style={{
-        ...compressY(config.scoreOrange.paddingY),
-        paddingLeft: config.scoreOrange.paddingX,
-        paddingRight: config.scoreOrange.paddingX,
-        transform: skewOuter,
+        width: config.scoreOrange.width,
+        height: config.scoreOrange.height,
+        transform: `skewX(${orangeSkew}deg)`,
         background: gradientToCss(config.scoreOrange.gradient),
         boxShadow: glowToBoxShadow(config.scoreOrange.glow),
       }}
@@ -145,7 +160,8 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
       <span
         className="tabular-nums tracking-tight"
         style={{
-          transform: skewInner,
+          transform: `skewX(${-orangeSkew}deg)`,
+          fontFamily: config.scoreOrange.fontFamily,
           fontSize: config.scoreOrange.fontSize,
           fontWeight: config.scoreOrange.fontWeight,
           color: config.scoreOrange.textColor,
@@ -199,7 +215,7 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
               position: 'absolute',
               left: 0,
               top: 0,
-              transform: `translate(calc(-50% + ${config.timer.boxOffsetX}px), ${config.timer.boxOffsetY}px)`,
+              transform: `translate(-50%, 0)`,
               display: 'flex',
             }}
           >
@@ -224,14 +240,8 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
       {/* Timer (detached mode) */}
       {detached && (() => {
         const baseStyle = positionToStyle(config.timer.position);
-        const baseTransform = (baseStyle.transform as string) ?? '';
         return (
-          <div
-            style={{
-              ...baseStyle,
-              transform: `${baseTransform} translate(${config.timer.boxOffsetX}px, ${config.timer.boxOffsetY}px)`.trim(),
-            }}
-          >
+          <div style={baseStyle}>
             {timerNode}
           </div>
         );
