@@ -8,12 +8,17 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
+RL Broadcast Relay V2.1 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
 
 Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
-Endpoint w aktualnych buildach RL zachowuje sie jak zwykly lokalny TCP stream JSON,
-a nie jak klasyczny WebSocket (mimo nazwy w dokumentacji). Ten skrypt laczy sie
-bezposrednio przez TCP i parsuje strumien JSON-ow przy uzyciu raw_decode.
+Skrypt laczy sie z lokalnym TCP streamem RL i parsuje strumien JSON-ow.
+
+ARCHITEKTURA (vs. v2.0):
+  Wątek TCP NIGDY nie wykonuje synchronicznych zapisow do Supabase.
+  Recv -> parse -> aktualizacja stanu w pamieci (pod lockiem).
+  Osobny watek 'db_worker' co WRITE_INTERVAL_S (0.25 s) flushuje stan
+  do Supabase (koalescjacja). Dzieki temu sieciowe lagi do Supabase
+  NIE mogą zatkac bufora TCP gry i nie powoduja zawieszen Rocket League.
 
 Dziala w meczach competitive online, meczach z botami oraz w replayach z Match History.
 
@@ -46,27 +51,27 @@ SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
 RL_HOST = "127.0.0.1"
 RL_PORT = 49123
 
-WRITE_INTERVAL_S = 0.25      # throttle zapisow do DB (~4/s na rodzaj)
+WRITE_INTERVAL_S = 0.25      # tempo workera DB (~4 Hz)
+PRUNE_INTERVAL_S = 2.0       # co ile worker sprzata players_live
 HEARTBEAT_S = 5.0
 WATCHDOG_TIMEOUT_S = 0.5     # po tylu s bez updateu z gry zatrzymujemy lokalny zegar
 LOCAL_TICK_S = 0.1
 NO_DATA_WARN_S = 10.0
 RECONNECT_DELAY_S = 3.0
 RECV_CHUNK = 65536
+RECV_SO_RCVBUF = 1 << 20     # 1 MiB — zapas na bufor TCP
 
 sb: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # === STAN ===
 state_lock = threading.Lock()
 
-last_match_write = 0.0
-last_players_write = 0.0
-last_camera_write = 0.0
 last_event_at = 0.0
 last_state_update_at = 0.0
 
 current_match_guid: Optional[str] = None
-last_active_camera: Optional[str] = None
+pending_camera: Optional[str] = None
+last_pushed_camera: Optional[str] = None  # by uniknac zbednych upsertow
 
 # Lokalny zegar (interpolacja miedzy snapami z gry)
 local_time_seconds: float = 300.0
@@ -76,11 +81,21 @@ in_replay: bool = False  # bReplay z Game lub goal-replay window
 blue_score: int = 0
 orange_score: int = 0
 
+# Snapshot graczy: { player_name -> row dict }. Worker DB go flushuje.
+players_snapshot: Dict[str, Dict[str, Any]] = {}
+
+# Flagi 'dirty' dla workera DB
+dirty_match: bool = False
+dirty_camera: bool = False
+dirty_players: bool = False
+clear_requested: bool = False  # nowy mecz -> wyczysc players_live
+
 stats = {
     "events": 0, "events_delta": 0,
     "match_writes": 0, "match_writes_delta": 0,
     "player_writes": 0, "player_writes_delta": 0,
     "camera_writes": 0, "camera_writes_delta": 0,
+    "db_errors": 0, "db_errors_delta": 0,
     "players_seen": 0,
     "mode": "waiting",  # waiting / live / replay / podium
 }
@@ -91,98 +106,36 @@ def fmt_timer(seconds: float) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
-# === ZAPISY DO DB (z throttlingiem) ===
-def upsert_match() -> None:
-    global last_match_write
-    now = time.time()
-    if now - last_match_write < WRITE_INTERVAL_S:
-        return
-    last_match_write = now
-    payload = {
-        "id": 1,
-        "blue_score": int(blue_score),
-        "orange_score": int(orange_score),
-        "time_seconds": int(round(max(0, local_time_seconds))),
-        "timer": fmt_timer(local_time_seconds),
-        "is_overtime": bool(is_overtime),
-        "match_guid": current_match_guid,
-    }
+# === ZAPISY DO DB ===
+# UWAGA: te funkcje wywoluje TYLKO db_worker_loop, nigdy watek TCP.
+
+def _db_err(where: str, e: Exception) -> None:
+    stats["db_errors"] += 1
+    stats["db_errors_delta"] += 1
+    print(f"[ERR] {where}: {e}")
+
+
+def db_upsert_match(payload: Dict[str, Any]) -> None:
     try:
         sb.table("match_metadata").upsert(payload, on_conflict="id").execute()
         stats["match_writes"] += 1
         stats["match_writes_delta"] += 1
     except Exception as e:
-        print(f"[ERR] match_metadata upsert: {e}")
+        _db_err("match_metadata upsert", e)
 
 
-def upsert_players(rows: List[Dict[str, Any]]) -> None:
-    global last_players_write
+def db_upsert_players(rows: List[Dict[str, Any]]) -> None:
     if not rows:
         return
-    now = time.time()
-    if now - last_players_write < WRITE_INTERVAL_S:
-        return
-    last_players_write = now
     try:
         sb.table("players_live").upsert(rows, on_conflict="player_name").execute()
         stats["player_writes"] += len(rows)
         stats["player_writes_delta"] += len(rows)
     except Exception as e:
-        print(f"[ERR] players_live upsert: {e}")
+        _db_err("players_live upsert", e)
 
 
-def prune_stale_players(current_names: List[str]) -> None:
-    """Kasuje z players_live wpisy graczy, ktorych nie ma w aktualnym snapie z gry.
-    Dzieki temu po przelaczeniu replaya/meczu nie zostaja stare boty/gracze."""
-    if not current_names:
-        return
-    try:
-        # Czytamy aktualne nicki z DB i kasujemy te, ktorych nie ma w snapie z gry.
-        # Pojedyncze .delete().eq() jest odporne na roznice w obsludze 'not in'
-        # przez rozne wersje supabase-py.
-        existing = sb.table("players_live").select("player_name").execute()
-        rows = getattr(existing, "data", None) or []
-        current_set = set(current_names)
-        stale = [r["player_name"] for r in rows if r.get("player_name") not in current_set]
-        for name in stale:
-            try:
-                sb.table("players_live").delete().eq("player_name", name).execute()
-                print(f"[PRUNE] usunieto stary wpis: {name}")
-            except Exception as e:
-                print(f"[ERR] players_live prune ({name}): {e}")
-    except Exception as e:
-        print(f"[ERR] players_live prune: {e}")
-
-
-def clear_all_players() -> None:
-    """Calkowicie czysci players_live — uzywane przy starcie nowego meczu,
-    zeby overlay nie pokazywal nikogo z poprzedniego meczu/replaya."""
-    try:
-        existing = sb.table("players_live").select("player_name").execute()
-        rows = getattr(existing, "data", None) or []
-        for r in rows:
-            name = r.get("player_name")
-            if not name:
-                continue
-            try:
-                sb.table("players_live").delete().eq("player_name", name).execute()
-            except Exception as e:
-                print(f"[ERR] players_live clear ({name}): {e}")
-        if rows:
-            print(f"[RESET] wyczyszczono players_live ({len(rows)} wpisow)")
-    except Exception as e:
-        print(f"[ERR] players_live clear: {e}")
-
-
-def upsert_camera(target: Optional[str]) -> None:
-    global last_camera_write, last_active_camera
-    if target == last_active_camera:
-        return
-    now = time.time()
-    if now - last_camera_write < WRITE_INTERVAL_S:
-        return
-    last_camera_write = now
-    last_active_camera = target
+def db_upsert_camera(target: Optional[str]) -> None:
     try:
         sb.table("active_camera").upsert(
             {"id": 1, "target_name": target}, on_conflict="id"
@@ -190,7 +143,51 @@ def upsert_camera(target: Optional[str]) -> None:
         stats["camera_writes"] += 1
         stats["camera_writes_delta"] += 1
     except Exception as e:
-        print(f"[ERR] active_camera upsert: {e}")
+        _db_err("active_camera upsert", e)
+
+
+def db_prune_players(current_names: List[str]) -> None:
+    """Kasuje z players_live wpisy, ktorych nie ma w aktualnym snapie. Wykonywane
+    rzadko (PRUNE_INTERVAL_S) i tylko z workera DB."""
+    try:
+        existing = sb.table("players_live").select("player_name").execute()
+        rows = getattr(existing, "data", None) or []
+        current_set = set(current_names)
+        stale = [r["player_name"] for r in rows if r.get("player_name") not in current_set]
+        if not stale:
+            return
+        try:
+            sb.table("players_live").delete().in_("player_name", stale).execute()
+            print(f"[PRUNE] usunieto stare wpisy ({len(stale)})")
+        except Exception:
+            # Fallback jesli wersja klienta nie ma .in_ na delete
+            for name in stale:
+                try:
+                    sb.table("players_live").delete().eq("player_name", name).execute()
+                except Exception as e:
+                    _db_err(f"players_live prune ({name})", e)
+    except Exception as e:
+        _db_err("players_live prune", e)
+
+
+def db_clear_all_players() -> None:
+    try:
+        existing = sb.table("players_live").select("player_name").execute()
+        rows = getattr(existing, "data", None) or []
+        names = [r.get("player_name") for r in rows if r.get("player_name")]
+        if not names:
+            return
+        try:
+            sb.table("players_live").delete().in_("player_name", names).execute()
+        except Exception:
+            for name in names:
+                try:
+                    sb.table("players_live").delete().eq("player_name", name).execute()
+                except Exception as e:
+                    _db_err(f"players_live clear ({name})", e)
+        print(f"[RESET] wyczyszczono players_live ({len(names)} wpisow)")
+    except Exception as e:
+        _db_err("players_live clear", e)
 
 
 # === HANDLERY EVENTOW ===
@@ -234,6 +231,7 @@ _dbg_printed = 0
 def handle_update_state(data: Dict[str, Any]) -> None:
     global current_match_guid, local_time_seconds, is_overtime
     global blue_score, orange_score, in_replay, last_state_update_at
+    global pending_camera, dirty_match, dirty_camera, dirty_players
 
     last_state_update_at = time.time()
 
@@ -257,20 +255,19 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     is_overtime = bool(game.get("bOvertime", False))
     in_replay = bool(game.get("bReplay", False))
 
-    upsert_match()
+    dirty_match = True
 
-    # Kamera aktywna
+    # Kamera aktywna -> zapisz w stanie, worker DB sflushuje
     if game.get("bHasTarget"):
-        target = _coerce_dict(game.get("Target")).get("Name")
-        if target:
-            upsert_camera(target)
+        pending_camera = _coerce_dict(game.get("Target")).get("Name") or None
     else:
-        upsert_camera(None)
+        pending_camera = None
+    dirty_camera = True
 
-    # Gracze
+    # Gracze -> tylko aktualizacja snapshotu w pamieci
     players = _coerce_list(data.get("Players"))
     stats["players_seen"] = len(players)
-    rows: List[Dict[str, Any]] = []
+    new_snap: Dict[str, Dict[str, Any]] = {}
     for raw in players:
         p = _coerce_dict(raw)
         if not p:
@@ -278,7 +275,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         name = p.get("Name")
         if not name:
             continue
-        rows.append({
+        new_snap[name] = {
             "player_name": name,
             "team_num": int(p.get("TeamNum", 0) or 0),
             "boost": int(p.get("Boost", 0) or 0),          # SPECTATOR-only
@@ -290,14 +287,15 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             "demos": int(p.get("Demos", 0) or 0),
             "is_demolished": bool(p.get("bDemolished", False)),
             "is_supersonic": bool(p.get("bSupersonic", False)),
-        })
-    if rows:
-        upsert_players(rows)
-        prune_stale_players([r["player_name"] for r in rows])
+        }
+    if new_snap:
+        players_snapshot.clear()
+        players_snapshot.update(new_snap)
+        dirty_players = True
 
 
 def handle_clock_updated(data: Dict[str, Any]) -> None:
-    global local_time_seconds, is_overtime, last_state_update_at
+    global local_time_seconds, is_overtime, last_state_update_at, dirty_match
     last_state_update_at = time.time()
     ts = data.get("TimeSeconds")
     if ts is not None:
@@ -306,12 +304,13 @@ def handle_clock_updated(data: Dict[str, Any]) -> None:
         except Exception:
             return
     is_overtime = bool(data.get("bOvertime", is_overtime))
-    upsert_match()
+    dirty_match = True
 
 
 def handle_event(evt: Dict[str, Any]) -> None:
     global current_match_guid, clock_running, in_replay, _dbg_printed
     global blue_score, orange_score, local_time_seconds, is_overtime
+    global dirty_match, clear_requested
 
     name = evt.get("Event") or evt.get("event") or ""
     raw_data = evt.get("Data")
@@ -365,10 +364,10 @@ def handle_event(evt: Dict[str, Any]) -> None:
         in_replay = False
         clock_running = False
         stats["mode"] = "live"
-        # Nowy mecz / replay -> czyscimy poprzednia liste graczy,
-        # zeby zalegle wpisy (np. boty z poprzedniej sesji) nie zostaly w overlay.
-        clear_all_players()
-        upsert_match()
+        # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
+        players_snapshot.clear()
+        clear_requested = True
+        dirty_match = True
         return
 
     if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
@@ -395,7 +394,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
 
 # === LOKALNY ZEGAR ===
 def clock_loop() -> None:
-    global local_time_seconds, clock_running
+    global local_time_seconds, clock_running, dirty_match
     while True:
         time.sleep(LOCAL_TICK_S)
         with state_lock:
@@ -408,7 +407,62 @@ def clock_loop() -> None:
                 local_time_seconds += LOCAL_TICK_S
             else:
                 local_time_seconds = max(0.0, local_time_seconds - LOCAL_TICK_S)
-        upsert_match()
+            dirty_match = True
+
+
+# === WORKER DB (jedyne miejsce z I/O do Supabase) ===
+def db_worker_loop() -> None:
+    global dirty_match, dirty_camera, dirty_players, clear_requested
+    global pending_camera, last_pushed_camera
+    last_prune = 0.0
+    while True:
+        time.sleep(WRITE_INTERVAL_S)
+
+        # Sekcja krytyczna: tylko zrzut stanu + wyczyszczenie flag.
+        with state_lock:
+            do_clear = clear_requested
+            clear_requested = False
+
+            send_match = dirty_match
+            dirty_match = False
+            match_payload = {
+                "id": 1,
+                "blue_score": int(blue_score),
+                "orange_score": int(orange_score),
+                "time_seconds": int(round(max(0, local_time_seconds))),
+                "timer": fmt_timer(local_time_seconds),
+                "is_overtime": bool(is_overtime),
+                "match_guid": current_match_guid,
+            } if send_match else None
+
+            send_camera = dirty_camera
+            dirty_camera = False
+            cam_target = pending_camera
+
+            send_players = dirty_players
+            dirty_players = False
+            players_rows = list(players_snapshot.values()) if send_players else []
+            current_names = list(players_snapshot.keys())
+
+        # Poza lockiem: wszystkie HTTP-y do Supabase.
+        if do_clear:
+            db_clear_all_players()
+
+        if match_payload is not None:
+            db_upsert_match(match_payload)
+
+        if send_camera and cam_target != last_pushed_camera:
+            db_upsert_camera(cam_target)
+            last_pushed_camera = cam_target
+
+        if players_rows:
+            db_upsert_players(players_rows)
+
+        # Sprzatanie zalegych wpisow — rzadko.
+        now = time.time()
+        if current_names and (now - last_prune) >= PRUNE_INTERVAL_S:
+            last_prune = now
+            db_prune_players(current_names)
 
 
 # === HEARTBEAT ===
@@ -427,13 +481,15 @@ def heartbeat_loop() -> None:
                 f"| players_seen={stats['players_seen']} "
                 f"| DB: match=+{stats['match_writes_delta']} "
                 f"players=+{stats['player_writes_delta']} "
-                f"camera=+{stats['camera_writes_delta']}"
+                f"camera=+{stats['camera_writes_delta']} "
+                f"errors=+{stats['db_errors_delta']}"
                 f"{warn}"
             )
             stats["events_delta"] = 0
             stats["match_writes_delta"] = 0
             stats["player_writes_delta"] = 0
             stats["camera_writes_delta"] = 0
+            stats["db_errors_delta"] = 0
 
 
 # === TCP STREAM (lokalny RL Stats API) ===
@@ -458,12 +514,14 @@ def _process_payload(evt: Any) -> None:
             break
     if not isinstance(evt, dict):
         return
-    with state_lock:
-        stats["events"] += 1
-        stats["events_delta"] += 1
-        last_event_at = time.time()
+    # Caly handler pod lockiem — handle_event tylko mutuje stan w pamieci,
+    # NIGDY nie wykonuje I/O do Supabase. Lock chroni snapshot + flagi.
     try:
-        handle_event(evt)
+        with state_lock:
+            stats["events"] += 1
+            stats["events_delta"] += 1
+            last_event_at = time.time()
+            handle_event(evt)
     except Exception as e:
         print(f"[ERR] handle_event: {e}")
 
@@ -490,6 +548,11 @@ def tcp_loop() -> None:
             print(f"[RL] Laczenie z {RL_HOST}:{RL_PORT} ...")
             sock = socket.create_connection((RL_HOST, RL_PORT), timeout=5.0)
             sock.settimeout(None)
+            try:
+                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, RECV_SO_RCVBUF)
+            except Exception:
+                pass
             print(f"[RL] Polaczono z RL Stats API na {RL_HOST}:{RL_PORT}.")
             buf = ""
             while True:
@@ -526,14 +589,16 @@ def tcp_loop() -> None:
 
 
 def main() -> None:
-    print("== RL Broadcast Relay V2 (Python) ==")
+    print("== RL Broadcast Relay V2.1 (Python) ==")
     print(f"   Stats API: tcp://{RL_HOST}:{RL_PORT} (lokalny JSON stream)")
     print(f"   Supabase:  {SUPABASE_URL}")
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
+    print("   I/O do Supabase wykonywane TYLKO w osobnym watku (db_worker).")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
 
     threading.Thread(target=heartbeat_loop, daemon=True).start()
     threading.Thread(target=clock_loop, daemon=True).start()
+    threading.Thread(target=db_worker_loop, daemon=True).start()
     tcp_loop()
 
 
@@ -639,11 +704,11 @@ PacketSendRate=30`}</pre>
                 </p>
               </div>
 
-              <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                <p className="text-sm text-yellow-300">
-                  <strong>Aktualizacja</strong>
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-sm text-red-300">
+                  <strong>Wazna aktualizacja (v2.1)</strong>
                   <br />
-                  Jesli widzisz w konsoli powtarzajacy sie blad <code className="bg-secondary px-1 rounded">'str' object has no attribute 'get'</code>, pobierz ponownie najnowszy <code className="bg-secondary px-1 rounded">relay.py</code> z tej strony - obsluga zagniezdzonego JSON-a w polu <code className="bg-secondary px-1 rounded">Data</code> zostala dodana.
+                  Jesli uzywales starszej wersji <code className="bg-secondary px-1 rounded">relay.py</code> i Rocket League zawieszal sie systematycznie - pobierz ponownie najnowszy plik. Stara wersja wykonywala synchroniczne zapisy do bazy w tym samym watku, ktory czytal dane z gry; gdy siec do bazy lagowala, bufor TCP gry zapelnial sie i RL zamarzal. v2.1 ma osobny watek DB - czytanie z gry nigdy nie czeka na siec.
                 </p>
               </div>
             </CardContent>
