@@ -32,17 +32,23 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
       }}
     >
       <div
-        className="flex flex-col gap-1 overflow-hidden h-full"
+        className="flex flex-col overflow-hidden h-full"
         style={{
           background: c.background,
           border: `1px solid ${c.borderColor}`,
           padding: `${c.paddingY}px ${c.paddingX}px`,
           direction: reverse ? 'rtl' : 'ltr',
           boxSizing: 'border-box',
+          gap: 4,
+          minHeight: 0,
+          justifyContent: 'center',
         }}
       >
         {/* Nick + boost number */}
-        <div className="flex items-center justify-between" style={{ transform: `skewX(${-c.skewDeg}deg)`, direction: 'ltr' }}>
+        <div
+          className="flex items-center justify-between"
+          style={{ transform: `skewX(${-c.skewDeg}deg)`, direction: 'ltr', flex: '0 0 auto', lineHeight: 1 }}
+        >
           <span
             className={`uppercase truncate ${reverse ? 'order-2 text-right' : 'order-1 text-left'}`}
             style={{
@@ -52,6 +58,7 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
               fontWeight: 700,
               fontSize: c.nameFontSize,
               color: c.nameColor,
+              lineHeight: 1,
             }}
           >
             {displayName}
@@ -62,6 +69,7 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
               fontWeight: 900,
               fontSize: c.boostFontSize,
               color: player.is_supersonic ? c.supersonicColor : c.nameColor,
+              lineHeight: 1,
             }}
           >
             {boost}
@@ -69,7 +77,10 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
         </div>
 
         {/* Boost bar */}
-        <div className="relative bg-white/10 overflow-hidden" style={{ height: c.barHeight }}>
+        <div
+          className="relative bg-white/10 overflow-hidden"
+          style={{ height: c.barHeight, width: '100%', flex: '0 0 auto' }}
+        >
           <motion.div
             className="absolute inset-y-0"
             style={{
@@ -93,6 +104,8 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
               fontSize: c.statsFontSize,
               fontWeight: 700,
               color: c.statsColor,
+              flex: '0 0 auto',
+              lineHeight: 1,
             }}
           >
             {c.stats.goals && <span>G {player.goals}</span>}
