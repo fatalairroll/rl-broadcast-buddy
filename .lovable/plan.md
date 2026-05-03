@@ -1,66 +1,78 @@
-# Auto-hide overlaya: debounce + fail-safe
 
-## Cel
-Overlay V2 ma znikać gdy bot Pythonowy zgłosi koniec meczu (`match_metadata.is_active = false`) lub gdy całkowicie straci połączenie. Pokazanie ma być natychmiastowe, ukrycie — z opóźnieniem żeby nie migotało.
+# Plan: naprawa zawieszeń gry powodowanych przez `relay.py`
 
-## Logika
+## Diagnoza — dlaczego gra się zawiesza
 
-**Pokaż overlay (opacity-100)** gdy:
-- `is_active === true` ORAZ
-- `updated_at` młodszy niż 30s
+W obecnym skrypcie (`src/pages/Relay.tsx`, treść `relay.py`) **wątek czytający z gniazda RL Stats API jest tym samym wątkiem, który wykonuje synchroniczne zapisy HTTP do Supabase**. Konkretnie w `tcp_loop` → `_drain_buffer` → `_process_payload` → `handle_event` → `handle_update_state` wywołujemy bezpośrednio:
 
-**Ukryj overlay (opacity-0)** gdy spełniony jest jeden z warunków:
-- `is_active === false` utrzymuje się nieprzerwanie ≥ 5s (debounce)
-- `updated_at` starszy niż 30s (fail-safe — utrata połączenia z botem)
+- `upsert_match()` → `sb.table("match_metadata").upsert(...).execute()` (blokujący HTTP)
+- `upsert_camera()` → blokujący HTTP
+- `upsert_players(rows)` → blokujący HTTP
+- `prune_stale_players(...)` → **`SELECT` + osobny `DELETE` per gracz, na każdy `UpdateState`** (czyli ~30×/s przy `PacketSendRate=30`)
+- `clear_all_players()` na `MatchCreated/Initialized` — też SELECT + N×DELETE
 
-Każde przyjście świeżego update'u z `is_active=true` natychmiast resetuje debounce i pokazuje overlay.
+RL Stats API to lokalny strumień TCP. Gra zapisuje do tego gniazda **synchronicznie z głównej pętli renderowania** — jeśli klient (nasz relay) nie odczytuje wystarczająco szybko, kernelowy bufor TCP się zapełnia, `send()` w grze blokuje, a Rocket League **dosłownie zamarza** do czasu, aż relay znów coś wczyta. Każdy zapis do Supabase trwający 100–500 ms (lub timeout kilku sekund) → tyle samo zawieszenia gry.
 
-## Zmiany w kodzie
+Drugi problem: `prune_stale_players` jest O(graczy_w_db) i wykonuje round-trip do bazy oraz oddzielny DELETE per gracz przy **każdym** snapshocie. To gwarantowane lagi.
 
-### 1. Nowy plik: `src/hooks/useOverlayVisibility.ts`
+Throttle (`WRITE_INTERVAL_S=0.25`) tylko zmniejsza częstotliwość, ale gdy zapis się odpali, nadal blokuje recv.
 
-Hook przyjmuje `match: MatchMetadata | null` i zwraca `boolean visible`.
+## Rozwiązanie (architektura)
 
-Wewnątrz:
-- `useState<boolean>(true)` — bieżąca widoczność
-- `useRef<number>` — timestamp pierwszego momentu gdy `is_active` stał się `false`
-- `useEffect` reagujący na zmiany `match.is_active` i `match.updated_at`:
-  - jeśli `is_active === true` i dane świeże → `setVisible(true)`, wyczyść ref
-  - jeśli `is_active === false` → ustaw ref na `Date.now()` jeżeli pusty
-- `useEffect` z `setInterval(1000ms)` przeliczający widoczność:
-  - oblicz `staleness = Date.now() - new Date(match.updated_at).getTime()`
-  - `shouldHide = (refSet && Date.now() - ref >= 5000) || staleness > 30000`
-  - `setVisible(!shouldHide)`
-- gdy `match === null` → `visible = false` (nic do pokazania)
+Producent/konsument: **wątek TCP tylko parsuje i aktualizuje stan w pamięci**. Osobny **worker DB** czyta najnowszy stan i flushuje go z własnym tempem. Recv nigdy nie czeka na sieć Supabase.
 
-Stałe: `HIDE_DEBOUNCE_MS = 5000`, `STALE_MS = 30000`, `TICK_MS = 1000`.
-
-### 2. `src/pages/OverlayV2.tsx`
-
-Zamiana:
-```tsx
-const isActive = match?.is_active ?? true;
 ```
-na:
-```tsx
-const visible = useOverlayVisibility(match);
+[RL TCP recv] → parse → update in-memory snapshot (lock)
+                                  │
+                                  ▼
+                       [DB worker thread, ~4 Hz]
+                       reads snapshot → upsert
 ```
-i użycie `visible` w `className` zamiast `isActive`. Reszta bez zmian.
 
-## Zachowanie w skrajnych przypadkach
+Kluczowe zasady:
+- recv loop **nigdy** nie wywołuje `sb.*.execute()`
+- worker DB **koalescjuje** — pisze tylko aktualny stan, nie kolejkę zdarzeń
+- prune/clear graczy: nie per snapshot. `clear_all_players` zostaje przy `MatchCreated`, ale wykonywany asynchronicznie w workerze. `prune_stale_players` zastąpiony przez `is_active=false` na wpisach, których nie ma w aktualnym snapie (jedna operacja batch), uruchamiany rzadko (np. raz na 2 s).
+- socket: ustawić `SO_RCVBUF` większy + `TCP_NODELAY`; recv w pętli bez blokowania na niczym innym.
+- `requests`/`supabase-py` synchroniczne — zostawiamy, ale tylko w workerze. Dodatkowo **timeout** krótki, żeby jedno zacięcie sieci nie zatrzymało workera na minutę (recv i tak działa niezależnie, ale chcemy świeże dane).
 
-| Sytuacja | Zachowanie |
-|---|---|
-| Bot ustawia `is_active=false` | Ukrycie po 5s, fade 500ms |
-| Bot ustawia `is_active=true` po pauzie | Pokazanie natychmiast |
-| Bot pada bez ustawienia flagi | Ukrycie po 30s (fail-safe) |
-| Krótki restart bota (<5s) | Bez migotania — debounce trzyma overlay |
-| Brak `match` w bazie | Ukryty |
-| Brak pola `is_active` (legacy) | Traktujemy jak `true` (zgodność wsteczna) |
+## Zmiany w `relay.py` (osadzony w `src/pages/Relay.tsx`)
 
-## Pliki
+1. **Globalny snapshot w pamięci** (już prawie jest — `local_time_seconds`, `blue_score`, itd.). Dodać `players_snapshot: dict[name → row]` aktualizowane w `handle_update_state` zamiast bezpośredniego `upsert_players`.
 
-- nowy: `src/hooks/useOverlayVisibility.ts`
-- edit: `src/pages/OverlayV2.tsx` (import + 2 linie)
+2. **Usunąć z `handle_*` wszystkie wywołania `sb.*`**:
+   - `upsert_match()` w `handle_update_state` / `handle_clock_updated` / `clock_loop` / `MatchCreated` → tylko ustawiają `dirty_match=True`.
+   - `upsert_camera()` → ustawia `pending_camera = target` + `dirty_camera`.
+   - `upsert_players()` / `prune_stale_players()` → znikają z hot path. Zamiast tego w snapshot trafia pełna lista nicków z bieżącego pakietu i `dirty_players=True`.
+   - `clear_all_players()` na `MatchCreated` → `clear_requested=True`.
 
-Po stronie bota Python (poza tym repo) trzeba dopisać setowanie `match_metadata.is_active = true/false` — to nie wchodzi w zakres tej zmiany, ale bez tego działa tylko fail-safe na staleness.
+3. **Nowy wątek `db_worker_loop`**:
+   - tick co `WRITE_INTERVAL_S` (0.25 s).
+   - pod lockiem robi shallow copy flag + danych, czyści flagi, **zwalnia lock**, potem wykonuje HTTP poza lockiem.
+   - kolejność: jeśli `clear_requested` → `clear_all_players()`; potem match, camera, players (jeden upsert z tablicą), na koniec ewentualny soft-prune (raz na ~2 s) wykonywany jednym zapytaniem typu `delete().not_.in_("player_name", current_names)` — jeśli klient supabase-py tej wersji nie wspiera, robimy SELECT + jeden DELETE z `in_(stale_list)` zamiast pętli.
+   - każde wywołanie HTTP w `try/except` z `timeout` (np. 3 s) i logiem; błąd nie zatrzymuje workera.
+
+4. **Lokalna pętla zegara** (`clock_loop`) — zostawić, ale również nie wywoływać DB; tylko `dirty_match=True`. Worker i tak puszcza match z 4 Hz, co dla zegara w overlay wystarczy.
+
+5. **Socket hardening** w `tcp_loop`:
+   - `sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)`
+   - `sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1 << 20)` (1 MiB)
+   - `RECV_CHUNK` zostaje 65 536.
+   - usunąć jakiekolwiek logi/`print` wywoływane per pakiet (już jest tylko `_dbg_printed<3`, ok).
+
+6. **Heartbeat** — bez zmian, ale dodać `db_queue_depth` flagi (informacyjnie: czy worker zdąża).
+
+7. **Bezpieczeństwo wątkowe**: jeden `state_lock` chroni snapshot + flagi. Lock trzymany tylko na czas mutacji pamięci, nigdy podczas I/O.
+
+## Pliki do edycji
+
+- `src/pages/Relay.tsx` — zaktualizowana zawartość `getRelayScript()` (cały Python). To jedyny plik do zmiany; overlay i baza pozostają jak są.
+- (opcjonalnie) krótka notka w sekcji „Aktualizacja” na stronie `/relay` informująca, że stara wersja powodowała mikro-zawieszenia gry i trzeba pobrać nową.
+
+## Efekt
+
+- Recv z RL drenowany w pętli bez blokady → bufor TCP gry nigdy się nie zapełnia → koniec zawieszeń.
+- Liczba zapisów do Supabase ograniczona do ~4/s na typ, zamiast skoków do 30/s + N delete'ów.
+- Awaria sieci do Supabase nie wpływa już na FPS gry — najwyżej overlay przestaje się odświeżać (i tak włączy się fail-safe z `useOverlayVisibility`).
+
+Po zatwierdzeniu wdrażam.
