@@ -515,7 +515,13 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   tm.boxOffsetY = tm.boxOffsetY ?? 0;
   tm.textOffsetX = tm.textOffsetX ?? 0;
   tm.textOffsetY = tm.textOffsetY ?? 0;
+  tm.width = tm.width ?? defaultOverlayV2Config.timer.width;
+  tm.height = tm.height ?? defaultOverlayV2Config.timer.height;
+  tm.skewDeg = tm.skewDeg ?? defaultOverlayV2Config.timer.skewDeg;
+  tm.inheritParentSkew = tm.inheritParentSkew ?? true;
   const bb = { ...defaultOverlayV2Config.boostBar, ...(p.boostBar ?? {}) } as BoostBarV2Style;
+  bb.cardHeight = bb.cardHeight ?? defaultOverlayV2Config.boostBar.cardHeight;
+  bb.barHeight = bb.barHeight ?? defaultOverlayV2Config.boostBar.barHeight;
   const legacySide = (p.boostBar as any)?.sideOffset;
   const legacyVA = (p.boostBar as any)?.verticalAlign;
   if (!(p.boostBar as any)?.positionLeft && (legacySide != null || legacyVA != null)) {
@@ -541,13 +547,31 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   }
   if (!pc.fields) pc.fields = { ...defaultOverlayV2Config.playerCard.fields };
   if (!pc.stats) pc.stats = { ...defaultOverlayV2Config.playerCard.stats };
+  pc.inheritParentSkew = pc.inheritParentSkew ?? false;
   const ss = { ...defaultOverlayV2Config.seriesScore, ...((p as any).seriesScore ?? {}) } as SeriesScoreStyle;
   const tnb = { ...defaultOverlayV2Config.teamNameBlue, ...((p as any).teamNameBlue ?? {}) } as TeamNameStyle;
   const tno = { ...defaultOverlayV2Config.teamNameOrange, ...((p as any).teamNameOrange ?? {}) } as TeamNameStyle;
+  for (const tn of [tnb, tno]) {
+    tn.width = tn.width ?? defaultOverlayV2Config.teamNameBlue.width;
+    tn.height = tn.height ?? defaultOverlayV2Config.teamNameBlue.height;
+    tn.attachToScoreboard = tn.attachToScoreboard ?? false;
+    tn.attachOffsetX = tn.attachOffsetX ?? 0;
+    tn.attachOffsetY = tn.attachOffsetY ?? 0;
+  }
+  // Score sides backfill
+  const sblue = { ...defaultOverlayV2Config.scoreBlue, ...(p.scoreBlue ?? {}) } as ScoreSideStyle;
+  const sorange = { ...defaultOverlayV2Config.scoreOrange, ...(p.scoreOrange ?? {}) } as ScoreSideStyle;
+  for (const ss2 of [sblue, sorange]) {
+    ss2.width = ss2.width ?? 140;
+    ss2.height = ss2.height ?? 100;
+    ss2.fontFamily = ss2.fontFamily ?? sb.fontFamily ?? 'Rajdhani, sans-serif';
+    ss2.skewDeg = ss2.skewDeg ?? sb.skewDeg ?? -15;
+    ss2.inheritParentSkew = ss2.inheritParentSkew ?? true;
+  }
   return {
     scoreboard: sb,
-    scoreBlue: { ...defaultOverlayV2Config.scoreBlue, ...(p.scoreBlue ?? {}) },
-    scoreOrange: { ...defaultOverlayV2Config.scoreOrange, ...(p.scoreOrange ?? {}) },
+    scoreBlue: sblue,
+    scoreOrange: sorange,
     timer: tm,
     boostBar: bb,
     playerCard: pc,
