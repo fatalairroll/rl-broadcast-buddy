@@ -158,7 +158,7 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
             style={{
               left: bodyLeft,
               top: '32%',
-              transform: `translateY(-50%) translate(${c.nickOffsetX ?? 0}px, ${c.nickOffsetY ?? 0}px) ${skewInner}`,
+              transform: `translateY(-50%) translate(${c.nickOffsetX ?? 0}px, ${c.nickOffsetY ?? 0}px)`,
               transformOrigin: 'left center',
               whiteSpace: 'nowrap',
             }}
