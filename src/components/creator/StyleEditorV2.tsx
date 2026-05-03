@@ -17,6 +17,9 @@ import {
 } from '@/types/overlayV2';
 import type { GlowConfig } from '@/lib/glow-utils';
 import type { GradientConfig, GradientStop } from '@/lib/gradient-utils';
+import { OverrideLock } from './OverrideLock';
+import { useRegistryOverrides } from '@/hooks/useRegistryOverrides';
+import { useBroadcast } from '@/hooks/useBroadcast';
 
 interface Props {
   config: OverlayV2Config;
@@ -27,6 +30,8 @@ interface Props {
 export function StyleEditorV2({ config, element, onChange }: Props) {
   const update = <K extends keyof OverlayV2Config>(key: K, patch: Partial<OverlayV2Config[K]>) =>
     onChange({ ...config, [key]: { ...config[key], ...patch } });
+  const { session } = useBroadcast();
+  const overrides = useRegistryOverrides(session);
 
   return (
     <Card>
@@ -40,9 +45,12 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <PositionEditor value={config.scoreboard.position} onChange={(p) => update('scoreboard', { position: p })} />
             <Separator />
             <SliderInput label="Odstęp między kafelkami" value={config.scoreboard.gap} onValueChange={(v) => update('scoreboard', { gap: v })} min={0} max={64} unit="px" />
-            <SliderInput label="Skew" value={config.scoreboard.skewDeg} onValueChange={(v) => update('scoreboard', { skewDeg: v })} min={-30} max={30} unit="°" />
+            <SliderInput label="Skew (rodzic)" value={config.scoreboard.skewDeg} onValueChange={(v) => update('scoreboard', { skewDeg: v })} min={-30} max={30} unit="°" />
             <SliderInput label="Opacity" value={config.scoreboard.opacity} onValueChange={(v) => update('scoreboard', { opacity: v })} min={0} max={1} step={0.05} />
-            <FontInput label="Font" value={config.scoreboard.fontFamily} onChange={(v) => update('scoreboard', { fontFamily: v })} />
+            <FontInput label="Font (fallback rodzica)" value={config.scoreboard.fontFamily} onChange={(v) => update('scoreboard', { fontFamily: v })} />
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              Skew i font są dziedziczone przez Wynik Niebieskich/Pomarańczowych/Timer tylko gdy ich pole „Dziedzicz po rodzicu" jest włączone.
+            </p>
           </>
         )}
 
@@ -62,17 +70,20 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
                 <Separator />
               </>
             )}
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Wymiary (Fixed Box)</h4>
+            <SliderInput label="Szerokość" value={config.timer.width} onValueChange={(v) => update('timer', { width: v })} min={80} max={500} unit="px" />
+            <SliderInput label="Wysokość" value={config.timer.height} onValueChange={(v) => update('timer', { height: v })} min={40} max={240} unit="px" />
+            <Separator />
             <ColorPicker label="Tło" value={config.timer.background} onChange={(v) => update('timer', { background: v })} />
             <FontInput label="Font" value={config.timer.fontFamily} onChange={(v) => update('timer', { fontFamily: v })} />
             <SliderInput label="Rozmiar fontu" value={config.timer.fontSize} onValueChange={(v) => update('timer', { fontSize: v })} min={20} max={120} unit="px" />
             <ColorPicker label="Kolor tekstu" value={config.timer.textColor} onChange={(v) => update('timer', { textColor: v })} />
-            <SliderInput label="Padding X" value={config.timer.paddingX} onValueChange={(v) => update('timer', { paddingX: v })} min={0} max={120} unit="px" />
-            <SliderInput label="Padding Y" value={config.timer.paddingY} onValueChange={(v) => update('timer', { paddingY: v })} min={-30} max={60} unit="px" />
             <Separator />
-            <SliderInput label="Box - offset X" value={config.timer.boxOffsetX} onValueChange={(v) => update('timer', { boxOffsetX: v })} min={-300} max={300} unit="px" />
-            <SliderInput label="Box - offset Y" value={config.timer.boxOffsetY} onValueChange={(v) => update('timer', { boxOffsetY: v })} min={-200} max={200} unit="px" />
-            <SliderInput label="Tekst - offset X" value={config.timer.textOffsetX} onValueChange={(v) => update('timer', { textOffsetX: v })} min={-100} max={100} unit="px" />
-            <SliderInput label="Tekst - offset Y" value={config.timer.textOffsetY} onValueChange={(v) => update('timer', { textOffsetY: v })} min={-60} max={60} unit="px" />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Skew</h4>
+            <Toggle label="Dziedzicz skew po Scoreboardzie" value={config.timer.inheritParentSkew} onChange={(v) => update('timer', { inheritParentSkew: v })} />
+            {!config.timer.inheritParentSkew && (
+              <SliderInput label="Skew (własny)" value={config.timer.skewDeg} onValueChange={(v) => update('timer', { skewDeg: v })} min={-30} max={30} unit="°" />
+            )}
             <Separator />
             <Toggle label="Etykieta Overtime" value={config.timer.showOvertimeLabel} onChange={(v) => update('timer', { showOvertimeLabel: v })} />
             <ColorPicker label="Kolor etykiety OT" value={config.timer.overtimeLabelColor} onChange={(v) => update('timer', { overtimeLabelColor: v })} />
@@ -90,7 +101,10 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja prawy stack</h4>
             <PositionEditor value={config.boostBar.positionRight} onChange={(p) => update('boostBar', { positionRight: p })} />
             <Separator />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Wymiary (Fixed Box)</h4>
             <SliderInput label="Szerokość paska" value={config.boostBar.width} onValueChange={(v) => update('boostBar', { width: v })} min={180} max={500} unit="px" />
+            <SliderInput label="Wysokość kafelka gracza" value={config.boostBar.cardHeight} onValueChange={(v) => update('boostBar', { cardHeight: v })} min={32} max={160} unit="px" />
+            <SliderInput label="Wysokość paska boost" value={config.boostBar.barHeight} onValueChange={(v) => update('boostBar', { barHeight: v })} min={2} max={32} unit="px" />
             <SliderInput label="Odstęp w pionie" value={config.boostBar.gap} onValueChange={(v) => update('boostBar', { gap: v })} min={0} max={40} unit="px" />
             <SliderInput label="Skew" value={config.boostBar.skewDeg} onValueChange={(v) => update('boostBar', { skewDeg: v })} min={-30} max={30} unit="°" />
             <ColorPicker label="Tło" value={config.boostBar.background} onChange={(v) => update('boostBar', { background: v })} />
@@ -146,17 +160,22 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <Toggle label="Demo" value={config.playerCard.stats.demos} onChange={(v) => update('playerCard', { stats: { ...config.playerCard.stats, demos: v } })} />
             <Toggle label="Boost" value={config.playerCard.stats.boost} onChange={(v) => update('playerCard', { stats: { ...config.playerCard.stats, boost: v } })} />
             <Separator />
-            <SliderInput label="Min. szerokość" value={config.playerCard.width} onValueChange={(v) => update('playerCard', { width: v })} min={400} max={1200} unit="px" />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Wymiary (Fixed Box)</h4>
+            <SliderInput label="Szerokość" value={config.playerCard.width} onValueChange={(v) => update('playerCard', { width: v })} min={400} max={1200} unit="px" />
             <SliderInput label="Wysokość" value={config.playerCard.height} onValueChange={(v) => update('playerCard', { height: v })} min={100} max={300} unit="px" />
             <SliderInput label="Skew" value={config.playerCard.skewDeg} onValueChange={(v) => update('playerCard', { skewDeg: v })} min={-30} max={30} unit="°" />
             <ColorPicker label="Kolor obramowania" value={config.playerCard.borderColor} onChange={(v) => update('playerCard', { borderColor: v })} />
             <SliderInput label="Grubość obramowania" value={config.playerCard.borderWidth} onValueChange={(v) => update('playerCard', { borderWidth: v })} min={0} max={8} unit="px" />
             <Separator />
             <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Gradient niebiescy (fallback)</h4>
-            <GradientEditor value={config.playerCard.blueGradient} onChange={(v) => update('playerCard', { blueGradient: v })} />
+            <OverrideLock active={overrides.hasTeamColorOverride} reason="Nadpisane przez players_registry.team_color">
+              <GradientEditor value={config.playerCard.blueGradient} onChange={(v) => update('playerCard', { blueGradient: v })} />
+            </OverrideLock>
             <Separator />
             <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Gradient pomarańczowi (fallback)</h4>
-            <GradientEditor value={config.playerCard.orangeGradient} onChange={(v) => update('playerCard', { orangeGradient: v })} />
+            <OverrideLock active={overrides.hasTeamColorOverride} reason="Nadpisane przez players_registry.team_color">
+              <GradientEditor value={config.playerCard.orangeGradient} onChange={(v) => update('playerCard', { orangeGradient: v })} />
+            </OverrideLock>
             <Separator />
             <GlowEditor value={config.playerCard.glow} onChange={(v) => update('playerCard', { glow: v })} />
             <Separator />
@@ -182,11 +201,11 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <SliderInput label="Ranga - offset X" value={config.playerCard.rankOffsetX ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetX: v })} min={-200} max={200} unit="px" />
             <SliderInput label="Ranga - offset Y" value={config.playerCard.rankOffsetY ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetY: v })} min={-200} max={200} unit="px" />
             <Separator />
-            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja nicku</h4>
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja nicku (w karcie)</h4>
             <SliderInput label="Nick - offset X" value={config.playerCard.nickOffsetX ?? 0} onValueChange={(v) => update('playerCard', { nickOffsetX: v })} min={-400} max={400} unit="px" />
             <SliderInput label="Nick - offset Y" value={config.playerCard.nickOffsetY ?? 0} onValueChange={(v) => update('playerCard', { nickOffsetY: v })} min={-200} max={200} unit="px" />
             <Separator />
-            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja statystyk</h4>
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja statystyk (w karcie)</h4>
             <SliderInput label="Statystyki - offset X" value={config.playerCard.statsOffsetX ?? 0} onValueChange={(v) => update('playerCard', { statsOffsetX: v })} min={-400} max={400} unit="px" />
             <SliderInput label="Statystyki - offset Y" value={config.playerCard.statsOffsetY ?? 0} onValueChange={(v) => update('playerCard', { statsOffsetY: v })} min={-200} max={200} unit="px" />
           </>
@@ -237,6 +256,7 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
           <TeamNameEditor
             value={element === 'teamNameBlue' ? config.teamNameBlue : config.teamNameOrange}
             onChange={(patch) => update(element, patch)}
+            mmrLocked={overrides.hasMmrMatchBinding}
           />
         )}
       </CardContent>
@@ -247,20 +267,29 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
 function TeamNameEditor({
   value,
   onChange,
+  mmrLocked,
 }: {
   value: TeamNameStyle;
   onChange: (patch: Partial<TeamNameStyle>) => void;
+  mmrLocked: boolean;
 }) {
   return (
     <>
       <Toggle label="Widoczna" value={value.visible} onChange={(v) => onChange({ visible: v })} />
-      <PositionEditor value={value.position} onChange={(p) => onChange({ position: p })} />
-      <SliderInput label="Offset X (fine)" value={value.offsetX ?? 0} onValueChange={(v) => onChange({ offsetX: v })} min={-960} max={960} unit="px" />
-      <SliderInput label="Offset Y (fine)" value={value.offsetY ?? 0} onValueChange={(v) => onChange({ offsetY: v })} min={-540} max={540} unit="px" />
+      <Toggle label="Przyklej do Scoreboardu" value={value.attachToScoreboard} onChange={(v) => onChange({ attachToScoreboard: v })} />
+      {value.attachToScoreboard ? (
+        <>
+          <SliderInput label="Attach offset X" value={value.attachOffsetX} onValueChange={(v) => onChange({ attachOffsetX: v })} min={-400} max={400} unit="px" />
+          <SliderInput label="Attach offset Y" value={value.attachOffsetY} onValueChange={(v) => onChange({ attachOffsetY: v })} min={-200} max={200} unit="px" />
+        </>
+      ) : (
+        <PositionEditor value={value.position} onChange={(p) => onChange({ position: p })} />
+      )}
       <Separator />
-      <SliderInput label="Padding X" value={value.paddingX} onValueChange={(v) => onChange({ paddingX: v })} min={0} max={120} unit="px" />
-      <SliderInput label="Padding Y" value={value.paddingY} onValueChange={(v) => onChange({ paddingY: v })} min={-30} max={60} unit="px" />
-      <SliderInput label="Min. szerokość" value={value.minWidth} onValueChange={(v) => onChange({ minWidth: v })} min={0} max={600} unit="px" />
+      <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Wymiary (Fixed Box)</h4>
+      <SliderInput label="Szerokość" value={value.width} onValueChange={(v) => onChange({ width: v })} min={80} max={800} unit="px" />
+      <SliderInput label="Wysokość" value={value.height} onValueChange={(v) => onChange({ height: v })} min={28} max={240} unit="px" />
+      <SliderInput label="Padding X (wewnątrz)" value={value.paddingX} onValueChange={(v) => onChange({ paddingX: v })} min={0} max={120} unit="px" />
       <SliderInput label="Skew (box)" value={value.skewDeg} onValueChange={(v) => onChange({ skewDeg: v })} min={-30} max={30} unit="°" />
       <SliderInput label="Opacity" value={value.opacity} onValueChange={(v) => onChange({ opacity: v })} min={0} max={1} step={0.05} />
       <Separator />
@@ -300,9 +329,13 @@ function TeamNameEditor({
       <ColorPicker label="Kolor obramowania" value={value.borderColor} onChange={(v) => onChange({ borderColor: v })} />
       <SliderInput label="Grubość obramowania" value={value.borderWidth} onValueChange={(v) => onChange({ borderWidth: v })} min={0} max={8} unit="px" />
       <Separator />
-      <ColorPicker label="Tło (fallback)" value={value.background} onChange={(v) => onChange({ background: v })} />
+      <OverrideLock active={mmrLocked} reason="Kolor drużyny nadpisywany przez bracket MMRivals">
+        <ColorPicker label="Tło (fallback)" value={value.background} onChange={(v) => onChange({ background: v })} />
+      </OverrideLock>
       <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Gradient tła</h4>
-      <GradientEditor value={value.gradient} onChange={(g) => onChange({ gradient: g })} />
+      <OverrideLock active={mmrLocked} reason="Kolor drużyny nadpisywany przez bracket MMRivals">
+        <GradientEditor value={value.gradient} onChange={(g) => onChange({ gradient: g })} />
+      </OverrideLock>
       <Separator />
       <GlowEditor value={value.glow} onChange={(g) => onChange({ glow: g })} />
     </>
@@ -318,13 +351,22 @@ function ScoreSideEditor({
 }) {
   return (
     <>
+      <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Wymiary (Fixed Box)</h4>
+      <SliderInput label="Szerokość" value={value.width} onValueChange={(v) => onChange({ width: v })} min={60} max={400} unit="px" />
+      <SliderInput label="Wysokość" value={value.height} onValueChange={(v) => onChange({ height: v })} min={40} max={240} unit="px" />
+      <Separator />
+      <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Skew</h4>
+      <Toggle label="Dziedzicz skew po Scoreboardzie" value={value.inheritParentSkew} onChange={(v) => onChange({ inheritParentSkew: v })} />
+      {!value.inheritParentSkew && (
+        <SliderInput label="Skew (własny)" value={value.skewDeg} onValueChange={(v) => onChange({ skewDeg: v })} min={-30} max={30} unit="°" />
+      )}
+      <Separator />
       <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Gradient tła</h4>
       <GradientEditor value={value.gradient} onChange={(g) => onChange({ gradient: g })} />
       <Separator />
       <GlowEditor value={value.glow} onChange={(g) => onChange({ glow: g })} />
       <Separator />
-      <SliderInput label="Padding X" value={value.paddingX} onValueChange={(v) => onChange({ paddingX: v })} min={0} max={120} unit="px" />
-      <SliderInput label="Padding Y" value={value.paddingY} onValueChange={(v) => onChange({ paddingY: v })} min={-30} max={60} unit="px" />
+      <FontInput label="Font" value={value.fontFamily} onChange={(v) => onChange({ fontFamily: v })} />
       <SliderInput label="Rozmiar fontu" value={value.fontSize} onValueChange={(v) => onChange({ fontSize: v })} min={20} max={140} unit="px" />
       <SliderInput label="Grubość" value={value.fontWeight} onValueChange={(v) => onChange({ fontWeight: v })} min={300} max={900} step={100} />
       <ColorPicker label="Kolor tekstu" value={value.textColor} onChange={(v) => onChange({ textColor: v })} />
