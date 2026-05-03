@@ -195,6 +195,30 @@ export type Database = {
         }
         Relationships: []
       }
+      match_results: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          match_guid: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          match_guid: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          match_guid?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       overlay_presets_v2: {
         Row: {
           config: Json
