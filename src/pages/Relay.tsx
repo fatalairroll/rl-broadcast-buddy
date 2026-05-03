@@ -8,7 +8,7 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2.1 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
+RL Broadcast Relay V2.2 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
 
 Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
 Skrypt laczy sie z lokalnym TCP streamem RL i parsuje strumien JSON-ow.
@@ -33,6 +33,8 @@ Plik wygenerowany na stronie /relay — nie musisz nic edytowac.
 
 import json
 import socket
+import signal
+import sys
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -54,7 +56,6 @@ RL_PORT = 49123
 WRITE_INTERVAL_S = 0.25      # tempo workera DB (~4 Hz)
 PRUNE_INTERVAL_S = 2.0       # co ile worker sprzata players_live
 HEARTBEAT_S = 5.0
-WATCHDOG_TIMEOUT_S = 0.5     # po tylu s bez updateu z gry zatrzymujemy lokalny zegar
 LOCAL_TICK_S = 0.1
 NO_DATA_WARN_S = 10.0
 RECONNECT_DELAY_S = 3.0
@@ -83,6 +84,12 @@ orange_score: int = 0
 
 # Snapshot graczy: { player_name -> row dict }. Worker DB go flushuje.
 players_snapshot: Dict[str, Dict[str, Any]] = {}
+
+# Czy aktualnie trwa mecz (sterowane WYLACZNIE eventami z RL Stats API).
+# True  <- MatchCreated / MatchInitialized
+# False <- MatchEnded / MatchDestroyed (lub graceful shutdown bota)
+match_active: bool = False
+shutting_down: bool = False
 
 # Flagi 'dirty' dla workera DB
 dirty_match: bool = False
