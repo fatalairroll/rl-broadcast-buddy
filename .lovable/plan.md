@@ -1,78 +1,45 @@
 
-# Plan: naprawa zawieszeń gry powodowanych przez `relay.py`
+# Naprawa: overlay chowa się wyłącznie po evencie końca meczu
 
-## Diagnoza — dlaczego gra się zawiesza
+## Założenia (zaktualizowane)
 
-W obecnym skrypcie (`src/pages/Relay.tsx`, treść `relay.py`) **wątek czytający z gniazda RL Stats API jest tym samym wątkiem, który wykonuje synchroniczne zapisy HTTP do Supabase**. Konkretnie w `tcp_loop` → `_drain_buffer` → `_process_payload` → `handle_event` → `handle_update_state` wywołujemy bezpośrednio:
-
-- `upsert_match()` → `sb.table("match_metadata").upsert(...).execute()` (blokujący HTTP)
-- `upsert_camera()` → blokujący HTTP
-- `upsert_players(rows)` → blokujący HTTP
-- `prune_stale_players(...)` → **`SELECT` + osobny `DELETE` per gracz, na każdy `UpdateState`** (czyli ~30×/s przy `PacketSendRate=30`)
-- `clear_all_players()` na `MatchCreated/Initialized` — też SELECT + N×DELETE
-
-RL Stats API to lokalny strumień TCP. Gra zapisuje do tego gniazda **synchronicznie z głównej pętli renderowania** — jeśli klient (nasz relay) nie odczytuje wystarczająco szybko, kernelowy bufor TCP się zapełnia, `send()` w grze blokuje, a Rocket League **dosłownie zamarza** do czasu, aż relay znów coś wczyta. Każdy zapis do Supabase trwający 100–500 ms (lub timeout kilku sekund) → tyle samo zawieszenia gry.
-
-Drugi problem: `prune_stale_players` jest O(graczy_w_db) i wykonuje round-trip do bazy oraz oddzielny DELETE per gracz przy **każdym** snapshocie. To gwarantowane lagi.
-
-Throttle (`WRITE_INTERVAL_S=0.25`) tylko zmniejsza częstotliwość, ale gdy zapis się odpali, nadal blokuje recv.
-
-## Rozwiązanie (architektura)
-
-Producent/konsument: **wątek TCP tylko parsuje i aktualizuje stan w pamięci**. Osobny **worker DB** czyta najnowszy stan i flushuje go z własnym tempem. Recv nigdy nie czeka na sieć Supabase.
-
-```
-[RL TCP recv] → parse → update in-memory snapshot (lock)
-                                  │
-                                  ▼
-                       [DB worker thread, ~4 Hz]
-                       reads snapshot → upsert
-```
-
-Kluczowe zasady:
-- recv loop **nigdy** nie wywołuje `sb.*.execute()`
-- worker DB **koalescjuje** — pisze tylko aktualny stan, nie kolejkę zdarzeń
-- prune/clear graczy: nie per snapshot. `clear_all_players` zostaje przy `MatchCreated`, ale wykonywany asynchronicznie w workerze. `prune_stale_players` zastąpiony przez `is_active=false` na wpisach, których nie ma w aktualnym snapie (jedna operacja batch), uruchamiany rzadko (np. raz na 2 s).
-- socket: ustawić `SO_RCVBUF` większy + `TCP_NODELAY`; recv w pętli bez blokowania na niczym innym.
-- `requests`/`supabase-py` synchroniczne — zostawiamy, ale tylko w workerze. Dodatkowo **timeout** krótki, żeby jedno zacięcie sieci nie zatrzymało workera na minutę (recv i tak działa niezależnie, ale chcemy świeże dane).
+- Brak watchdoga / timeoutu bezczynności. Cisza w pakietach ≠ koniec meczu.
+- Źródłem prawdy są **wyłącznie** eventy z RL Stats API.
+- Fail-safe staleness w overlayu (30 s) zostaje jako zabezpieczenie na utratę bota, ale relay nie używa żadnego timeoutu do flagowania `is_active`.
 
 ## Zmiany w `relay.py` (osadzony w `src/pages/Relay.tsx`)
 
-1. **Globalny snapshot w pamięci** (już prawie jest — `local_time_seconds`, `blue_score`, itd.). Dodać `players_snapshot: dict[name → row]` aktualizowane w `handle_update_state` zamiast bezpośredniego `upsert_players`.
+1. **Stan**: dodaję flagę `match_active: bool` (start: `False`).
 
-2. **Usunąć z `handle_*` wszystkie wywołania `sb.*`**:
-   - `upsert_match()` w `handle_update_state` / `handle_clock_updated` / `clock_loop` / `MatchCreated` → tylko ustawiają `dirty_match=True`.
-   - `upsert_camera()` → ustawia `pending_camera = target` + `dirty_camera`.
-   - `upsert_players()` / `prune_stale_players()` → znikają z hot path. Zamiast tego w snapshot trafia pełna lista nicków z bieżącego pakietu i `dirty_players=True`.
-   - `clear_all_players()` na `MatchCreated` → `clear_requested=True`.
+2. **Mapowanie eventów → `match_active`** (jedyne miejsca, które ją zmieniają):
+   - `MatchCreated` / `MatchInitialized` → `match_active = True`, `dirty_match = True`
+   - `MatchEnded` / `MatchDestroyed` → `match_active = False`, `dirty_match = True`
+   - `PodiumStart`, pauzy, replaye, gole — **nie ruszają** `match_active` (tylko ewentualnie `clock_running`).
 
-3. **Nowy wątek `db_worker_loop`**:
-   - tick co `WRITE_INTERVAL_S` (0.25 s).
-   - pod lockiem robi shallow copy flag + danych, czyści flagi, **zwalnia lock**, potem wykonuje HTTP poza lockiem.
-   - kolejność: jeśli `clear_requested` → `clear_all_players()`; potem match, camera, players (jeden upsert z tablicą), na koniec ewentualny soft-prune (raz na ~2 s) wykonywany jednym zapytaniem typu `delete().not_.in_("player_name", current_names)` — jeśli klient supabase-py tej wersji nie wspiera, robimy SELECT + jeden DELETE z `in_(stale_list)` zamiast pętli.
-   - każde wywołanie HTTP w `try/except` z `timeout` (np. 3 s) i logiem; błąd nie zatrzymuje workera.
+3. **`db_upsert_match`** zawsze dokleja `"is_active": match_active` do payloadu, więc każdy zapis workera DB odzwierciedla bieżący stan.
 
-4. **Lokalna pętla zegara** (`clock_loop`) — zostawić, ale również nie wywoływać DB; tylko `dirty_match=True`. Worker i tak puszcza match z 4 Hz, co dla zegara w overlay wystarczy.
+4. **Usuwam watchdoga**:
+   - kasuję stałą `WATCHDOG_TIMEOUT_S` i wszystkie odwołania,
+   - w `clock_loop` znika gałąź zatrzymująca zegar po braku `UpdateState`,
+   - `last_state_update_at` zostaje tylko jeśli jest używany do czegoś innego (np. heartbeat info); w przeciwnym razie usuwam też jego.
 
-5. **Socket hardening** w `tcp_loop`:
-   - `sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)`
-   - `sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1 << 20)` (1 MiB)
-   - `RECV_CHUNK` zostaje 65 536.
-   - usunąć jakiekolwiek logi/`print` wywoływane per pakiet (już jest tylko `_dbg_printed<3`, ok).
+5. **Graceful shutdown** (jedyne dodatkowe źródło `is_active=false` poza eventami):
+   - rejestracja `signal.SIGINT` i `signal.SIGTERM` + `atexit`,
+   - handler ustawia globalny `shutting_down = True`, wymusza ostatni synchroniczny upsert `match_metadata` z `is_active=false` (timeout 2 s, best-effort, błąd logowany ale ignorowany), po czym proces kończy się normalnie,
+   - jeśli zapis się nie powiedzie, fail-safe staleness 30 s w overlayu i tak go schowa.
 
-6. **Heartbeat** — bez zmian, ale dodać `db_queue_depth` flagi (informacyjnie: czy worker zdąża).
+6. **UI `/relay`**: jedno zdanie w sekcji „Aktualizacja", że overlay znika dokładnie w momencie `MatchEnded`/`MatchDestroyed` lub po czystym zamknięciu bota.
 
-7. **Bezpieczeństwo wątkowe**: jeden `state_lock` chroni snapshot + flagi. Lock trzymany tylko na czas mutacji pamięci, nigdy podczas I/O.
+## Czego nie zmieniam
 
-## Pliki do edycji
-
-- `src/pages/Relay.tsx` — zaktualizowana zawartość `getRelayScript()` (cały Python). To jedyny plik do zmiany; overlay i baza pozostają jak są.
-- (opcjonalnie) krótka notka w sekcji „Aktualizacja” na stronie `/relay` informująca, że stara wersja powodowała mikro-zawieszenia gry i trzeba pobrać nową.
+- `useOverlayVisibility` — działa poprawnie (5 s debounce hide + 30 s staleness fail-safe).
+- Schemat bazy.
+- Architektura producent/konsument z poprzedniego kroku.
 
 ## Efekt
 
-- Recv z RL drenowany w pętli bez blokady → bufor TCP gry nigdy się nie zapełnia → koniec zawieszeń.
-- Liczba zapisów do Supabase ograniczona do ~4/s na typ, zamiast skoków do 30/s + N delete'ów.
-- Awaria sieci do Supabase nie wpływa już na FPS gry — najwyżej overlay przestaje się odświeżać (i tak włączy się fail-safe z `useOverlayVisibility`).
+- `MatchEnded` / `MatchDestroyed` w grze → worker w ≤250 ms pisze `is_active=false` → overlay znika po 5 s debounce.
+- Cisza pakietów w trakcie meczu (lag, krótka pauza renderowania) → `is_active` zostaje `true`, overlay stoi.
+- `Ctrl+C` / kill bota → shutdown hook wysyła `is_active=false`; w razie awarii zapisu zadziała staleness 30 s.
 
 Po zatwierdzeniu wdrażam.
