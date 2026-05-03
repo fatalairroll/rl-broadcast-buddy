@@ -8,6 +8,7 @@ import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
 import { useActivePlayerMmrInfo } from '@/hooks/useActivePlayerMmrInfo';
+import { ScoreboardBoundsProvider } from '@/lib/scoreboard-bounds-context';
 import {
   MOCK_MATCH,
   MOCK_PLAYERS,
@@ -51,6 +52,7 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
   const orangeName = useMock ? 'TEAM ORANGE' : (session?.team_b_name ?? '');
 
   return (
+    <ScoreboardBoundsProvider>
     <div
       className="relative shrink-0 overflow-hidden"
       style={{
@@ -92,5 +94,6 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
         </div>
       </div>
     </div>
+    </ScoreboardBoundsProvider>
   );
 }
