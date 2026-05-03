@@ -1,31 +1,29 @@
-## Plan
+## Hybrydowe auto-ukrywanie overlaya V2
 
-Zostawiam obecny system kotwicy scoreboardu (timer wycentrowany na 960+offsetX). Dodaję tylko niezależne offsety dla **boxa timera** i dla **tekstu** w środku — bez wpływu na pozycje Blue/Orange.
+Bot już docelowo będzie pisał `match_metadata.is_active` (true przy MatchCreated / żywych graczach, false przy MatchDestroyed). Po stronie overlaya dokładam drugą warstwę bezpieczeństwa: **stale detection 8s** na podstawie `updated_at`.
 
-### 1) Typy — `src/types/overlayV2.ts`
-W `TimerStyle` dodać (default `0`):
-- `boxOffsetX`, `boxOffsetY` — przesunięcie kafelka timera (inline i detached).
-- `textOffsetX`, `textOffsetY` — przesunięcie samego napisu (i etykiety OT) wewnątrz kafelka.
+### Logika końcowa
 
-Zaktualizować `defaultOverlayV2Config.timer` oraz `mergeV2Config` (fallback `?? 0`), żeby stare configi nie wybuchły.
+Overlay jest widoczny gdy spełnione **OBA** warunki:
+1. `match.is_active === true` (lub null/undefined → traktujemy jako true dla wstecznej kompatybilności)
+2. `Date.now() - new Date(match.updated_at).getTime() < 8000`
 
-### 2) Renderer — `src/components/v2/ScoreboardV2.tsx`
-- W `timerNode`: opakować zawartość kafelka (span z czasem + label OT) dodatkowym wrapperem z `transform: translate(textOffsetX, textOffsetY)` (zastosowanym po `skewInner`, żeby nie wykrzywiało ruchu).
-- Inline mode: do wrappera kafelka dołożyć `translate(boxOffsetX, boxOffsetY)` razem z istniejącym `translateX(-50%)` → `transform: translate(calc(-50% + Xpx), Ypx)`. Blue/Orange pozostają na `halfCenter` — nie ruszają się.
-- Detached mode: do stylu z `positionToStyle(config.timer.position)` doliczyć `translate(boxOffsetX, boxOffsetY)`.
+W przeciwnym razie kontener dostaje `opacity-0` (już opakowany w `transition-opacity duration-500`, więc fade działa od razu).
 
-### 3) Edytor — `src/components/creator/StyleEditorV2.tsx` (sekcja `timer`)
-Dodać dwie pod‑sekcje:
-- **Pozycja boxa** (zawsze widoczna):
-  - `Box - offset X` (-300..300 px)
-  - `Box - offset Y` (-200..200 px)
-- **Pozycja tekstu**:
-  - `Tekst - offset X` (-100..100 px)
-  - `Tekst - offset Y` (-60..60 px)
+### Zmiany
 
-### Pliki
-- `src/types/overlayV2.ts`
-- `src/components/v2/ScoreboardV2.tsx`
-- `src/components/creator/StyleEditorV2.tsx`
+**`src/pages/OverlayV2.tsx`**
+- Dodaję `useState<number>(Date.now())` + `useEffect` z `setInterval(..., 1000)`, który tylko inkrementuje "tick", żeby komponent przeliczał świeżość co sekundę (bez tego stale-check zamarza między eventami realtime).
+- `const isFresh = match?.updated_at ? (now - new Date(match.updated_at).getTime() < 8000) : false;`
+- `const isActive = (match?.is_active ?? true) && isFresh;`
+- Pozostała logika klasy `opacity-0/100` + `transition-opacity duration-500` bez zmian.
 
-Bez zmian w bazie — pola jadą w JSON‑owym configu overlaya.
+**Bez zmian:** baza (`is_active` już istnieje), `useLiveStatsV2` (już ciągnie `match_metadata.*` w tym `updated_at` i `is_active`), `V2Preview` (mock zawsze pokazany).
+
+### Plik do edycji
+- `src/pages/OverlayV2.tsx`
+
+### Uwagi
+- Mock w `/creator` ma `is_active: true` i świeże `updated_at` przy każdym renderze — preview nie zostanie ukryty.
+- Próg 8s jest stałą `STALE_MS = 8_000` na górze pliku, łatwa do tuningu później.
+- Po stronie bota: gdy zacznie pisać `is_active=false`, fade zadziała natychmiast (nie czekamy 8s).
