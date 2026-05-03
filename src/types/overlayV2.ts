@@ -34,6 +34,12 @@ export interface ScoreSideStyle {
   fontWeight: number;
   textColor: string;
   textShadow: string;      // raw CSS string
+  // Fixed Box Model
+  width: number;
+  height: number;
+  fontFamily: string;
+  skewDeg: number;
+  inheritParentSkew: boolean;
 }
 
 export interface TimerStyle {
@@ -49,12 +55,16 @@ export interface TimerStyle {
   /** When true, timer is rendered as its own absolute element using `position`. */
   detached: boolean;
   position: PositionV2;
-  /** Offset of the timer box (applied in both inline and detached modes). */
-  boxOffsetX: number;
-  boxOffsetY: number;
-  /** Offset of the time text (and OT label) inside the box. */
-  textOffsetX: number;
-  textOffsetY: number;
+  /** @deprecated legacy fine offsets, replaced by Position offsetX/Y. */
+  boxOffsetX?: number;
+  boxOffsetY?: number;
+  textOffsetX?: number;
+  textOffsetY?: number;
+  // Fixed Box Model
+  width: number;
+  height: number;
+  skewDeg: number;
+  inheritParentSkew: boolean;
 }
 
 export interface BoostBarStatsToggle {
@@ -69,6 +79,10 @@ export interface BoostBarV2Style {
   visible: boolean;
   width: number;             // total bar card width
   gap: number;               // px between bars in stack
+  /** Fixed height of each player card in the boost stack. */
+  cardHeight: number;
+  /** Fixed height of the boost bar inside the card. */
+  barHeight: number;
   /** @deprecated use positionLeft/positionRight. */
   sideOffset?: number;
   /** @deprecated use positionLeft/positionRight. */
@@ -127,6 +141,7 @@ export interface PlayerCardV2Style {
   width: number;
   height: number;
   skewDeg: number;
+  inheritParentSkew?: boolean;
   borderColor: string;
   borderWidth: number;
   // Team color fallbacks (used when registry.team_color missing)
@@ -199,6 +214,8 @@ export interface TeamNameStyle {
   paddingX: number;
   paddingY: number;
   minWidth: number;
+  width: number;
+  height: number;
   fontFamily: string;
   fontSize: number;
   fontWeight: number;
@@ -216,9 +233,13 @@ export interface TeamNameStyle {
   opacity: number;
   maxChars: number; // 0 = unlimited
   uppercase: boolean;
-  /** Fine-tune offsets applied AFTER position anchor resolution, in px. */
-  offsetX: number;
-  offsetY: number;
+  /** @deprecated legacy fine offsets, replaced by Position offsetX/Y. */
+  offsetX?: number;
+  offsetY?: number;
+  /** When true, position is computed relative to scoreboard edges. */
+  attachToScoreboard: boolean;
+  attachOffsetX: number;
+  attachOffsetY: number;
 }
 
 export interface OverlayV2Config {
