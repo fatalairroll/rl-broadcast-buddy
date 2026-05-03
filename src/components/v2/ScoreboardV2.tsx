@@ -222,16 +222,20 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
       </motion.div>
 
       {/* Timer (detached mode) */}
-      {detached && (
-        <div
-          style={{
-            ...positionToStyle(config.timer.position),
-            transform: `translate(${config.timer.boxOffsetX}px, ${config.timer.boxOffsetY}px)`,
-          }}
-        >
-          {timerNode}
-        </div>
-      )}
+      {detached && (() => {
+        const baseStyle = positionToStyle(config.timer.position);
+        const baseTransform = (baseStyle.transform as string) ?? '';
+        return (
+          <div
+            style={{
+              ...baseStyle,
+              transform: `${baseTransform} translate(${config.timer.boxOffsetX}px, ${config.timer.boxOffsetY}px)`.trim(),
+            }}
+          >
+            {timerNode}
+          </div>
+        );
+      })()}
     </>
   );
 }
