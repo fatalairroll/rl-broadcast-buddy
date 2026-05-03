@@ -313,9 +313,11 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             "demos": int(p.get("Demos", 0) or 0),
             "is_demolished": bool(p.get("bDemolished", False)),
             "is_supersonic": bool(p.get("bSupersonic", False)),
-            "is_on_ground": bool(p.get("bOnGround", True)),
-            "last_goal_speed": float(last_goal_speed_by_player.get(name, 0.0)),
         })
+
+    # Agregacja statystyk meczu (tylko gdy mecz live, nie w replayu).
+    update_match_agg(players)
+
     if rows:
         upsert_players(rows)
         prune_stale_players([r["player_name"] for r in rows])
