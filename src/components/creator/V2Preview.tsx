@@ -3,7 +3,6 @@ import { BoostStackV2 } from '@/components/v2/BoostStackV2';
 import { PlayerCardV2 } from '@/components/v2/PlayerCardV2';
 import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
 import { TeamNameV2 } from '@/components/v2/TeamNameV2';
-import { PostMatchStats } from '@/components/v2/PostMatchStats';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
 import { useBroadcast } from '@/hooks/useBroadcast';
@@ -16,16 +15,15 @@ import {
   MOCK_SERIES,
   buildMockRegistryMap,
 } from '@/lib/v2-mock-data';
-import type { OverlayV2Config, V2EditableElement } from '@/types/overlayV2';
+import type { OverlayV2Config } from '@/types/overlayV2';
 
 interface Props {
   config: OverlayV2Config;
   mode: 'live' | 'mock';
   scale?: number;
-  selectedElement?: V2EditableElement;
 }
 
-export function V2Preview({ config, mode, scale = 0.5, selectedElement }: Props) {
+export function V2Preview({ config, mode, scale = 0.5 }: Props) {
   const live = useLiveStatsV2();
   const liveSeries = useBroadcastSeries();
   const { session } = useBroadcast();
@@ -91,20 +89,6 @@ export function V2Preview({ config, mode, scale = 0.5, selectedElement }: Props)
         <BoostStackV2 players={blue} registryMap={registryMap} side="left" activeName={activeName} config={config} />
           <BoostStackV2 players={orange} registryMap={registryMap} side="right" activeName={activeName} config={config} />
           <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} mmrOverride={mmrOverride} />
-          {selectedElement === 'postMatchStats' && (
-            <PostMatchStats
-              winners={{
-                fastestShot: { player_name: 'Vortex', value: 124 },
-                mostDemos: { player_name: 'Reaper', value: 5 },
-                mostAir: { player_name: 'Phantom', value: 187 },
-                mostGround: { player_name: 'Solar', value: 142 },
-                fastestAvg: { player_name: 'Blaze', value: 96 },
-                mostSupersonic: { player_name: 'Vortex', value: 73 },
-              }}
-              registryMap={registryMap}
-              style={{ ...config.postMatchStats, delayMs: 0 }}
-            />
-          )}
         </div>
       </div>
     </div>

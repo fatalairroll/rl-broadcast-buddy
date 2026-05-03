@@ -1,22 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScoreboardV2 } from '@/components/v2/ScoreboardV2';
 import { BoostStackV2 } from '@/components/v2/BoostStackV2';
 import { PlayerCardV2 } from '@/components/v2/PlayerCardV2';
 import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
 import { TeamNameV2 } from '@/components/v2/TeamNameV2';
-import { PostMatchStats } from '@/components/v2/PostMatchStats';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useActiveV2Config } from '@/hooks/useOverlayV2Config';
 import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
 import { useActivePlayerMmrInfo } from '@/hooks/useActivePlayerMmrInfo';
-import { useMatchResult } from '@/hooks/useMatchResult';
 
 export default function OverlayV2() {
   const {
     match,
-    players,
     blue,
     orange,
     activeCameraTarget,
@@ -30,7 +27,6 @@ export default function OverlayV2() {
   const { matches } = useMmrivalsBracket(session?.mmr_tournament_id ?? null);
   const activeMmrMatch = findMatchById(matches, session?.mmr_match_id ?? null);
   const mmrOverride = useActivePlayerMmrInfo(session, activeMmrMatch, activeCameraTarget);
-  const winners = useMatchResult(match?.match_guid ?? null);
 
   // Transparent body for OBS capture
   useEffect(() => {
@@ -62,31 +58,6 @@ export default function OverlayV2() {
   const stageScale = fit * safeGlobalScale;
 
   const isActive = match?.is_active ?? true;
-
-  // Show recap card 2 s after match ends (is_active true -> false).
-  // Hide automatically after 12 s, or when a new match becomes active /
-  // match_guid changes.
-  const [showRecap, setShowRecap] = useState(false);
-  const prevActiveRef = useRef<boolean>(true);
-  const prevGuidRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!match) return;
-    const guid = match.match_guid ?? null;
-    if (prevGuidRef.current !== guid) {
-      prevGuidRef.current = guid;
-      setShowRecap(false);
-    }
-    if (prevActiveRef.current && !isActive) {
-      setShowRecap(true);
-      const t = setTimeout(() => setShowRecap(false), config.postMatchStats.delayMs + config.postMatchStats.durationMs);
-      prevActiveRef.current = isActive;
-      return () => clearTimeout(t);
-    }
-    if (!prevActiveRef.current && isActive) {
-      setShowRecap(false);
-    }
-    prevActiveRef.current = isActive;
-  }, [match, isActive, config.postMatchStats.delayMs, config.postMatchStats.durationMs]);
 
   return (
     <div
@@ -136,39 +107,6 @@ export default function OverlayV2() {
           <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} mmrOverride={mmrOverride} />
         </div>
       </div>
-      {showRecap && (
-        <div
-          className="relative shrink-0"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-          }}
-        >
-          <div
-            className="relative"
-            style={{
-              width: 1920 * stageScale,
-              height: 1080 * stageScale,
-              margin: 'auto',
-              position: 'absolute',
-              inset: 0,
-            }}
-          >
-            <div
-              className="relative"
-              style={{
-                width: 1920,
-                height: 1080,
-                transform: `scale(${stageScale})`,
-                transformOrigin: 'top left',
-              }}
-            >
-              <PostMatchStats winners={winners} registryMap={registryMap} style={config.postMatchStats} />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

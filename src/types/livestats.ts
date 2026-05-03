@@ -44,18 +44,3 @@ export interface PlayerRegistry {
   created_at?: string;
   updated_at?: string;
 }
-
-export interface Winner {
-  player_name: string;
-  value: number;
-  unit?: string;
-}
-
-export interface PostMatchWinners {
-  fastestShot: Winner | null;
-  mostDemos: Winner | null;
-  mostAir: Winner | null;
-  mostGround: Winner | null;
-  fastestAvg: Winner | null;
-  mostSupersonic: Winner | null;
-}

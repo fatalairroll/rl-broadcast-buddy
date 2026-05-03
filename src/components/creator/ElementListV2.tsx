@@ -17,7 +17,6 @@ const ORDER: V2EditableElement[] = [
   'teamNameOrange',
   'boostBar',
   'playerCard',
-  'postMatchStats',
   'general',
 ];
 

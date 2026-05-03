@@ -225,48 +225,6 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
           </>
         )}
 
-
-        {element === 'postMatchStats' && (
-          <>
-            <Toggle label="Widoczna" value={config.postMatchStats.visible} onChange={(v) => update('postMatchStats', { visible: v })} />
-            <SliderInput label="Opóźnienie pojawienia" value={config.postMatchStats.delayMs} onValueChange={(v) => update('postMatchStats', { delayMs: v })} min={0} max={10000} step={100} unit="ms" />
-            <SliderInput label="Czas wyświetlania" value={config.postMatchStats.durationMs} onValueChange={(v) => update('postMatchStats', { durationMs: v })} min={3000} max={60000} step={500} unit="ms" />
-            <Separator />
-            <SliderInput label="Szerokość" value={config.postMatchStats.width} onValueChange={(v) => update('postMatchStats', { width: v })} min={400} max={1200} unit="px" />
-            <SliderInput label="Zaokrąglenie" value={config.postMatchStats.borderRadius} onValueChange={(v) => update('postMatchStats', { borderRadius: v })} min={0} max={48} unit="px" />
-            <SliderInput label="Blur tła" value={config.postMatchStats.blurPx} onValueChange={(v) => update('postMatchStats', { blurPx: v })} min={0} max={40} unit="px" />
-            <ColorPicker label="Tło karty" value={config.postMatchStats.background} onChange={(v) => update('postMatchStats', { background: v })} />
-            <ColorPicker label="Obramowanie" value={config.postMatchStats.borderColor} onChange={(v) => update('postMatchStats', { borderColor: v })} />
-            <ColorPicker label="Tło wierszy" value={config.postMatchStats.rowBackground} onChange={(v) => update('postMatchStats', { rowBackground: v })} />
-            <Separator />
-            <FontInput label="Font" value={config.postMatchStats.fontFamily} onChange={(v) => update('postMatchStats', { fontFamily: v })} />
-            <div className="space-y-2">
-              <Label className="text-xs">Tytuł</Label>
-              <Input className="h-8 text-xs" value={config.postMatchStats.titleText} onChange={(e) => update('postMatchStats', { titleText: e.target.value })} />
-            </div>
-            <SliderInput label="Rozmiar tytułu" value={config.postMatchStats.titleFontSize} onValueChange={(v) => update('postMatchStats', { titleFontSize: v })} min={16} max={64} unit="px" />
-            <ColorPicker label="Kolor tytułu" value={config.postMatchStats.titleColor} onChange={(v) => update('postMatchStats', { titleColor: v })} />
-            <ColorPicker label="Akcent niebieski" value={config.postMatchStats.accentBlue} onChange={(v) => update('postMatchStats', { accentBlue: v })} />
-            <ColorPicker label="Akcent pomarańczowy" value={config.postMatchStats.accentOrange} onChange={(v) => update('postMatchStats', { accentOrange: v })} />
-            <Separator />
-            <SliderInput label="Rozmiar etykiety" value={config.postMatchStats.labelFontSize} onValueChange={(v) => update('postMatchStats', { labelFontSize: v })} min={10} max={28} unit="px" />
-            <ColorPicker label="Kolor etykiety" value={config.postMatchStats.labelColor} onChange={(v) => update('postMatchStats', { labelColor: v })} />
-            <SliderInput label="Rozmiar nicku" value={config.postMatchStats.playerFontSize} onValueChange={(v) => update('postMatchStats', { playerFontSize: v })} min={10} max={28} unit="px" />
-            <ColorPicker label="Kolor nicku" value={config.postMatchStats.playerColor} onChange={(v) => update('postMatchStats', { playerColor: v })} />
-            <SliderInput label="Rozmiar wartości" value={config.postMatchStats.valueFontSize} onValueChange={(v) => update('postMatchStats', { valueFontSize: v })} min={10} max={32} unit="px" />
-            <ColorPicker label="Kolor wartości" value={config.postMatchStats.valueColor} onChange={(v) => update('postMatchStats', { valueColor: v })} />
-            <Toggle label="Pokaż awatary" value={config.postMatchStats.showAvatars} onChange={(v) => update('postMatchStats', { showAvatars: v })} />
-            <Separator />
-            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Widoczność wierszy</h4>
-            <Toggle label="🚀 Najszybszy strzał" value={config.postMatchStats.rowVisibility.fastestShot} onChange={(v) => update('postMatchStats', { rowVisibility: { ...config.postMatchStats.rowVisibility, fastestShot: v } })} />
-            <Toggle label="💥 Zniszczenia" value={config.postMatchStats.rowVisibility.mostDemos} onChange={(v) => update('postMatchStats', { rowVisibility: { ...config.postMatchStats.rowVisibility, mostDemos: v } })} />
-            <Toggle label="✈️ Czas w powietrzu" value={config.postMatchStats.rowVisibility.mostAir} onChange={(v) => update('postMatchStats', { rowVisibility: { ...config.postMatchStats.rowVisibility, mostAir: v } })} />
-            <Toggle label="🚜 Czas na ziemi" value={config.postMatchStats.rowVisibility.mostGround} onChange={(v) => update('postMatchStats', { rowVisibility: { ...config.postMatchStats.rowVisibility, mostGround: v } })} />
-            <Toggle label="⚡ Najszybszy na boisku" value={config.postMatchStats.rowVisibility.fastestAvg} onChange={(v) => update('postMatchStats', { rowVisibility: { ...config.postMatchStats.rowVisibility, fastestAvg: v } })} />
-            <Toggle label="🔥 Supersonic control" value={config.postMatchStats.rowVisibility.mostSupersonic} onChange={(v) => update('postMatchStats', { rowVisibility: { ...config.postMatchStats.rowVisibility, mostSupersonic: v } })} />
-          </>
-        )}
-
         {element === 'general' && (
           <>
             <Toggle label="Animacje" value={config.general.animationsEnabled} onChange={(v) => update('general', { animationsEnabled: v })} />

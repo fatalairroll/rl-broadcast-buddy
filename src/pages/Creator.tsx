@@ -210,7 +210,7 @@ export default function Creator() {
         {/* Center: live preview */}
         <main className="flex-1 overflow-auto p-6 bg-grid-pattern flex flex-col items-center gap-6">
           <div className="border border-border shadow-2xl">
-            <V2Preview config={config} mode={previewMode} scale={0.5} selectedElement={element} />
+            <V2Preview config={config} mode={previewMode} scale={0.5} />
           </div>
           {previewMode === 'live' && <BroadcastControlsPanel />}
         </main>
