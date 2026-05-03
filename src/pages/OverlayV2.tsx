@@ -11,7 +11,7 @@ import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
 import { useActivePlayerMmrInfo } from '@/hooks/useActivePlayerMmrInfo';
-import { usePostMatchStats } from '@/hooks/usePostMatchStats';
+import { useMatchResult } from '@/hooks/useMatchResult';
 
 export default function OverlayV2() {
   const {
@@ -30,7 +30,7 @@ export default function OverlayV2() {
   const { matches } = useMmrivalsBracket(session?.mmr_tournament_id ?? null);
   const activeMmrMatch = findMatchById(matches, session?.mmr_match_id ?? null);
   const mmrOverride = useActivePlayerMmrInfo(session, activeMmrMatch, activeCameraTarget);
-  const winners = usePostMatchStats(players, match);
+  const winners = useMatchResult(match?.match_guid ?? null);
 
   // Transparent body for OBS capture
   useEffect(() => {
