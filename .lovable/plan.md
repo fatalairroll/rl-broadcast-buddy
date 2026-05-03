@@ -1,97 +1,136 @@
-## PostMatchStats — wariant B (pełny)
+## Cel
 
-Komponent podsumowania meczu wyświetlający się 2 s po przejściu `match_metadata.is_active` z `true` na `false`. Dane agregowane na żywo z `players_live` (z nowymi kolumnami `is_on_ground` i `last_goal_speed`).
+Bot Python liczy wszystkie statystyki meczu i zapisuje gotowy rekord do nowej tabeli `match_results`. Frontend tylko subskrybuje tabelę i wyświetla dane. Frontend nie agreguje już niczego.
 
-### 1) Migracja bazy
+## 1) Migracja bazy
 
-Dodaję dwie kolumny do `players_live`:
+Nowa tabela `public.match_results`:
+
+```sql
+CREATE TABLE public.match_results (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_guid text NOT NULL UNIQUE,
+  data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.match_results ENABLE ROW LEVEL SECURITY;
+
+-- Public RLS (zgodnie z konwencją projektu — dev mode)
+CREATE POLICY "Public read match_results" ON public.match_results FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "Public insert match_results" ON public.match_results FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "Public update match_results" ON public.match_results FOR UPDATE TO anon, authenticated USING (true);
+CREATE POLICY "Public delete match_results" ON public.match_results FOR DELETE TO anon, authenticated USING (true);
+
+CREATE TRIGGER trg_match_results_updated_at
+  BEFORE UPDATE ON public.match_results
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.match_results;
+ALTER TABLE public.match_results REPLICA IDENTITY FULL;
+```
+
+Jednocześnie wycofujemy nieużywane kolumny z `players_live` (już nie potrzebne po stronie aplikacji):
 
 ```sql
 ALTER TABLE public.players_live
-  ADD COLUMN is_on_ground boolean NOT NULL DEFAULT true,
-  ADD COLUMN last_goal_speed real NOT NULL DEFAULT 0;
+  DROP COLUMN IF EXISTS is_on_ground,
+  DROP COLUMN IF EXISTS last_goal_speed;
 ```
 
-- `is_on_ground` — bot wpisuje aktualny stan `bOnGround` w każdym tickerze.
-- `last_goal_speed` — bot na evencie `GoalScored` wpisuje `GoalSpeed` (uu/s lub km/h — patrz Założenia) w rekord strzelca; pozostali gracze zachowują swoją starą wartość. Frontend reaguje na wzrost `goals` przy danym graczu i zapisuje `last_goal_speed` jako kandydata na "najszybszy strzał".
+(Bot przestanie je wysyłać — patrz sekcja Relay.)
 
-Brak wpływu na istniejące inserty (defaulty pokrywają stare wiersze).
+## 2) Kontrakt JSONB `data`
 
-### 2) `src/types/livestats.ts`
+Bot zapisuje (upsert po `match_guid`) rekord z polem `data` w formacie:
 
-W `PlayerLive` dodaję:
-```ts
-is_on_ground: boolean;
-last_goal_speed: number;
-```
-Aktualizuję mocki w `src/lib/v2-mock-data.ts` (`is_on_ground: true`, `last_goal_speed: 0`).
-
-### 3) `src/hooks/usePostMatchStats.ts` (nowy)
-
-Wejście: `players: PlayerLive[]`, `match: MatchMetadata | null`.
-
-Stan agregatów w `useRef<Map<string, RunningStats>>`:
-```
-{ maxDemos, prevGoals, goalSpeedMax, speedSum, speedSamples,
-  supersonicMs, airMs, groundMs, lastTs }
+```json
+{
+  "winners": {
+    "fastestShot":    { "player_name": "...", "value": 142, "unit": "km/h" },
+    "mostDemos":      { "player_name": "...", "value": 3,   "unit": "count" },
+    "mostAir":        { "player_name": "...", "value": 187, "unit": "sec" },
+    "mostGround":     { "player_name": "...", "value": 95,  "unit": "sec" },
+    "fastestAvg":     { "player_name": "...", "value": 78,  "unit": "km/h" },
+    "mostSupersonic": { "player_name": "...", "value": 42,  "unit": "sec" }
+  }
+}
 ```
 
-Logika (efekt na zmianę `players`):
-- Dla każdego gracza: `delta = clamp(now - lastTs, 0, 2000)`.
-- `is_supersonic` -> `supersonicMs += delta`.
-- `is_on_ground ? groundMs += delta : airMs += delta`.
-- `speedSum += speed; speedSamples++`.
-- Jeśli `goals > prevGoals` -> `goalSpeedMax = max(goalSpeedMax, last_goal_speed)`; `prevGoals = goals`.
-- `maxDemos = max(maxDemos, demos)`.
+Dowolny `winner` może być `null`. Frontend nie robi konwersji jednostek — bot wysyła już finalne wartości.
 
-Reset całej mapy gdy zmieni się `match.match_guid` lub `is_active` przejdzie z `false` na `true`.
+## 3) Frontend — co usuwamy
 
-Zwraca `winners`:
+- `src/hooks/usePostMatchStats.ts` — DELETE (cała agregacja w locie znika).
+- `is_on_ground`, `last_goal_speed` z `src/types/livestats.ts` (`PlayerLive`).
+- Te same pola z `src/lib/v2-mock-data.ts`.
+- Z `src/pages/Relay.tsx` usuwamy mapowanie `bOnGround` i logikę `last_goal_speed_by_player` (bot będzie pisał do `match_results`, nie do `players_live`).
+
+## 4) Frontend — nowy hook `useMatchResult`
+
+`src/hooks/useMatchResult.ts`:
+- Wejście: `matchGuid: string | null`.
+- Pobiera `match_results` po `match_guid` (`maybeSingle`).
+- Subskrybuje realtime channel `match_results` (`postgres_changes` event `*`, filter `match_guid=eq.<guid>`) — aktualizuje stan na INSERT/UPDATE.
+- Reset gdy `matchGuid` się zmienia.
+- Zwraca `winners | null` bezpośrednio z `data.winners`.
+
+## 5) `PostMatchStats.tsx`
+
+- Props zmieniają się: zamiast `winners` z hooka liczącego — `winners: PostMatchWinners | null` z `useMatchResult`.
+- Typ `PostMatchWinners` przenosimy do `src/types/livestats.ts` (lub nowy `src/types/matchResult.ts`) — usuwamy zależność od skasowanego hooka.
+- Render pozostaje identyczny (ten sam UI, ten sam `style: PostMatchStatsStyle`).
+- Jeśli `winners === null` — komponent nie renderuje nic (czeka na wpis bota).
+
+## 6) `OverlayV2.tsx` — integracja
+
+- Usuwamy `usePostMatchStats(...)`.
+- Dodajemy `const result = useMatchResult(match?.match_guid ?? null);`.
+- Dotychczasowa logika `showRecap` (trigger 2 s po `is_active: true → false`, auto-hide po `delayMs + durationMs`) zostaje bez zmian.
+- Dodatkowy warunek render: `{showRecap && result && <PostMatchStats winners={result.winners} ... />}`.
+- Jeśli bot jeszcze nie wpisał wyniku w momencie triggera — komponent pojawi się automatycznie gdy realtime dostarczy rekord (do końca okna `durationMs`).
+
+## 7) Relay (`src/pages/Relay.tsx`) — zmiana skryptu Pythona
+
+W zakładce `/relay` aktualizujemy snippet bota:
+
+- Usuwamy z payloadu `players_live` pola `is_on_ground` i `last_goal_speed`.
+- Dodajemy w bocie agregację per-mecz (in-memory w bocie):
+  - `air_ms`, `ground_ms`, `supersonic_ms` per gracz na bazie ticków `bOnGround` / `is_supersonic`.
+  - `speed_sum`, `speed_samples` per gracz.
+  - `max_demos` per gracz.
+  - `goal_speed_max` per gracz (na evencie `GoalScored` zapis `GoalSpeed` strzelcowi).
+- Reset agregatów przy `MatchCreated/Initialized` lub zmianie `match_guid`.
+- Na evencie `MatchEnded`/`PodiumStart` bot wybiera zwycięzców per kategoria, konwertuje jednostki (uu/s → km/h: `*0.036`, ms → s) i robi:
+
+```python
+sb.table("match_results").upsert({
+    "match_guid": match_guid,
+    "data": {"winners": winners_dict},
+}, on_conflict="match_guid").execute()
 ```
-fastestShot   { player_name, value: km/h }
-mostDemos     { player_name, value: count }
-mostAir       { player_name, value: seconds }
-mostGround    { player_name, value: seconds }
-fastestAvg    { player_name, value: km/h }
-mostSupersonic{ player_name, value: seconds }
-```
-Każde pole `null` jeśli brak danych.
 
-### 4) `src/components/v2/PostMatchStats.tsx` (nowy)
+- W `Relay.tsx` aktualizujemy też status panel, jeśli pokazuje listę kolumn `players_live` (kosmetyka).
 
-Props: `winners`, `registryMap`, `pairings` (z `useBroadcast`).
+## 8) Creator — bez zmian funkcjonalnych
 
-Layout (na stage 1920x1080):
-- Wrapper: `absolute inset-0 flex items-center justify-center pointer-events-none z-50`.
-- Karta: `w-[760px] rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl p-8 shadow-2xl`.
-- Nagłówek: `MATCH RECAP` (Rajdhani, tracking-widest), pod nim cienki gradient `from-[#3B82F6] via-white/40 to-[#F97316]`.
-- 6 wierszy w gridzie `[icon 32] [achievement] [player+avatar] [value]`:
-  - 🚀 Najszybszy strzał — `${value} km/h`
-  - 💥 Zniszczenia — `${value} Demos`
-  - ✈️ Czas w powietrzu — `${value} sec`
-  - 🚜 Czas na ziemi — `${value} sec`
-  - ⚡ Najszybszy na boisku — `${value} km/h`
-  - 🔥 Supersonic control — `${value} sec`
-- Avatar 28 px (`Avatar` z `photo_url` jeśli pairing rozwiąże się przez `players_registry`); fallback inicjały.
-- Animacja: stan `mounted` ustawiany przez `setTimeout(2000)` po triggerze; klasy `animate-fade-in animate-scale-in` (już są w tailwindzie).
+`PostMatchStatsStyle` (visibility per wiersz, kolory, fonty, `delayMs`, `durationMs`) zostaje. Edytor w Kreatorze działa dalej tak samo — to czysto wizualny config.
 
-### 5) `src/pages/OverlayV2.tsx` — integracja
+## Pliki
 
-- `useRef<boolean>` z poprzednim `is_active`. Gdy `prev=true` i `current=false` -> `setShowRecap(true)` + zaplanować ukrycie po 12 s.
-- Reset gdy `match_guid` się zmieni lub `is_active` wróci na `true`.
-- Render `<PostMatchStats ... />` warunkowo poza `transition-opacity` wrapperem (żeby był widoczny gdy reszta gaśnie).
+- `supabase/migrations/<ts>_match_results_table.sql` (nowa tabela, RLS, realtime, drop kolumn z `players_live`)
+- `src/hooks/useMatchResult.ts` (nowy)
+- `src/hooks/usePostMatchStats.ts` (DELETE)
+- `src/components/v2/PostMatchStats.tsx` (zmiana propsów)
+- `src/pages/OverlayV2.tsx` (zamiana hooka)
+- `src/types/livestats.ts` (usunięcie 2 pól z `PlayerLive`, opcjonalnie `PostMatchWinners`)
+- `src/lib/v2-mock-data.ts` (usunięcie 2 pól z mocków)
+- `src/pages/Relay.tsx` (snippet Pythona: agregacja w bocie + zapis do `match_results`)
 
-### Pliki
+## Założenia
 
-- `supabase/migrations/<timestamp>_postmatch_stats_columns.sql` (migracja)
-- `src/types/livestats.ts` (rozszerzenie typu)
-- `src/lib/v2-mock-data.ts` (uzupełnienie mocków)
-- `src/hooks/usePostMatchStats.ts` (nowy)
-- `src/components/v2/PostMatchStats.tsx` (nowy)
-- `src/pages/OverlayV2.tsx` (integracja)
-
-### Założenia
-
-- **Jednostki prędkości**: zakładam, że bot wysyła `speed` i `last_goal_speed` w `uu/s`. Konwersja do km/h: `* 0.036`. Jeśli bot już wysyła km/h — usuniemy mnożnik (jedna stała w hooku).
-- **Czas**: agregacja po stronie klienta, więc dokładność zależy od częstotliwości updateów `players_live` (typowo ~10 Hz). Przy clampie delta do 2000 ms krótkie rozłączenia nie zafałszują wyników.
-- Karta znika po 12 s; mogę wystawić to jako konfig jeśli potrzebujesz.
+- Bot wysyła wartości w **finalnych** jednostkach (km/h, sekundy, count). Frontend nic nie konwertuje.
+- Klucz unikalny to `match_guid`; jeśli bot powtórzy upsert, rekord się nadpisze — frontend dostanie UPDATE i pokaże najnowsze dane.
+- Brak rekordu w `match_results` przy końcu meczu = karta się nie pokazuje (do momentu aż realtime dostarczy wpis lub upłynie `durationMs`).

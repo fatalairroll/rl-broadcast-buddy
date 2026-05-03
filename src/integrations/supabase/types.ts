@@ -195,6 +195,30 @@ export type Database = {
         }
         Relationships: []
       }
+      match_results: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          match_guid: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          match_guid: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          match_guid?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       overlay_presets_v2: {
         Row: {
           config: Json
@@ -262,9 +286,7 @@ export type Database = {
           demos: number
           goals: number
           is_demolished: boolean
-          is_on_ground: boolean
           is_supersonic: boolean
-          last_goal_speed: number
           mmr: number | null
           player_name: string
           saves: number
@@ -279,9 +301,7 @@ export type Database = {
           demos?: number
           goals?: number
           is_demolished?: boolean
-          is_on_ground?: boolean
           is_supersonic?: boolean
-          last_goal_speed?: number
           mmr?: number | null
           player_name: string
           saves?: number
@@ -296,9 +316,7 @@ export type Database = {
           demos?: number
           goals?: number
           is_demolished?: boolean
-          is_on_ground?: boolean
           is_supersonic?: boolean
-          last_goal_speed?: number
           mmr?: number | null
           player_name?: string
           saves?: number
