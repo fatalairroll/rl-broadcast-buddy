@@ -163,6 +163,7 @@ export type Database = {
         Row: {
           blue_score: number
           id: number
+          is_active: boolean
           is_overtime: boolean
           match_guid: string | null
           orange_score: number
@@ -173,6 +174,7 @@ export type Database = {
         Insert: {
           blue_score?: number
           id?: number
+          is_active?: boolean
           is_overtime?: boolean
           match_guid?: string | null
           orange_score?: number
@@ -183,6 +185,7 @@ export type Database = {
         Update: {
           blue_score?: number
           id?: number
+          is_active?: boolean
           is_overtime?: boolean
           match_guid?: string | null
           orange_score?: number
