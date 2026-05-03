@@ -61,6 +61,7 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
           exit={{ y: 60, opacity: 0 }}
           transition={{ duration: (config.general.transitionDuration ?? 350) / 1000, ease: 'easeOut' }}
         >
+          <div className="relative" style={{ width: c.width, height: c.height }}>
           <div
             className="relative flex items-stretch"
             style={{
@@ -128,39 +129,6 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
               </div>
             )}
 
-            {/* Nick row (absolute — font size / offsets do not affect anything else) */}
-            <div
-              className="absolute flex items-center gap-3"
-              style={{
-                left: bodyLeft,
-                top: '32%',
-                transform: `translateY(-50%) translate(${c.nickOffsetX ?? 0}px, ${c.nickOffsetY ?? 0}px) ${skewInner}`,
-                transformOrigin: 'left center',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {c.fields.country && registry?.country_code && (
-                <span
-                  className="font-bold uppercase px-2 py-0.5 tracking-widest border border-white/20"
-                  style={{ fontSize: 12, background: c.countryBg, color: c.countryColor }}
-                >
-                  {registry.country_code}
-                </span>
-              )}
-              <span
-                className="font-black uppercase tracking-tight"
-                style={{
-                  fontFamily: c.nickFontFamily,
-                  fontSize: c.nickFontSize,
-                  color: c.nickColor,
-                  textShadow: '0 2px 8px rgba(0,0,0,0.7)',
-                  lineHeight: 1,
-                }}
-              >
-                {registry?.display_name ?? player.player_name}
-              </span>
-            </div>
-
             {/* Stats row (absolute — independent of nick) */}
             <div
               className="absolute flex items-center gap-5"
@@ -181,6 +149,41 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
               {c.stats.demos && <Stat label="D" value={player.demos} size={c.statsFontSize} />}
               {c.stats.boost && <BoostStat boost={player.boost} supersonic={player.is_supersonic} size={c.statsFontSize} />}
             </div>
+          </div>
+
+          {/* Nick row — rendered OUTSIDE the clip-box so offsets can push it
+              freely beyond the card boundaries. */}
+          <div
+            className="absolute flex items-center gap-3 pointer-events-none"
+            style={{
+              left: bodyLeft,
+              top: '32%',
+              transform: `translateY(-50%) translate(${c.nickOffsetX ?? 0}px, ${c.nickOffsetY ?? 0}px) ${skewInner}`,
+              transformOrigin: 'left center',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {c.fields.country && registry?.country_code && (
+              <span
+                className="font-bold uppercase px-2 py-0.5 tracking-widest border border-white/20"
+                style={{ fontSize: 12, background: c.countryBg, color: c.countryColor }}
+              >
+                {registry.country_code}
+              </span>
+            )}
+            <span
+              className="font-black uppercase tracking-tight"
+              style={{
+                fontFamily: c.nickFontFamily,
+                fontSize: c.nickFontSize,
+                color: c.nickColor,
+                textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+                lineHeight: 1,
+              }}
+            >
+              {registry?.display_name ?? player.player_name}
+            </span>
+          </div>
           </div>
         </motion.div>
         </div>

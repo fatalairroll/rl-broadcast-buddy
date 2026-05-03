@@ -202,8 +202,9 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <SliderInput label="Ranga - offset Y" value={config.playerCard.rankOffsetY ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetY: v })} min={-200} max={200} unit="px" />
             <Separator />
             <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja nicku (w karcie)</h4>
-            <SliderInput label="Nick - offset X" value={config.playerCard.nickOffsetX ?? 0} onValueChange={(v) => update('playerCard', { nickOffsetX: v })} min={-400} max={400} unit="px" />
-            <SliderInput label="Nick - offset Y" value={config.playerCard.nickOffsetY ?? 0} onValueChange={(v) => update('playerCard', { nickOffsetY: v })} min={-200} max={200} unit="px" />
+            <SliderInput label="Nick - offset X" value={config.playerCard.nickOffsetX ?? 0} onValueChange={(v) => update('playerCard', { nickOffsetX: v })} min={-800} max={800} unit="px" />
+            <SliderInput label="Nick - offset Y" value={config.playerCard.nickOffsetY ?? 0} onValueChange={(v) => update('playerCard', { nickOffsetY: v })} min={-400} max={400} unit="px" />
+            <p className="text-[10px] text-muted-foreground">Nick może być przesuwany poza obrys karty.</p>
             <Separator />
             <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja statystyk (w karcie)</h4>
             <SliderInput label="Statystyki - offset X" value={config.playerCard.statsOffsetX ?? 0} onValueChange={(v) => update('playerCard', { statsOffsetX: v })} min={-400} max={400} unit="px" />
