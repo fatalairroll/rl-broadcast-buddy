@@ -1,101 +1,64 @@
-# Fixed Box Model Refactor — Overlay Creator
 
-Cel: rozmiar kontenera nadrzędny wobec zawartości. Zmiana fontu/paddingu nigdy nie zmienia fizycznych wymiarów. Pozycjonowanie ujednolicone do jednego systemu Anchor + Offset. Skew i Font per sub-komponent. Wizualna informacja, kiedy parametr jest sterowany przez bazę.
+# Naprawa bazowego layoutu Scoreboardu i Boost Barów
 
----
-
-## 1. Fixed Dimensions (Box Model)
-
-Każdy komponent dostaje twarde `width` i `height` w px. Padding/font nigdy nie powiększają boxa — operują wewnątrz, a nadmiar tnie `overflow:hidden` + `text-overflow:ellipsis`.
-
-Zmiany w `src/types/overlayV2.ts` (dodanie/wymuszenie pól):
-
-- `ScoreSideStyle`: + `width`, `height` (np. 140×100 px)
-- `TimerStyle`: + `width`, `height` (np. 220×100 px) — obecnie szerokość liczona heurystycznie z `paddingX + fontSize*1.2`, do zlikwidowania
-- `TeamNameStyle`: + `width`, `height`; usunięcie `minWidth` jako regulatora rozmiaru
-- `PlayerCardV2Style`: `width` przemianowane z „Min. szerokość" → twarda szerokość (label w edytorze już mówi „Min. szerokość", to mylące)
-- `BoostBarV2Style`: + `barHeight` (wysokość samego paska boost), + `cardHeight` (stała wysokość kafelka gracza). Koniec sumowania nick + bar + stats + gaps.
-
-Zmiany w komponentach renderujących:
-
-- `ScoreboardV2.tsx` — kafelki Blue/Orange dostają `width/height` z configu zamiast wymiarów liczonych z paddingu; wewnątrz `display:flex; align-items:center; justify-content:center; overflow:hidden`. `inlineTimerHalf` zastąpione przez `timer.width/2`.
-- `TeamNameV2.tsx` — `width/height` zamiast `minWidth`. Tekst centrowany/justowany wg `textAlign`. Long names: `overflow:hidden; text-overflow:ellipsis; white-space:nowrap`.
-- `BoostBarV2.tsx` — kontener ma stały `cardHeight`; pasek boost ma stały `barHeight` (zamiast obecnego `h-2`). Wewnętrzny layout flex z `min-height:0`, przy braku miejsca starsze elementy ukrywane (najpierw stats, potem nick fontSize bez wpływu na box).
-- `PlayerCardV2.tsx` — twarde `width × height`, zawartość pozycjonowana absolutnie wewnątrz.
-
-Edytor (`StyleEditorV2.tsx`): dla każdego komponentu dwa nowe SliderInput-y „Szerokość" / „Wysokość". Padding zostaje, ale label dopisany „(wewnątrz boxa)".
-
-## 2. Unified Positioning (Single Source of Truth)
-
-Likwidujemy podwójne offsety. Każdy element ma jeden `PositionV2 { anchorH, anchorV, offsetX, offsetY }`. Usuwane pola:
-
-- `timer.boxOffsetX/Y`, `timer.textOffsetX/Y` → zostaje wyłącznie `timer.position` (gdy `detached`) albo offset względem Scoreboardu (gdy inline).
-- `teamName.offsetX/Y` (fine offset) → kasujemy. Nazwa drużyny używa `position` lub trybu „Attach".
-- `playerCard.nickOffsetX/Y`, `statsOffsetX/Y`, `rankOffsetX/Y` — zostawiamy tylko jako pozycje WEWNĄTRZ karty (są legitne, bo to layout subelementów wewnątrz fixed boxa). Zmieniamy label na „Pozycja w karcie".
-
-Nowość: `TeamNameStyle.attachToScoreboard: boolean` + `attachOffsetX/Y` + `attachSide: 'inner' | 'outer'`.
-
-- `attachToScoreboard=false` → niezależna pozycja na ekranie (jak teraz).
-- `attachToScoreboard=true` → liczona względem fizycznej krawędzi Scoreboardu. Implementacja: `ScoreboardV2` eksponuje obliczone bounds przez Context (`ScoreboardBoundsContext`), a `TeamNameV2` czyta je i pozycjonuje się relatywnie do `left edge - width` (Blue) / `right edge` (Orange) + `attachOffsetX/Y`.
-
-Zmiany w mergeV2Config dodać klucze z domyślnymi wartościami (kompatybilność wstecz).
-
-## 3. Skew & Font Inheritance (Separation)
-
-Dziś `Scoreboard` narzuca `skewDeg` i `fontFamily` całej rodzinie (Blue/Orange/Timer biorą `skewOuter` z parenta). Zmiany:
-
-- Każdy sub-komponent dostaje własny: `skewDeg: number` + `inheritParentSkew: boolean` (default `true` dla wstecznej kompatybilności).
-- Każdy sub-komponent dostaje własny `fontFamily` (Blue, Orange, Timer już mają, ale Timer też). Pole „Font" znika ze Scoreboardu lub zostaje jako fallback dla starych presetów.
-- W `ScoreboardV2.tsx`: wyliczamy efektywny `skew = inheritParentSkew ? scoreboard.skew : own.skew` per kafelek; counter-skew na `<span>` zawsze równy `-effectiveSkew`.
-
-W `StyleEditorV2.tsx` dla `scoreBlue/scoreOrange/timer`: dodać sekcję „Skew" (slider + checkbox „Dziedzicz po Scoreboardzie") oraz „Font" jeśli brakuje.
-
-## 4. Visual Feedback — DB Overrides (🔒)
-
-Niektóre pola są nadpisywane runtime przez `players_registry` (kolor, logo, nick, kraj, ranga) lub MMRivals (nazwy drużyn, mmr_match_id). W kreatorze użytkownik zmienia je „na sucho" i nie widzi efektu, co wprowadza w błąd.
-
-Nowy komponent `src/components/creator/OverrideLock.tsx`:
-```tsx
-<OverrideLock active={isOverridden} reason="Nadpisane przez players_registry">
-  <ColorPicker ... disabled={isOverridden} />
-</OverrideLock>
-```
-Renderuje 🔒 + tooltip i `pointer-events:none / opacity-50` na dziecku.
-
-Źródło prawdy o override:
-
-- `useBroadcast()` daje `session.mmr_match_id` → jeśli ≠ null, lockuj: `teamNameBlue.fontFamily`/`textColor`? NIE — lockujemy tylko zawartość (nazwy są stringami przychodzącymi z bazy). Dla nazw: blokujemy edycję samej WARTOŚCI nazwy w panelu Broadcast Controls (nie w StyleEditor — tam są wyłącznie style).
-- `players_registry` override: `team_color` per gracz nadpisuje `playerCard.blueGradient/orangeGradient` dla aktywnego gracza, więc lockujemy te pola gdy jakiś gracz w aktywnej sesji ma własny `team_color`. Implementacja: hook `useRegistryOverrides(session)` zwracający set kluczy do zablokowania.
-
-Zakres lockowania (priorytet):
-- `playerCard.blueGradient/orangeGradient` — gdy registry ma team_color
-- `teamNameBlue/Orange.background/gradient` — gdy MMRivals match aktywny i bracket ma kolor klanu
-- `playerCard.nickFontFamily` itp. NIE lockujemy (to czysty styling)
-
-## 5. Per-component Priorities (recap)
-
-- **Team Names**: `width` + `textAlign` + `overflow:hidden ellipsis`, koniec `minWidth`.
-- **Boost Bars**: `barHeight` jako oddzielny suwak; `cardHeight` stała; nick/stats nie wpływają na geometrię.
-- **Player Card**: twarde `width × height`; subkomponenty pozycjonowane absolutnie wewnątrz przez istniejące offsety (które zmieniamy w label „w karcie").
+Cztery niezależne problemy wynikające z aktualnych defaultów i braków w edytorze. Wszystkie są naprawialne bez zmian schemy.
 
 ---
 
-## Technical Details
+## 1. Szpara między Wynikiem Niebieskich a Timerem
 
-Pliki do edycji:
+**Przyczyna:** W `defaultOverlayV2Config.scoreboard.gap = 8`. W `ScoreboardV2` blue tile siedzi na `right: halfCenter` a timer wyśrodkowany na anchor → odstęp = `sb.gap`. Ponieważ blue i timer mają identyczny skew (-15°), ich krawędzie są równoległe — przy `gap = 0` stykają się idealnie, a `8` tworzy widoczną pionową szparę.
+
+**Fix:**
+- W `src/types/overlayV2.ts`: `defaultOverlayV2Config.scoreboard.gap` → `0`.
+- Zostawić suwak „Odstęp między kafelkami" 0–64 px w `StyleEditorV2.tsx` (już istnieje), żeby użytkownik mógł świadomie dodać prześwit.
+- W `mergeV2Config` nie wymuszać 8 — gdy zapisany overlay ma gap 8, zostaje (kompatybilność).
+
+## 2. Timer nie wycentrowany w swoim boxie
+
+**Przyczyna:** W `ScoreboardV2.tsx` zewnętrzny div timera ma `flex flex-col items-center justify-center`, a wewnętrzny wrapper z counter-skew ma `flex flex-col items-center` bez `justify-center`. Wewnętrzny wrapper przyjmuje wysokość zawartości (np. 60px), więc samo `<span>` renderuje się od góry tego wrappera, a baseline fontu Rajdhani z dużym ascenderem wizualnie przesuwa cyfrę w górę. Dodatkowo brak `lineHeight: 1` powoduje, że line-height fontu (≈1.2) dokłada padding nad i pod tekstem.
+
+**Fix w `ScoreboardV2.tsx`:**
+- Wewnętrzny wrapper counter-skew: dorzucić `justify-content: center` i `height: 100%`, żeby dziedziczył pełną wysokość zewnętrznego boxa i centrował zawartość.
+- Span z czasem: dodać `lineHeight: 1` i `display: 'block'` — eliminuje ekstra spacing line-height fontu.
+
+## 3. Brak suwaków X/Y dla Wyniku Niebieskich i Pomarańczowych
+
+**Przyczyna:** Score tile'e są pozycjonowane relatywnie do anchor scoreboardu (`right: halfCenter` / `left: halfCenter`). Nie mają własnych offsetów. Użytkownik nie może np. lekko przesunąć samego niebieskiego wyniku w lewo, żeby zwiększyć dystans od timera asymetrycznie.
+
+**Fix:**
+- W `src/types/overlayV2.ts` w `ScoreSideStyle`: dodać `offsetX: number` i `offsetY: number` (default `0`), backfill w `mergeV2Config`.
+- W `ScoreboardV2.tsx`: w div'ach pozycjonujących blue/orange tile dorzucić `transform: translate(${offsetX}px, ${offsetY}px)` (osobny wrapper, żeby nie kolidować ze skewem na samym kafelku).
+- W `StyleEditorV2.tsx` → `ScoreSideEditor`: dodać sekcję „Pozycja (Fine-tune)" z dwoma `SliderInput` (Offset X: -200..200, Offset Y: -100..100, jednostka px).
+
+## 4. Paski boost graczy się nie wyświetlają
+
+**Przyczyna:** Suma elementów wewnątrz `BoostBarV2` przekracza `cardHeight=64`:
+- `paddingY*2 = 16` + nick row (~22px line-height) + bar (8px) + stats (~14px line-height) + 2× `gap-1` (8px) ≈ **68 px** > 64.
+- Kontener ma `overflow:hidden` i `flex flex-col` bez `min-height:0` → bar lub stats są przycinane / wypychane poza box i znikają.
+
+**Fix w `BoostBarV2.tsx`:**
+- Dodać `lineHeight: 1` na `<span>` nick i row stats, żeby zlikwidować ekstra spacing.
+- Pierwszą i trzecią sekcję (nick row, stats row) opakować w `style={{ flex: '0 0 auto' }}`, środkowy bar pozostawić jako `flex-shrink:0`.
+- Bar container: dodać `flex: '0 0 auto'` i `width: '100%'`, żeby motion.div miał z czego procentować. Aktualnie `<div className="relative bg-white/10 overflow-hidden">` bez explicit width — w rtl context może mieć szerokość 0 jeżeli flex-direction column collapse'uje. Wymuszamy `width: '100%'`.
+- Podnieść default `cardHeight` z 64 → 72 px w `defaultOverlayV2Config.boostBar`, żeby standardowe fonty mieściły się bez clippingu.
+- Default `gap` w boostBar (vertical between cards) zostaje 12, ale dodać też wewnętrzny `flex-direction:column` `gap: 4` jako stałą (zastąpi `gap-1` Tailwinda) — daje kontrolę.
+
+---
+
+## Pliki do edycji
 
 ```text
-src/types/overlayV2.ts          + width/height/barHeight/cardHeight, +inheritParentSkew, +attachToScoreboard, mergeV2Config defaults
-src/components/v2/ScoreboardV2.tsx   wymiary z configu, własny skew per tile, expose bounds via context
-src/components/v2/TeamNameV2.tsx     fixed width/height, attach mode (read ScoreboardBoundsContext)
-src/components/v2/BoostBarV2.tsx     fixed cardHeight + barHeight
-src/components/v2/PlayerCardV2.tsx   fixed width/height, label „w karcie"
-src/components/creator/StyleEditorV2.tsx   nowe slidery, sekcje Skew/Font per sub-element, OverrideLock wrappers, usuń legacy offsety z UI
-src/components/creator/OverrideLock.tsx    NEW
-src/hooks/useRegistryOverrides.ts          NEW
-src/lib/scoreboard-bounds-context.tsx      NEW (React Context)
+src/types/overlayV2.ts             defaults: scoreboard.gap=0, boostBar.cardHeight=72;
+                                   ScoreSideStyle += offsetX/offsetY; mergeV2Config backfill
+src/components/v2/ScoreboardV2.tsx counter-skew wrapper: justify-center + height:100%;
+                                   timer span: lineHeight:1, display:block;
+                                   blue/orange tile wrapper: translate(offsetX, offsetY)
+src/components/v2/BoostBarV2.tsx   lineHeight:1 na nick/stats; flex 0 0 auto;
+                                   bar container width:100%; min-height:0
+src/components/creator/StyleEditorV2.tsx
+                                   ScoreSideEditor: dodać sekcję „Pozycja (Fine-tune)"
+                                   z SliderInput Offset X / Y
 ```
 
-Backwards compat: `mergeV2Config` wypełnia nowe pola wartościami liczonymi ze starego configu (np. `timer.width = paddingX*2 + fontSize*2.4`), więc istniejące zapisane overlay'e nie pękną. Stare offsety usuwane wyłącznie z UI; w typie zostają jako `@deprecated` jeśli któreś presety je trzymają.
-
-Bez zmian DB / RLS / edge functions.
+Bez zmian w bazie / RLS / edge functions. Backwards-compat zapewniony przez `mergeV2Config` (nowe pola `?? 0`).

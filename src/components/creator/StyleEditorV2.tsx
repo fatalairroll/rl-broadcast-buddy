@@ -355,6 +355,10 @@ function ScoreSideEditor({
       <SliderInput label="Szerokość" value={value.width} onValueChange={(v) => onChange({ width: v })} min={60} max={400} unit="px" />
       <SliderInput label="Wysokość" value={value.height} onValueChange={(v) => onChange({ height: v })} min={40} max={240} unit="px" />
       <Separator />
+      <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja (Fine-tune)</h4>
+      <SliderInput label="Offset X" value={value.offsetX} onValueChange={(v) => onChange({ offsetX: v })} min={-200} max={200} unit="px" />
+      <SliderInput label="Offset Y" value={value.offsetY} onValueChange={(v) => onChange({ offsetY: v })} min={-100} max={100} unit="px" />
+      <Separator />
       <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Skew</h4>
       <Toggle label="Dziedzicz skew po Scoreboardzie" value={value.inheritParentSkew} onChange={(v) => onChange({ inheritParentSkew: v })} />
       {!value.inheritParentSkew && (

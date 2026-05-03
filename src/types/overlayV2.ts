@@ -40,6 +40,9 @@ export interface ScoreSideStyle {
   fontFamily: string;
   skewDeg: number;
   inheritParentSkew: boolean;
+  /** Fine-tune offset from default position inside scoreboard row (px). */
+  offsetX: number;
+  offsetY: number;
 }
 
 export interface TimerStyle {
@@ -293,7 +296,7 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     // anchorV:'top' means the TOP edge of the element is anchored at this offset
     // from screen center (0,0). Default scoreboard sits ~516px above center → top edge near y=24.
     position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -516 },
-    gap: 8,
+    gap: 0,
     fontFamily: 'Rajdhani, sans-serif',
     opacity: 1,
     skewDeg: -15,
@@ -312,6 +315,8 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     fontFamily: 'Rajdhani, sans-serif',
     skewDeg: -15,
     inheritParentSkew: true,
+    offsetX: 0,
+    offsetY: 0,
   },
   scoreOrange: {
     gradient: defaultGradient(ORANGE_FROM, ORANGE_TO),
@@ -327,6 +332,8 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     fontFamily: 'Rajdhani, sans-serif',
     skewDeg: -15,
     inheritParentSkew: true,
+    offsetX: 0,
+    offsetY: 0,
   },
   timer: {
     background: 'rgba(0,0,0,0.85)',
@@ -353,7 +360,7 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     visible: true,
     width: 300,
     gap: 12,
-    cardHeight: 64,
+    cardHeight: 72,
     barHeight: 8,
     // anchorH:'left' → element's LEFT edge anchored at offsetX from screen center.
     // -928 = 32px from screen left (1920/2 - 32).
@@ -567,6 +574,8 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
     ss2.fontFamily = ss2.fontFamily ?? sb.fontFamily ?? 'Rajdhani, sans-serif';
     ss2.skewDeg = ss2.skewDeg ?? sb.skewDeg ?? -15;
     ss2.inheritParentSkew = ss2.inheritParentSkew ?? true;
+    ss2.offsetX = ss2.offsetX ?? 0;
+    ss2.offsetY = ss2.offsetY ?? 0;
   }
   return {
     scoreboard: sb,

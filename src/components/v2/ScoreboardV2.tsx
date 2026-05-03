@@ -89,8 +89,8 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
       }}
     >
       <div
-        className="flex flex-col items-center"
-        style={{ transform: `skewX(${-timerSkew}deg)` }}
+        className="flex flex-col items-center justify-center"
+        style={{ transform: `skewX(${-timerSkew}deg)`, height: '100%' }}
       >
         <span
           className="tabular-nums tracking-wider"
@@ -99,6 +99,8 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
             fontSize: config.timer.fontSize,
             fontWeight: 900,
             color: config.timer.textColor,
+            lineHeight: 1,
+            display: 'block',
           }}
         >
           {timer}
@@ -203,6 +205,7 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
             top: 0,
             display: 'flex',
             alignItems: 'stretch',
+            transform: `translate(${config.scoreBlue.offsetX}px, ${config.scoreBlue.offsetY}px)`,
           }}
         >
           {blueTile}
@@ -231,6 +234,7 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
             top: 0,
             display: 'flex',
             alignItems: 'stretch',
+            transform: `translate(${config.scoreOrange.offsetX}px, ${config.scoreOrange.offsetY}px)`,
           }}
         >
           {orangeTile}
