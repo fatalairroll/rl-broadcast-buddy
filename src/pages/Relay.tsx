@@ -75,6 +75,7 @@ clock_running: bool = False
 in_replay: bool = False  # bReplay z Game lub goal-replay window
 blue_score: int = 0
 orange_score: int = 0
+is_active: bool = False  # czy mecz/replay sa aktualnie aktywne (do auto-hide overlaya)
 
 stats = {
     "events": 0, "events_delta": 0,
@@ -106,6 +107,7 @@ def upsert_match() -> None:
         "timer": fmt_timer(local_time_seconds),
         "is_overtime": bool(is_overtime),
         "match_guid": current_match_guid,
+        "is_active": bool(is_active),
     }
     try:
         sb.table("match_metadata").upsert(payload, on_conflict="id").execute()
@@ -193,6 +195,17 @@ def upsert_camera(target: Optional[str]) -> None:
         print(f"[ERR] active_camera upsert: {e}")
 
 
+def set_active(value: bool) -> None:
+    """Ustawia flage is_active i wymusza zapis do match_metadata (omija throttle)."""
+    global is_active, last_match_write
+    if is_active == value:
+        return
+    is_active = value
+    last_match_write = 0.0  # wymus zapis
+    upsert_match()
+    print(f"[ACTIVE] is_active={value}")
+
+
 # === HANDLERY EVENTOW ===
 def _maybe_decode_json(value: Any, max_depth: int = 5) -> Any:
     """Rozpakowuje wartosci, ktore RL Stats API potrafi przyslac jako string/bytes
@@ -236,6 +249,8 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     global blue_score, orange_score, in_replay, last_state_update_at
 
     last_state_update_at = time.time()
+    if not is_active:
+        set_active(True)
 
     guid = data.get("MatchGuid")
     if guid:
@@ -368,6 +383,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
         # Nowy mecz / replay -> czyscimy poprzednia liste graczy,
         # zeby zalegle wpisy (np. boty z poprzedniej sesji) nie zostaly w overlay.
         clear_all_players()
+        set_active(True)
         upsert_match()
         return
 
@@ -375,6 +391,10 @@ def handle_event(evt: Dict[str, Any]) -> None:
         clock_running = False
         if name == "PodiumStart":
             stats["mode"] = "podium"
+        # Mecz skonczony / serwer ubity -> overlay znika natychmiast
+        set_active(False)
+        if name == "MatchDestroyed":
+            clear_all_players()
         return
 
     if name == "MatchPaused":
@@ -421,6 +441,9 @@ def heartbeat_loop() -> None:
             warn = ""
             if last_event_at == 0 or (no_data_for is not None and no_data_for > NO_DATA_WARN_S):
                 warn = " | [WARN] brak danych z RL — sprawdz DefaultStatsAPI.ini i restart RL"
+                if is_active:
+                    # Stale dane -> ukryj overlay
+                    set_active(False)
             print(
                 f"[HB] mode={mode} "
                 f"events=+{stats['events_delta']} (total {stats['events']}) "
@@ -521,6 +544,13 @@ def tcp_loop() -> None:
                     sock.close()
                 except Exception:
                     pass
+        # Stracilismy polaczenie z gra -> chowamy overlay
+        try:
+            with state_lock:
+                pass
+            set_active(False)
+        except Exception:
+            pass
         print(f"[RL] Reconnect za {RECONNECT_DELAY_S:.0f}s ...")
         time.sleep(RECONNECT_DELAY_S)
 
