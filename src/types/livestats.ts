@@ -22,8 +22,6 @@ export interface PlayerLive {
   demos: number;
   is_demolished: boolean;
   is_supersonic: boolean;
-  is_on_ground: boolean;
-  last_goal_speed: number;
   mmr: number | null;
   updated_at: string;
 }
@@ -45,4 +43,19 @@ export interface PlayerRegistry {
   notes: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface Winner {
+  player_name: string;
+  value: number;
+  unit?: string;
+}
+
+export interface PostMatchWinners {
+  fastestShot: Winner | null;
+  mostDemos: Winner | null;
+  mostAir: Winner | null;
+  mostGround: Winner | null;
+  fastestAvg: Winner | null;
+  mostSupersonic: Winner | null;
 }
