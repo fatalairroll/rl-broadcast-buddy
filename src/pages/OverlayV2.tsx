@@ -6,6 +6,7 @@ import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
 import { TeamNameV2 } from '@/components/v2/TeamNameV2';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useActiveV2Config } from '@/hooks/useOverlayV2Config';
+import { useOverlayVisibility } from '@/hooks/useOverlayVisibility';
 import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
@@ -57,7 +58,7 @@ export default function OverlayV2() {
   const safeGlobalScale = Number.isFinite(config.general.globalScale) ? config.general.globalScale : 1;
   const stageScale = fit * safeGlobalScale;
 
-  const isActive = match?.is_active ?? true;
+  const visible = useOverlayVisibility(match);
 
   return (
     <div
@@ -65,7 +66,7 @@ export default function OverlayV2() {
       style={{ background: 'transparent' }}
     >
       <div
-        className={`relative shrink-0 transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`}
+        className={`relative shrink-0 transition-opacity duration-500 ${visible ? 'opacity-100' : 'opacity-0'}`}
         style={{
           width: 1920 * stageScale,
           height: 1080 * stageScale,
