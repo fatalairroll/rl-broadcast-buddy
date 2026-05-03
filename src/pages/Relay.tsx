@@ -368,7 +368,9 @@ def handle_event(evt: Dict[str, Any]) -> None:
         except Exception:
             gs = 0.0
         if scorer_name and scorer_name != "?":
-            last_goal_speed_by_player[scorer_name] = gs
+            agg = match_agg.setdefault(scorer_name, _empty_agg())
+            if gs > agg["goal_speed_max"]:
+                agg["goal_speed_max"] = gs
         print(f"[GOAL] {scorer_name} speed={gs:.0f}")
         return
 
