@@ -1,31 +1,66 @@
-## Plan
+# Auto-hide overlaya: debounce + fail-safe
 
-Zostawiam obecny system kotwicy scoreboardu (timer wycentrowany na 960+offsetX). Dodaję tylko niezależne offsety dla **boxa timera** i dla **tekstu** w środku — bez wpływu na pozycje Blue/Orange.
+## Cel
+Overlay V2 ma znikać gdy bot Pythonowy zgłosi koniec meczu (`match_metadata.is_active = false`) lub gdy całkowicie straci połączenie. Pokazanie ma być natychmiastowe, ukrycie — z opóźnieniem żeby nie migotało.
 
-### 1) Typy — `src/types/overlayV2.ts`
-W `TimerStyle` dodać (default `0`):
-- `boxOffsetX`, `boxOffsetY` — przesunięcie kafelka timera (inline i detached).
-- `textOffsetX`, `textOffsetY` — przesunięcie samego napisu (i etykiety OT) wewnątrz kafelka.
+## Logika
 
-Zaktualizować `defaultOverlayV2Config.timer` oraz `mergeV2Config` (fallback `?? 0`), żeby stare configi nie wybuchły.
+**Pokaż overlay (opacity-100)** gdy:
+- `is_active === true` ORAZ
+- `updated_at` młodszy niż 30s
 
-### 2) Renderer — `src/components/v2/ScoreboardV2.tsx`
-- W `timerNode`: opakować zawartość kafelka (span z czasem + label OT) dodatkowym wrapperem z `transform: translate(textOffsetX, textOffsetY)` (zastosowanym po `skewInner`, żeby nie wykrzywiało ruchu).
-- Inline mode: do wrappera kafelka dołożyć `translate(boxOffsetX, boxOffsetY)` razem z istniejącym `translateX(-50%)` → `transform: translate(calc(-50% + Xpx), Ypx)`. Blue/Orange pozostają na `halfCenter` — nie ruszają się.
-- Detached mode: do stylu z `positionToStyle(config.timer.position)` doliczyć `translate(boxOffsetX, boxOffsetY)`.
+**Ukryj overlay (opacity-0)** gdy spełniony jest jeden z warunków:
+- `is_active === false` utrzymuje się nieprzerwanie ≥ 5s (debounce)
+- `updated_at` starszy niż 30s (fail-safe — utrata połączenia z botem)
 
-### 3) Edytor — `src/components/creator/StyleEditorV2.tsx` (sekcja `timer`)
-Dodać dwie pod‑sekcje:
-- **Pozycja boxa** (zawsze widoczna):
-  - `Box - offset X` (-300..300 px)
-  - `Box - offset Y` (-200..200 px)
-- **Pozycja tekstu**:
-  - `Tekst - offset X` (-100..100 px)
-  - `Tekst - offset Y` (-60..60 px)
+Każde przyjście świeżego update'u z `is_active=true` natychmiast resetuje debounce i pokazuje overlay.
 
-### Pliki
-- `src/types/overlayV2.ts`
-- `src/components/v2/ScoreboardV2.tsx`
-- `src/components/creator/StyleEditorV2.tsx`
+## Zmiany w kodzie
 
-Bez zmian w bazie — pola jadą w JSON‑owym configu overlaya.
+### 1. Nowy plik: `src/hooks/useOverlayVisibility.ts`
+
+Hook przyjmuje `match: MatchMetadata | null` i zwraca `boolean visible`.
+
+Wewnątrz:
+- `useState<boolean>(true)` — bieżąca widoczność
+- `useRef<number>` — timestamp pierwszego momentu gdy `is_active` stał się `false`
+- `useEffect` reagujący na zmiany `match.is_active` i `match.updated_at`:
+  - jeśli `is_active === true` i dane świeże → `setVisible(true)`, wyczyść ref
+  - jeśli `is_active === false` → ustaw ref na `Date.now()` jeżeli pusty
+- `useEffect` z `setInterval(1000ms)` przeliczający widoczność:
+  - oblicz `staleness = Date.now() - new Date(match.updated_at).getTime()`
+  - `shouldHide = (refSet && Date.now() - ref >= 5000) || staleness > 30000`
+  - `setVisible(!shouldHide)`
+- gdy `match === null` → `visible = false` (nic do pokazania)
+
+Stałe: `HIDE_DEBOUNCE_MS = 5000`, `STALE_MS = 30000`, `TICK_MS = 1000`.
+
+### 2. `src/pages/OverlayV2.tsx`
+
+Zamiana:
+```tsx
+const isActive = match?.is_active ?? true;
+```
+na:
+```tsx
+const visible = useOverlayVisibility(match);
+```
+i użycie `visible` w `className` zamiast `isActive`. Reszta bez zmian.
+
+## Zachowanie w skrajnych przypadkach
+
+| Sytuacja | Zachowanie |
+|---|---|
+| Bot ustawia `is_active=false` | Ukrycie po 5s, fade 500ms |
+| Bot ustawia `is_active=true` po pauzie | Pokazanie natychmiast |
+| Bot pada bez ustawienia flagi | Ukrycie po 30s (fail-safe) |
+| Krótki restart bota (<5s) | Bez migotania — debounce trzyma overlay |
+| Brak `match` w bazie | Ukryty |
+| Brak pola `is_active` (legacy) | Traktujemy jak `true` (zgodność wsteczna) |
+
+## Pliki
+
+- nowy: `src/hooks/useOverlayVisibility.ts`
+- edit: `src/pages/OverlayV2.tsx` (import + 2 linie)
+
+Po stronie bota Python (poza tym repo) trzeba dopisać setowanie `match_metadata.is_active = true/false` — to nie wchodzi w zakres tej zmiany, ale bez tego działa tylko fail-safe na staleness.
