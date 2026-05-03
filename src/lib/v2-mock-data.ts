@@ -9,6 +9,7 @@ export const MOCK_MATCH: MatchMetadata = {
   orange_score: 1,
   is_overtime: false,
   updated_at: new Date().toISOString(),
+  is_active: true,
 };
 
 export const MOCK_PLAYERS: PlayerLive[] = [

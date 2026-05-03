@@ -57,13 +57,15 @@ export default function OverlayV2() {
   const safeGlobalScale = Number.isFinite(config.general.globalScale) ? config.general.globalScale : 1;
   const stageScale = fit * safeGlobalScale;
 
+  const isActive = match?.is_active ?? true;
+
   return (
     <div
       className="fixed inset-0 overflow-hidden flex items-center justify-center"
       style={{ background: 'transparent' }}
     >
       <div
-        className="relative shrink-0"
+        className={`relative shrink-0 transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`}
         style={{
           width: 1920 * stageScale,
           height: 1080 * stageScale,

@@ -7,6 +7,7 @@ export interface MatchMetadata {
   orange_score: number;
   is_overtime: boolean;
   updated_at: string;
+  is_active?: boolean;
 }
 
 export interface PlayerLive {
