@@ -758,9 +758,9 @@ PacketSendRate=30`}</pre>
 
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                 <p className="text-sm text-red-300">
-                  <strong>Wazna aktualizacja (v2.1)</strong>
+                  <strong>Wazna aktualizacja (v2.2)</strong>
                   <br />
-                  Jesli uzywales starszej wersji <code className="bg-secondary px-1 rounded">relay.py</code> i Rocket League zawieszal sie systematycznie - pobierz ponownie najnowszy plik. Stara wersja wykonywala synchroniczne zapisy do bazy w tym samym watku, ktory czytal dane z gry; gdy siec do bazy lagowala, bufor TCP gry zapelnial sie i RL zamarzal. v2.1 ma osobny watek DB - czytanie z gry nigdy nie czeka na siec.
+                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code>. v2.2 chowa overlay automatycznie dokladnie wtedy, kiedy gra zglosi koniec meczu (<code className="bg-secondary px-1 rounded">MatchEnded</code> / <code className="bg-secondary px-1 rounded">MatchDestroyed</code>) lub kiedy zamkniesz bota (Ctrl+C). Zadne timeouty bezczynnosci nie chowaja overlaya - jesli mecz trwa, overlay stoi, niezaleznie od chwilowych przerw w pakietach. v2.1 (osobny watek DB, brak zawieszen RL) jest zachowane.
                 </p>
               </div>
             </CardContent>
