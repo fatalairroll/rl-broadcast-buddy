@@ -317,7 +317,7 @@ def handle_clock_updated(data: Dict[str, Any]) -> None:
 def handle_event(evt: Dict[str, Any]) -> None:
     global current_match_guid, clock_running, in_replay, _dbg_printed
     global blue_score, orange_score, local_time_seconds, is_overtime
-    global dirty_match, clear_requested
+    global dirty_match, clear_requested, match_active
 
     name = evt.get("Event") or evt.get("event") or ""
     raw_data = evt.get("Data")
@@ -374,6 +374,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
         # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
         players_snapshot.clear()
         clear_requested = True
+        match_active = True
         dirty_match = True
         return
 
@@ -381,6 +382,9 @@ def handle_event(evt: Dict[str, Any]) -> None:
         clock_running = False
         if name == "PodiumStart":
             stats["mode"] = "podium"
+        if name in ("MatchEnded", "MatchDestroyed"):
+            match_active = False
+            dirty_match = True
         return
 
     if name == "MatchPaused":
@@ -405,9 +409,6 @@ def clock_loop() -> None:
     while True:
         time.sleep(LOCAL_TICK_S)
         with state_lock:
-            # Watchdog: brak danych z gry => zatrzymaj zegar
-            if last_state_update_at and (time.time() - last_state_update_at) > WATCHDOG_TIMEOUT_S:
-                clock_running = False
             if not clock_running or in_replay:
                 continue
             if is_overtime:
