@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import type { PlayerRegistry } from '@/types/livestats';
-import type { PostMatchWinners, Winner } from '@/hooks/usePostMatchStats';
+import type { PlayerRegistry, PostMatchWinners, Winner } from '@/types/livestats';
 import type { PostMatchStatsStyle } from '@/types/overlayV2';
 
 interface Row {
@@ -13,7 +12,7 @@ interface Row {
 }
 
 interface Props {
-  winners: PostMatchWinners;
+  winners: PostMatchWinners | null;
   registryMap: Map<string, PlayerRegistry>;
   style: PostMatchStatsStyle;
 }
@@ -35,16 +34,17 @@ export function PostMatchStats({ winners, registryMap, style }: Props) {
     return () => clearTimeout(t);
   }, [style.delayMs]);
 
-  if (!style.visible) return null;
+  if (!style.visible || !winners) return null;
 
-  const rows: Row[] = [
+  const allRows: Row[] = [
     { key: 'fastestShot', icon: '🚀', label: 'Najszybszy strzał', winner: winners.fastestShot, format: (v) => `${v} km/h` },
     { key: 'mostDemos', icon: '💥', label: 'Zniszczenia', winner: winners.mostDemos, format: (v) => `${v} Demos` },
     { key: 'mostAir', icon: '✈️', label: 'Czas w powietrzu', winner: winners.mostAir, format: (v) => `${v} sec` },
     { key: 'mostGround', icon: '🚜', label: 'Czas na ziemi', winner: winners.mostGround, format: (v) => `${v} sec` },
     { key: 'fastestAvg', icon: '⚡', label: 'Najszybszy na boisku', winner: winners.fastestAvg, format: (v) => `${v} km/h` },
     { key: 'mostSupersonic', icon: '🔥', label: 'Supersonic control', winner: winners.mostSupersonic, format: (v) => `${v} sec` },
-  ].filter((r) => style.rowVisibility[r.key]);
+  ];
+  const rows: Row[] = allRows.filter((r) => style.rowVisibility[r.key]);
 
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
