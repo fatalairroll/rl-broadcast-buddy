@@ -90,6 +90,123 @@ def reset_match_agg(new_guid: Optional[str]) -> None:
     match_agg = {}
     match_agg_last_ts = 0.0
 
+
+def update_match_agg(players_raw: List[Any]) -> None:
+    """Akumuluje per-gracza: czas w powietrzu/na ziemi, supersonic, srednia predkosc, max demos."""
+    global match_agg_last_ts
+    if not match_is_active or in_replay:
+        return
+    if not players_raw:
+        return
+    now = time.time()
+    delta_ms = 0.0
+    if match_agg_last_ts > 0:
+        delta_ms = max(0.0, min(2000.0, (now - match_agg_last_ts) * 1000.0))
+    match_agg_last_ts = now
+
+    for raw in players_raw:
+        p = _coerce_dict(raw)
+        if not p:
+            continue
+        name = p.get("Name")
+        if not name:
+            continue
+        a = match_agg.setdefault(name, _empty_agg())
+        try:
+            speed = float(p.get("Speed", 0) or 0)
+        except Exception:
+            speed = 0.0
+        on_ground = bool(p.get("bOnGround", True))
+        supersonic = bool(p.get("bSupersonic", False))
+        try:
+            goals = int(p.get("Goals", 0) or 0)
+        except Exception:
+            goals = 0
+        try:
+            demos = int(p.get("Demos", 0) or 0)
+        except Exception:
+            demos = 0
+
+        if delta_ms > 0:
+            if supersonic:
+                a["supersonic_ms"] += delta_ms
+            if on_ground:
+                a["ground_ms"] += delta_ms
+            else:
+                a["air_ms"] += delta_ms
+        a["speed_sum"] += speed
+        a["speed_samples"] += 1
+        if demos > a["max_demos"]:
+            a["max_demos"] = float(demos)
+        # prev_goals tylko na potrzeby ewentualnych przyszlych zastosowan
+        a["prev_goals"] = float(goals)
+
+
+def _winner(metric: str, transform=lambda v: v) -> Optional[Dict[str, Any]]:
+    best_name: Optional[str] = None
+    best_val: float = 0.0
+    for n, a in match_agg.items():
+        v = a.get(metric, 0.0)
+        if v > best_val:
+            best_val = v
+            best_name = n
+    if best_name is None or best_val <= 0:
+        return None
+    return {"player_name": best_name, "value": transform(best_val)}
+
+
+def _winner_avg_speed() -> Optional[Dict[str, Any]]:
+    best_name: Optional[str] = None
+    best_val: float = 0.0
+    for n, a in match_agg.items():
+        s = a.get("speed_samples", 0.0)
+        if s <= 0:
+            continue
+        v = a.get("speed_sum", 0.0) / s
+        if v > best_val:
+            best_val = v
+            best_name = n
+    if best_name is None or best_val <= 0:
+        return None
+    return {"player_name": best_name, "value": int(round(best_val * UU_TO_KMH)), "unit": "km/h"}
+
+
+def write_match_results() -> None:
+    """Po koncu meczu: liczy zwyciezcow w 6 kategoriach i upsertuje do match_results."""
+    if not match_agg_guid:
+        return
+    fastest_shot = _winner("goal_speed_max", lambda v: int(round(v * UU_TO_KMH)))
+    if fastest_shot:
+        fastest_shot["unit"] = "km/h"
+    most_demos = _winner("max_demos", lambda v: int(v))
+    if most_demos:
+        most_demos["unit"] = "count"
+    most_air = _winner("air_ms", lambda v: int(round(v / 1000.0)))
+    if most_air:
+        most_air["unit"] = "sec"
+    most_ground = _winner("ground_ms", lambda v: int(round(v / 1000.0)))
+    if most_ground:
+        most_ground["unit"] = "sec"
+    fastest_avg = _winner_avg_speed()
+    most_supersonic = _winner("supersonic_ms", lambda v: int(round(v / 1000.0)))
+    if most_supersonic:
+        most_supersonic["unit"] = "sec"
+
+    winners = {
+        "fastestShot": fastest_shot,
+        "mostDemos": most_demos,
+        "mostAir": most_air,
+        "mostGround": most_ground,
+        "fastestAvg": fastest_avg,
+        "mostSupersonic": most_supersonic,
+    }
+    payload = {"match_guid": match_agg_guid, "data": {"winners": winners}}
+    try:
+        sb.table("match_results").upsert(payload, on_conflict="match_guid").execute()
+        print(f"[MATCH_RESULTS] zapisano dla guid={match_agg_guid}")
+    except Exception as e:
+        print(f"[ERR] match_results upsert: {e}")
+
 # Lokalny zegar (interpolacja miedzy snapami z gry)
 local_time_seconds: float = 300.0
 is_overtime: bool = False
