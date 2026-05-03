@@ -67,11 +67,28 @@ last_state_update_at = 0.0
 
 current_match_guid: Optional[str] = None
 last_active_camera: Optional[str] = None
-
-# Mapa nick -> ostatnia predkosc gola (uu/s). Frontend po wzroscie
-# 'goals' czyta 'last_goal_speed' jako rekord najszybszego strzalu.
-last_goal_speed_by_player: Dict[str, float] = {}
 match_is_active: bool = False
+
+# === AGREGATY MECZU (in-memory w bocie) ===
+# Per-mecz statystyki dla post-match recap. Liczone tutaj, nie we frontendzie.
+UU_TO_KMH = 0.036
+
+match_agg_guid: Optional[str] = None
+match_agg: Dict[str, Dict[str, float]] = {}  # name -> {air_ms, ground_ms, supersonic_ms, speed_sum, speed_samples, max_demos, prev_goals, goal_speed_max}
+match_agg_last_ts: float = 0.0
+
+def _empty_agg() -> Dict[str, float]:
+    return {
+        "air_ms": 0.0, "ground_ms": 0.0, "supersonic_ms": 0.0,
+        "speed_sum": 0.0, "speed_samples": 0.0,
+        "max_demos": 0.0, "prev_goals": 0.0, "goal_speed_max": 0.0,
+    }
+
+def reset_match_agg(new_guid: Optional[str]) -> None:
+    global match_agg_guid, match_agg, match_agg_last_ts
+    match_agg_guid = new_guid
+    match_agg = {}
+    match_agg_last_ts = 0.0
 
 # Lokalny zegar (interpolacja miedzy snapami z gry)
 local_time_seconds: float = 300.0
@@ -384,7 +401,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
         in_replay = False
         clock_running = False
         match_is_active = True
-        last_goal_speed_by_player.clear()
+        reset_match_agg(current_match_guid)
         stats["mode"] = "live"
         # Nowy mecz / replay -> czyscimy poprzednia liste graczy,
         # zeby zalegle wpisy (np. boty z poprzedniej sesji) nie zostaly w overlay.
@@ -397,6 +414,11 @@ def handle_event(evt: Dict[str, Any]) -> None:
         match_is_active = False
         if name == "PodiumStart":
             stats["mode"] = "podium"
+        # Zapis finalnych statystyk meczu do match_results.
+        try:
+            write_match_results()
+        except Exception as e:
+            print(f"[ERR] write_match_results: {e}")
         upsert_match()
         return
 
