@@ -262,7 +262,9 @@ export type Database = {
           demos: number
           goals: number
           is_demolished: boolean
+          is_on_ground: boolean
           is_supersonic: boolean
+          last_goal_speed: number
           mmr: number | null
           player_name: string
           saves: number
@@ -277,7 +279,9 @@ export type Database = {
           demos?: number
           goals?: number
           is_demolished?: boolean
+          is_on_ground?: boolean
           is_supersonic?: boolean
+          last_goal_speed?: number
           mmr?: number | null
           player_name: string
           saves?: number
@@ -292,7 +296,9 @@ export type Database = {
           demos?: number
           goals?: number
           is_demolished?: boolean
+          is_on_ground?: boolean
           is_supersonic?: boolean
+          last_goal_speed?: number
           mmr?: number | null
           player_name?: string
           saves?: number

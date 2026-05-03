@@ -22,6 +22,8 @@ export interface PlayerLive {
   demos: number;
   is_demolished: boolean;
   is_supersonic: boolean;
+  is_on_ground: boolean;
+  last_goal_speed: number;
   mmr: number | null;
   updated_at: string;
 }
