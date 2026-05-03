@@ -221,6 +221,42 @@ export interface TeamNameStyle {
   offsetY: number;
 }
 
+
+export interface PostMatchStatsStyle {
+  visible: boolean;
+  /** Delay before card animates in after match ends (ms). */
+  delayMs: number;
+  /** How long the card stays on screen (ms). */
+  durationMs: number;
+  width: number;
+  background: string;
+  borderColor: string;
+  borderRadius: number;
+  blurPx: number;
+  rowBackground: string;
+  fontFamily: string;
+  titleText: string;
+  titleColor: string;
+  titleFontSize: number;
+  accentBlue: string;
+  accentOrange: string;
+  labelColor: string;
+  labelFontSize: number;
+  valueColor: string;
+  valueFontSize: number;
+  playerColor: string;
+  playerFontSize: number;
+  showAvatars: boolean;
+  rowVisibility: {
+    fastestShot: boolean;
+    mostDemos: boolean;
+    mostAir: boolean;
+    mostGround: boolean;
+    fastestAvg: boolean;
+    mostSupersonic: boolean;
+  };
+}
+
 export interface OverlayV2Config {
   scoreboard: ScoreboardV2Style;
   scoreBlue: ScoreSideStyle;
@@ -231,6 +267,7 @@ export interface OverlayV2Config {
   seriesScore: SeriesScoreStyle;
   teamNameBlue: TeamNameStyle;
   teamNameOrange: TeamNameStyle;
+  postMatchStats: PostMatchStatsStyle;
   general: GeneralV2Style;
 }
 
@@ -244,6 +281,7 @@ export type V2EditableElement =
   | 'seriesScore'
   | 'teamNameBlue'
   | 'teamNameOrange'
+  | 'postMatchStats'
   | 'general';
 
 export const V2_ELEMENT_LABELS: Record<V2EditableElement, string> = {
@@ -256,6 +294,7 @@ export const V2_ELEMENT_LABELS: Record<V2EditableElement, string> = {
   seriesScore: 'Wynik serii (BO)',
   teamNameBlue: 'Nazwa drużyny niebieskiej',
   teamNameOrange: 'Nazwa drużyny pomarańczowej',
+  postMatchStats: 'Tabela podsumowania meczu',
   general: 'Ogólne',
 };
 
@@ -447,6 +486,38 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     offsetX: 0,
     offsetY: 0,
   },
+  postMatchStats: {
+    visible: true,
+    delayMs: 2000,
+    durationMs: 12000,
+    width: 760,
+    background: 'rgba(0,0,0,0.6)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    blurPx: 16,
+    rowBackground: 'rgba(255,255,255,0.05)',
+    fontFamily: 'Rajdhani, sans-serif',
+    titleText: 'MATCH RECAP',
+    titleColor: '#ffffff',
+    titleFontSize: 32,
+    accentBlue: BLUE_GLOW,
+    accentOrange: ORANGE_GLOW,
+    labelColor: 'rgba(255,255,255,0.8)',
+    labelFontSize: 16,
+    valueColor: '#ffffff',
+    valueFontSize: 18,
+    playerColor: '#ffffff',
+    playerFontSize: 16,
+    showAvatars: true,
+    rowVisibility: {
+      fastestShot: true,
+      mostDemos: true,
+      mostAir: true,
+      mostGround: true,
+      fastestAvg: true,
+      mostSupersonic: true,
+    },
+  },
   general: {
     animationsEnabled: true,
     transitionDuration: 350,
@@ -497,6 +568,9 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   const ss = { ...defaultOverlayV2Config.seriesScore, ...((p as any).seriesScore ?? {}) } as SeriesScoreStyle;
   const tnb = { ...defaultOverlayV2Config.teamNameBlue, ...((p as any).teamNameBlue ?? {}) } as TeamNameStyle;
   const tno = { ...defaultOverlayV2Config.teamNameOrange, ...((p as any).teamNameOrange ?? {}) } as TeamNameStyle;
+  const pms = { ...defaultOverlayV2Config.postMatchStats, ...((p as any).postMatchStats ?? {}) } as PostMatchStatsStyle;
+  if (!pms.rowVisibility) pms.rowVisibility = { ...defaultOverlayV2Config.postMatchStats.rowVisibility };
+  else pms.rowVisibility = { ...defaultOverlayV2Config.postMatchStats.rowVisibility, ...pms.rowVisibility };
   return {
     scoreboard: sb,
     scoreBlue: { ...defaultOverlayV2Config.scoreBlue, ...(p.scoreBlue ?? {}) },
@@ -507,6 +581,7 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
     seriesScore: ss,
     teamNameBlue: tnb,
     teamNameOrange: tno,
+    postMatchStats: pms,
     general: { ...defaultOverlayV2Config.general, ...(p.general ?? {}) },
   };
 }
