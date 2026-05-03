@@ -704,11 +704,11 @@ PacketSendRate=30`}</pre>
                 </p>
               </div>
 
-              <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                <p className="text-sm text-yellow-300">
-                  <strong>Aktualizacja</strong>
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-sm text-red-300">
+                  <strong>Wazna aktualizacja (v2.1)</strong>
                   <br />
-                  Jesli widzisz w konsoli powtarzajacy sie blad <code className="bg-secondary px-1 rounded">'str' object has no attribute 'get'</code>, pobierz ponownie najnowszy <code className="bg-secondary px-1 rounded">relay.py</code> z tej strony - obsluga zagniezdzonego JSON-a w polu <code className="bg-secondary px-1 rounded">Data</code> zostala dodana.
+                  Jesli uzywales starszej wersji <code className="bg-secondary px-1 rounded">relay.py</code> i Rocket League zawieszal sie systematycznie - pobierz ponownie najnowszy plik. Stara wersja wykonywala synchroniczne zapisy do bazy w tym samym watku, ktory czytal dane z gry; gdy siec do bazy lagowala, bufor TCP gry zapelnial sie i RL zamarzal. v2.1 ma osobny watek DB - czytanie z gry nigdy nie czeka na siec.
                 </p>
               </div>
             </CardContent>
