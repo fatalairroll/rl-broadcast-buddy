@@ -68,30 +68,37 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
         fontFamily: config.timer.fontFamily,
       }}
     >
-      <span
-        className="tabular-nums tracking-wider"
+      <div
+        className="flex flex-col items-center"
         style={{
-          transform: skewInner,
-          fontFamily: config.timer.fontFamily,
-          fontSize: config.timer.fontSize,
-          fontWeight: 900,
-          color: config.timer.textColor,
+          transform: `translate(${config.timer.textOffsetX}px, ${config.timer.textOffsetY}px)`,
         }}
       >
-        {timer}
-      </span>
-      {ot && config.timer.showOvertimeLabel && (
         <span
-          className="text-xs font-bold uppercase tracking-[0.3em] mt-1 animate-pulse"
+          className="tabular-nums tracking-wider"
           style={{
             transform: skewInner,
-            color: config.timer.overtimeLabelColor,
-            textShadow: `0 0 8px ${config.timer.overtimeLabelColor}`,
+            fontFamily: config.timer.fontFamily,
+            fontSize: config.timer.fontSize,
+            fontWeight: 900,
+            color: config.timer.textColor,
           }}
         >
-          Overtime
+          {timer}
         </span>
-      )}
+        {ot && config.timer.showOvertimeLabel && (
+          <span
+            className="text-xs font-bold uppercase tracking-[0.3em] mt-1 animate-pulse"
+            style={{
+              transform: skewInner,
+              color: config.timer.overtimeLabelColor,
+              textShadow: `0 0 8px ${config.timer.overtimeLabelColor}`,
+            }}
+          >
+            Overtime
+          </span>
+        )}
+      </div>
     </div>
   );
 
@@ -192,7 +199,7 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
               position: 'absolute',
               left: 0,
               top: 0,
-              transform: 'translateX(-50%)',
+              transform: `translate(calc(-50% + ${config.timer.boxOffsetX}px), ${config.timer.boxOffsetY}px)`,
               display: 'flex',
             }}
           >
@@ -215,9 +222,20 @@ export function ScoreboardV2({ match, config = defaultOverlayV2Config }: Props) 
       </motion.div>
 
       {/* Timer (detached mode) */}
-      {detached && (
-        <div style={positionToStyle(config.timer.position)}>{timerNode}</div>
-      )}
+      {detached && (() => {
+        const baseStyle = positionToStyle(config.timer.position);
+        const baseTransform = (baseStyle.transform as string) ?? '';
+        return (
+          <div
+            style={{
+              ...baseStyle,
+              transform: `${baseTransform} translate(${config.timer.boxOffsetX}px, ${config.timer.boxOffsetY}px)`.trim(),
+            }}
+          >
+            {timerNode}
+          </div>
+        );
+      })()}
     </>
   );
 }

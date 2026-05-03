@@ -1,29 +1,31 @@
-## Auto-hide overlay V2
+## Plan
 
-### 1. Schema migration
-Add `is_active boolean NOT NULL DEFAULT true` to `public.match_metadata`. Backfill existing row (id=1) to `true`. The relay/Python bot will toggle this column when game starts/ends.
+Zostawiam obecny system kotwicy scoreboardu (timer wycentrowany na 960+offsetX). Dodaję tylko niezależne offsety dla **boxa timera** i dla **tekstu** w środku — bez wpływu na pozycje Blue/Orange.
 
-### 2. Type update
-Add `is_active: boolean` to `MatchMetadata` interface in `src/types/livestats.ts`. Default mock data in `src/lib/v2-mock-data.ts` to `is_active: true`.
+### 1) Typy — `src/types/overlayV2.ts`
+W `TimerStyle` dodać (default `0`):
+- `boxOffsetX`, `boxOffsetY` — przesunięcie kafelka timera (inline i detached).
+- `textOffsetX`, `textOffsetY` — przesunięcie samego napisu (i etykiety OT) wewnątrz kafelka.
 
-### 3. Hook
-`useLiveStatsV2` already returns the full `match` row, so `is_active` propagates automatically once the column exists. No changes needed beyond the type.
+Zaktualizować `defaultOverlayV2Config.timer` oraz `mergeV2Config` (fallback `?? 0`), żeby stare configi nie wybuchły.
 
-### 4. OverlayV2.tsx
-Wrap the inner stage `<div>` (the one rendering Scoreboard/BoostStack/etc.) in a wrapper with:
+### 2) Renderer — `src/components/v2/ScoreboardV2.tsx`
+- W `timerNode`: opakować zawartość kafelka (span z czasem + label OT) dodatkowym wrapperem z `transform: translate(textOffsetX, textOffsetY)` (zastosowanym po `skewInner`, żeby nie wykrzywiało ruchu).
+- Inline mode: do wrappera kafelka dołożyć `translate(boxOffsetX, boxOffsetY)` razem z istniejącym `translateX(-50%)` → `transform: translate(calc(-50% + Xpx), Ypx)`. Blue/Orange pozostają na `halfCenter` — nie ruszają się.
+- Detached mode: do stylu z `positionToStyle(config.timer.position)` doliczyć `translate(boxOffsetX, boxOffsetY)`.
 
-```tsx
-const isActive = match?.is_active ?? true;
-<div className={`transition-opacity duration-500 ${isActive ? 'opacity-100' : 'opacity-0'}`}>
-  ...stage...
-</div>
-```
+### 3) Edytor — `src/components/creator/StyleEditorV2.tsx` (sekcja `timer`)
+Dodać dwie pod‑sekcje:
+- **Pozycja boxa** (zawsze widoczna):
+  - `Box - offset X` (-300..300 px)
+  - `Box - offset Y` (-200..200 px)
+- **Pozycja tekstu**:
+  - `Tekst - offset X` (-100..100 px)
+  - `Tekst - offset Y` (-60..60 px)
 
-Fade-out when bot sets `is_active=false` (match ended), instant fade-in when `true`. Defaults to visible if column missing/null so we don't break existing flows.
+### Pliki
+- `src/types/overlayV2.ts`
+- `src/components/v2/ScoreboardV2.tsx`
+- `src/components/creator/StyleEditorV2.tsx`
 
-### 5. Creator preview
-`V2Preview` should ignore `is_active` (always show in editor) — no change needed since wrapper is only added in `OverlayV2.tsx`.
-
-### Notes
-- No UI toggle in dashboard required by this task — column is driven externally by the relay bot.
-- 500ms Tailwind transition matches request.
+Bez zmian w bazie — pola jadą w JSON‑owym configu overlaya.

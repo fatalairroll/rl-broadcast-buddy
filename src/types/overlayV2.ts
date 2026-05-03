@@ -49,6 +49,12 @@ export interface TimerStyle {
   /** When true, timer is rendered as its own absolute element using `position`. */
   detached: boolean;
   position: PositionV2;
+  /** Offset of the timer box (applied in both inline and detached modes). */
+  boxOffsetX: number;
+  boxOffsetY: number;
+  /** Offset of the time text (and OT label) inside the box. */
+  textOffsetX: number;
+  textOffsetY: number;
 }
 
 export interface BoostBarStatsToggle {
@@ -303,6 +309,10 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     glow: { ...defaultGlow, enabled: false },
     detached: false,
     position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -516 },
+    boxOffsetX: 0,
+    boxOffsetY: 0,
+    textOffsetX: 0,
+    textOffsetY: 0,
   },
   boostBar: {
     visible: true,
@@ -454,6 +464,10 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
     sb.position = { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -540 + (p.scoreboard as any).topOffset };
   }
   const tm = { ...defaultOverlayV2Config.timer, ...(p.timer ?? {}) } as TimerStyle;
+  tm.boxOffsetX = tm.boxOffsetX ?? 0;
+  tm.boxOffsetY = tm.boxOffsetY ?? 0;
+  tm.textOffsetX = tm.textOffsetX ?? 0;
+  tm.textOffsetY = tm.textOffsetY ?? 0;
   const bb = { ...defaultOverlayV2Config.boostBar, ...(p.boostBar ?? {}) } as BoostBarV2Style;
   const legacySide = (p.boostBar as any)?.sideOffset;
   const legacyVA = (p.boostBar as any)?.verticalAlign;
