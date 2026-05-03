@@ -3,6 +3,7 @@ import type { TeamNameStyle, TeamNameShape } from '@/types/overlayV2';
 import { gradientToCss } from '@/lib/gradient-utils';
 import { glowToBoxShadow } from '@/lib/glow-utils';
 import { positionToStyle } from '@/lib/position-utils';
+import { useScoreboardBounds } from '@/lib/scoreboard-bounds-context';
 
 interface Props {
   name: string | null | undefined;
@@ -32,6 +33,7 @@ function shapeStyle(shape: TeamNameShape, borderRadius: number): React.CSSProper
 
 export function TeamNameV2({ name, style, team }: Props) {
   if (!style.visible) return null;
+  const { bounds } = useScoreboardBounds();
   const raw = (name ?? '').trim();
   if (!raw) return null;
 
@@ -46,33 +48,47 @@ export function TeamNameV2({ name, style, team }: Props) {
   const skewOuter = style.skewDeg ? `skewX(${style.skewDeg}deg)` : undefined;
   const skewInner = style.skewDeg ? `skewX(${-style.skewDeg}deg)` : undefined;
 
-  const compressY = (py: number) => ({
-    paddingTop: Math.max(0, py),
-    paddingBottom: Math.max(0, py),
-    marginTop: Math.min(0, py),
-    marginBottom: Math.min(0, py),
-  });
-
   const shape = shapeStyle(style.shape, style.borderRadius);
 
+  // Position resolution: attach mode uses scoreboard bounds, else PositionV2.
+  let outerStyle: React.CSSProperties;
+  if (style.attachToScoreboard && bounds) {
+    outerStyle =
+      team === 'blue'
+        ? {
+            position: 'absolute',
+            left: bounds.left - style.width + (style.attachOffsetX ?? 0),
+            top: bounds.top + (style.attachOffsetY ?? 0),
+          }
+        : {
+            position: 'absolute',
+            left: bounds.right + (style.attachOffsetX ?? 0),
+            top: bounds.top + (style.attachOffsetY ?? 0),
+          };
+  } else {
+    outerStyle = positionToStyle(style.position);
+  }
+
   return (
-    <div style={{ ...positionToStyle(style.position), opacity: style.opacity }} data-team={team}>
+    <div style={{ ...outerStyle, opacity: style.opacity }} data-team={team}>
       {/* motion handles only entry animation (y/opacity) + fine offset.
           DO NOT put skew on this node — framer-motion would clobber it. */}
       <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}
-        style={{ transform: `translate(${style.offsetX ?? 0}px, ${style.offsetY ?? 0}px)` }}
       >
         {/* Static skew wrapper — owns the box appearance and skew. */}
         <div
-          className="flex items-center justify-center select-none"
+          className="flex items-center select-none overflow-hidden"
           style={{
-            ...compressY(style.paddingY),
+            width: style.width,
+            height: style.height,
             paddingLeft: style.paddingX,
             paddingRight: style.paddingX,
-            minWidth: style.minWidth,
+            justifyContent:
+              style.textAlign === 'left' ? 'flex-start' :
+              style.textAlign === 'right' ? 'flex-end' : 'center',
             background: gradientToCss(style.gradient, style.background) ?? style.background,
             boxShadow: glowToBoxShadow(style.glow),
             border: style.borderWidth > 0 ? `${style.borderWidth}px solid ${style.borderColor}` : undefined,
@@ -92,6 +108,9 @@ export function TeamNameV2({ name, style, team }: Props) {
               letterSpacing: style.letterSpacing,
               textAlign: style.textAlign,
               whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: '100%',
             }}
           >
             {display}
