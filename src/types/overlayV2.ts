@@ -40,6 +40,9 @@ export interface ScoreSideStyle {
   fontFamily: string;
   skewDeg: number;
   inheritParentSkew: boolean;
+  /** Fine-tune offset from default position inside scoreboard row (px). */
+  offsetX: number;
+  offsetY: number;
 }
 
 export interface TimerStyle {
