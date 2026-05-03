@@ -26,17 +26,19 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
       className={`relative ${player.is_demolished ? 'opacity-50 grayscale' : ''}`}
       style={{
         width: c.width,
+        height: c.cardHeight,
         transform: `skewX(${c.skewDeg}deg)`,
         filter: isActive ? `drop-shadow(0 0 16px ${colors.glow})` : undefined,
       }}
     >
       <div
-        className="flex flex-col gap-1"
+        className="flex flex-col gap-1 overflow-hidden h-full"
         style={{
           background: c.background,
           border: `1px solid ${c.borderColor}`,
           padding: `${c.paddingY}px ${c.paddingX}px`,
           direction: reverse ? 'rtl' : 'ltr',
+          boxSizing: 'border-box',
         }}
       >
         {/* Nick + boost number */}
@@ -67,7 +69,7 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
         </div>
 
         {/* Boost bar */}
-        <div className="relative h-2 bg-white/10 overflow-hidden">
+        <div className="relative bg-white/10 overflow-hidden" style={{ height: c.barHeight }}>
           <motion.div
             className="absolute inset-y-0"
             style={{

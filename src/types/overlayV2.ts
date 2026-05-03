@@ -34,6 +34,12 @@ export interface ScoreSideStyle {
   fontWeight: number;
   textColor: string;
   textShadow: string;      // raw CSS string
+  // Fixed Box Model
+  width: number;
+  height: number;
+  fontFamily: string;
+  skewDeg: number;
+  inheritParentSkew: boolean;
 }
 
 export interface TimerStyle {
@@ -49,12 +55,16 @@ export interface TimerStyle {
   /** When true, timer is rendered as its own absolute element using `position`. */
   detached: boolean;
   position: PositionV2;
-  /** Offset of the timer box (applied in both inline and detached modes). */
-  boxOffsetX: number;
-  boxOffsetY: number;
-  /** Offset of the time text (and OT label) inside the box. */
-  textOffsetX: number;
-  textOffsetY: number;
+  /** @deprecated legacy fine offsets, replaced by Position offsetX/Y. */
+  boxOffsetX?: number;
+  boxOffsetY?: number;
+  textOffsetX?: number;
+  textOffsetY?: number;
+  // Fixed Box Model
+  width: number;
+  height: number;
+  skewDeg: number;
+  inheritParentSkew: boolean;
 }
 
 export interface BoostBarStatsToggle {
@@ -69,6 +79,10 @@ export interface BoostBarV2Style {
   visible: boolean;
   width: number;             // total bar card width
   gap: number;               // px between bars in stack
+  /** Fixed height of each player card in the boost stack. */
+  cardHeight: number;
+  /** Fixed height of the boost bar inside the card. */
+  barHeight: number;
   /** @deprecated use positionLeft/positionRight. */
   sideOffset?: number;
   /** @deprecated use positionLeft/positionRight. */
@@ -127,6 +141,7 @@ export interface PlayerCardV2Style {
   width: number;
   height: number;
   skewDeg: number;
+  inheritParentSkew?: boolean;
   borderColor: string;
   borderWidth: number;
   // Team color fallbacks (used when registry.team_color missing)
@@ -199,6 +214,8 @@ export interface TeamNameStyle {
   paddingX: number;
   paddingY: number;
   minWidth: number;
+  width: number;
+  height: number;
   fontFamily: string;
   fontSize: number;
   fontWeight: number;
@@ -216,9 +233,13 @@ export interface TeamNameStyle {
   opacity: number;
   maxChars: number; // 0 = unlimited
   uppercase: boolean;
-  /** Fine-tune offsets applied AFTER position anchor resolution, in px. */
-  offsetX: number;
-  offsetY: number;
+  /** @deprecated legacy fine offsets, replaced by Position offsetX/Y. */
+  offsetX?: number;
+  offsetY?: number;
+  /** When true, position is computed relative to scoreboard edges. */
+  attachToScoreboard: boolean;
+  attachOffsetX: number;
+  attachOffsetY: number;
 }
 
 export interface OverlayV2Config {
@@ -286,6 +307,11 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     fontWeight: 900,
     textColor: '#ffffff',
     textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+    width: 140,
+    height: 100,
+    fontFamily: 'Rajdhani, sans-serif',
+    skewDeg: -15,
+    inheritParentSkew: true,
   },
   scoreOrange: {
     gradient: defaultGradient(ORANGE_FROM, ORANGE_TO),
@@ -296,6 +322,11 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     fontWeight: 900,
     textColor: '#ffffff',
     textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+    width: 140,
+    height: 100,
+    fontFamily: 'Rajdhani, sans-serif',
+    skewDeg: -15,
+    inheritParentSkew: true,
   },
   timer: {
     background: 'rgba(0,0,0,0.85)',
@@ -313,11 +344,17 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     boxOffsetY: 0,
     textOffsetX: 0,
     textOffsetY: 0,
+    width: 220,
+    height: 100,
+    skewDeg: -15,
+    inheritParentSkew: true,
   },
   boostBar: {
     visible: true,
     width: 300,
     gap: 12,
+    cardHeight: 64,
+    barHeight: 8,
     // anchorH:'left' → element's LEFT edge anchored at offsetX from screen center.
     // -928 = 32px from screen left (1920/2 - 32).
     positionLeft: { anchorH: 'left', anchorV: 'middle', offsetX: -928, offsetY: 0 },
@@ -401,6 +438,8 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     paddingX: 28,
     paddingY: 16,
     minWidth: 220,
+    width: 320,
+    height: 80,
     fontFamily: 'Rajdhani, sans-serif',
     fontSize: 36,
     fontWeight: 700,
@@ -420,6 +459,9 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     uppercase: true,
     offsetX: 0,
     offsetY: 0,
+    attachToScoreboard: false,
+    attachOffsetX: 0,
+    attachOffsetY: 0,
   },
   teamNameOrange: {
     visible: true,
@@ -427,6 +469,8 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     paddingX: 28,
     paddingY: 16,
     minWidth: 220,
+    width: 320,
+    height: 80,
     fontFamily: 'Rajdhani, sans-serif',
     fontSize: 36,
     fontWeight: 700,
@@ -446,6 +490,9 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     uppercase: true,
     offsetX: 0,
     offsetY: 0,
+    attachToScoreboard: false,
+    attachOffsetX: 0,
+    attachOffsetY: 0,
   },
   general: {
     animationsEnabled: true,
@@ -468,7 +515,13 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   tm.boxOffsetY = tm.boxOffsetY ?? 0;
   tm.textOffsetX = tm.textOffsetX ?? 0;
   tm.textOffsetY = tm.textOffsetY ?? 0;
+  tm.width = tm.width ?? defaultOverlayV2Config.timer.width;
+  tm.height = tm.height ?? defaultOverlayV2Config.timer.height;
+  tm.skewDeg = tm.skewDeg ?? defaultOverlayV2Config.timer.skewDeg;
+  tm.inheritParentSkew = tm.inheritParentSkew ?? true;
   const bb = { ...defaultOverlayV2Config.boostBar, ...(p.boostBar ?? {}) } as BoostBarV2Style;
+  bb.cardHeight = bb.cardHeight ?? defaultOverlayV2Config.boostBar.cardHeight;
+  bb.barHeight = bb.barHeight ?? defaultOverlayV2Config.boostBar.barHeight;
   const legacySide = (p.boostBar as any)?.sideOffset;
   const legacyVA = (p.boostBar as any)?.verticalAlign;
   if (!(p.boostBar as any)?.positionLeft && (legacySide != null || legacyVA != null)) {
@@ -494,13 +547,31 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   }
   if (!pc.fields) pc.fields = { ...defaultOverlayV2Config.playerCard.fields };
   if (!pc.stats) pc.stats = { ...defaultOverlayV2Config.playerCard.stats };
+  pc.inheritParentSkew = pc.inheritParentSkew ?? false;
   const ss = { ...defaultOverlayV2Config.seriesScore, ...((p as any).seriesScore ?? {}) } as SeriesScoreStyle;
   const tnb = { ...defaultOverlayV2Config.teamNameBlue, ...((p as any).teamNameBlue ?? {}) } as TeamNameStyle;
   const tno = { ...defaultOverlayV2Config.teamNameOrange, ...((p as any).teamNameOrange ?? {}) } as TeamNameStyle;
+  for (const tn of [tnb, tno]) {
+    tn.width = tn.width ?? defaultOverlayV2Config.teamNameBlue.width;
+    tn.height = tn.height ?? defaultOverlayV2Config.teamNameBlue.height;
+    tn.attachToScoreboard = tn.attachToScoreboard ?? false;
+    tn.attachOffsetX = tn.attachOffsetX ?? 0;
+    tn.attachOffsetY = tn.attachOffsetY ?? 0;
+  }
+  // Score sides backfill
+  const sblue = { ...defaultOverlayV2Config.scoreBlue, ...(p.scoreBlue ?? {}) } as ScoreSideStyle;
+  const sorange = { ...defaultOverlayV2Config.scoreOrange, ...(p.scoreOrange ?? {}) } as ScoreSideStyle;
+  for (const ss2 of [sblue, sorange]) {
+    ss2.width = ss2.width ?? 140;
+    ss2.height = ss2.height ?? 100;
+    ss2.fontFamily = ss2.fontFamily ?? sb.fontFamily ?? 'Rajdhani, sans-serif';
+    ss2.skewDeg = ss2.skewDeg ?? sb.skewDeg ?? -15;
+    ss2.inheritParentSkew = ss2.inheritParentSkew ?? true;
+  }
   return {
     scoreboard: sb,
-    scoreBlue: { ...defaultOverlayV2Config.scoreBlue, ...(p.scoreBlue ?? {}) },
-    scoreOrange: { ...defaultOverlayV2Config.scoreOrange, ...(p.scoreOrange ?? {}) },
+    scoreBlue: sblue,
+    scoreOrange: sorange,
     timer: tm,
     boostBar: bb,
     playerCard: pc,

@@ -11,6 +11,7 @@ import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
 import { useActivePlayerMmrInfo } from '@/hooks/useActivePlayerMmrInfo';
+import { ScoreboardBoundsProvider } from '@/lib/scoreboard-bounds-context';
 
 export default function OverlayV2() {
   const {
@@ -61,6 +62,7 @@ export default function OverlayV2() {
   const visible = useOverlayVisibility(match);
 
   return (
+    <ScoreboardBoundsProvider>
     <div
       className="fixed inset-0 overflow-hidden flex items-center justify-center"
       style={{ background: 'transparent' }}
@@ -109,5 +111,6 @@ export default function OverlayV2() {
         </div>
       </div>
     </div>
+    </ScoreboardBoundsProvider>
   );
 }

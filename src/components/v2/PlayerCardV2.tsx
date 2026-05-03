@@ -64,8 +64,9 @@ export function PlayerCardV2({ player, registry, config = defaultOverlayV2Config
           <div
             className="relative flex items-stretch"
             style={{
-              minWidth: c.width,
+              width: c.width,
               height: c.height,
+              overflow: 'hidden',
               transform: skewOuter,
               background: registry?.team_color
                 ? `linear-gradient(135deg, ${registry.team_color}cc, ${registry.team_color}99)`
