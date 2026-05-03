@@ -307,6 +307,11 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     fontWeight: 900,
     textColor: '#ffffff',
     textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+    width: 140,
+    height: 100,
+    fontFamily: 'Rajdhani, sans-serif',
+    skewDeg: -15,
+    inheritParentSkew: true,
   },
   scoreOrange: {
     gradient: defaultGradient(ORANGE_FROM, ORANGE_TO),
@@ -317,6 +322,11 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     fontWeight: 900,
     textColor: '#ffffff',
     textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+    width: 140,
+    height: 100,
+    fontFamily: 'Rajdhani, sans-serif',
+    skewDeg: -15,
+    inheritParentSkew: true,
   },
   timer: {
     background: 'rgba(0,0,0,0.85)',
@@ -334,11 +344,17 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     boxOffsetY: 0,
     textOffsetX: 0,
     textOffsetY: 0,
+    width: 220,
+    height: 100,
+    skewDeg: -15,
+    inheritParentSkew: true,
   },
   boostBar: {
     visible: true,
     width: 300,
     gap: 12,
+    cardHeight: 64,
+    barHeight: 8,
     // anchorH:'left' → element's LEFT edge anchored at offsetX from screen center.
     // -928 = 32px from screen left (1920/2 - 32).
     positionLeft: { anchorH: 'left', anchorV: 'middle', offsetX: -928, offsetY: 0 },
