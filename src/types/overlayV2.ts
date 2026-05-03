@@ -574,6 +574,8 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
     ss2.fontFamily = ss2.fontFamily ?? sb.fontFamily ?? 'Rajdhani, sans-serif';
     ss2.skewDeg = ss2.skewDeg ?? sb.skewDeg ?? -15;
     ss2.inheritParentSkew = ss2.inheritParentSkew ?? true;
+    ss2.offsetX = ss2.offsetX ?? 0;
+    ss2.offsetY = ss2.offsetY ?? 0;
   }
   return {
     scoreboard: sb,
