@@ -11,6 +11,8 @@ import { useBroadcast } from '@/hooks/useBroadcast';
 import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
 import { useActivePlayerMmrInfo } from '@/hooks/useActivePlayerMmrInfo';
 
+const STALE_MS = 8_000;
+
 export default function OverlayV2() {
   const {
     match,
@@ -57,7 +59,16 @@ export default function OverlayV2() {
   const safeGlobalScale = Number.isFinite(config.general.globalScale) ? config.general.globalScale : 1;
   const stageScale = fit * safeGlobalScale;
 
-  const isActive = match?.is_active ?? true;
+  // Tick co 1s, zeby przeliczac stale-detection nawet bez nowych eventow realtime
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const lastUpdate = match?.updated_at ? new Date(match.updated_at).getTime() : 0;
+  const isFresh = lastUpdate > 0 && now - lastUpdate < STALE_MS;
+  const isActive = (match?.is_active ?? true) && isFresh;
 
   return (
     <div
