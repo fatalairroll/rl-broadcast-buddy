@@ -440,6 +440,7 @@ def db_worker_loop() -> None:
                 "timer": fmt_timer(local_time_seconds),
                 "is_overtime": bool(is_overtime),
                 "match_guid": current_match_guid,
+                "is_active": bool(match_active),
             } if send_match else None
 
             send_camera = dirty_camera
