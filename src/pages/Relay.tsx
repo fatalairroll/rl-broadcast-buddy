@@ -538,6 +538,26 @@ def heartbeat_loop() -> None:
             stats["player_changes_delta"] = 0
 
 
+# === RAW DEBUG: surowy dump boost/speed graczy ===
+# Drukuje co 1 s wartosci boost wszystkich graczy WPROST ze snapshotu, omijajac
+# change-detection. Pozwala zobaczyc, czy RL Stats API faktycznie zwraca rozne
+# wartosci, czy tez bombarduje nas tym samym snapshotem 120 razy/s.
+RAW_DEBUG_INTERVAL_S = 1.0
+
+def raw_debug_loop() -> None:
+    while True:
+        time.sleep(RAW_DEBUG_INTERVAL_S)
+        with state_lock:
+            if not players_snapshot:
+                continue
+            parts = []
+            for name, row in players_snapshot.items():
+                short = name[:10]
+                parts.append(f"{short}:b={row.get('boost')},s={row.get('speed'):.0f}")
+            line = " | ".join(parts)
+        print(f"[DBG-RAW] {line}")
+
+
 # === TCP STREAM (lokalny RL Stats API) ===
 _decoder = json.JSONDecoder()
 
