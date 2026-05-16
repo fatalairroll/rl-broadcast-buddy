@@ -46,6 +46,24 @@ export function useLiveStatsV2() {
 
   // Realtime subscriptions
   useEffect(() => {
+    const debug =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('debug') === '1';
+    let lastEventAt = 0;
+    let evtCount = 0;
+    let debugTimer: ReturnType<typeof setInterval> | null = null;
+    if (debug) {
+      debugTimer = setInterval(() => {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[live-stats] players_live events/2s=${evtCount} lastGapMs=${
+            lastEventAt ? Math.round(performance.now() - lastEventAt) : 'n/a'
+          }`,
+        );
+        evtCount = 0;
+      }, 2000);
+    }
+
     const channel = supabase
       .channel('live-stats-v2')
       .on(
@@ -68,6 +86,10 @@ export function useLiveStatsV2() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'players_live' },
         (payload) => {
+          if (debug) {
+            evtCount += 1;
+            lastEventAt = performance.now();
+          }
           setPlayers((prev) => {
             if (payload.eventType === 'DELETE') {
               const old = payload.old as PlayerLive;
@@ -103,6 +125,7 @@ export function useLiveStatsV2() {
       .subscribe();
 
     return () => {
+      if (debugTimer) clearInterval(debugTimer);
       supabase.removeChannel(channel);
     };
   }, []);
