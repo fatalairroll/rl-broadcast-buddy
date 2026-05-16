@@ -1,46 +1,22 @@
-## Problem
+Przyczyna wygląda tak: kod relay w repo ma już `WRITE_INTERVAL_S = 0.1`, ale aktualne rekordy `players_live` w bazie stoją na jednym timestampie, więc w tej chwili overlay nie dostaje nowych klatek live. Jeśli po stronie PC relay jest uruchomiony ze świeżo pobranego pliku, problem może nadal być widoczny, bo boost z RL Stats API przychodzi jako dyskretne snapshoty, a overlay tylko tweenował szerokość paska do kolejnej wartości.
 
-W `PlayerCardV2.tsx` cała karta gracza (tło, MMR watermark, ranga, zdjęcie, nick, statsy) jest renderowana wewnątrz jednego diva z `overflow: hidden`. Dlatego nawet jeśli ustawisz duży `nickOffsetX/Y` w edytorze, nick zawsze jest "ucinany" przy krawędzi karty — nie da się go wypchnąć poza nią.
+Plan naprawy:
 
-Dodatkowo zakresy suwaków `Nick - offset X/Y` (±400 / ±200 px) są za małe, by swobodnie umieścić nick np. nad kartą lub z boku.
+1. Dodać w overlay lokalne wygładzanie boosta niezależne od częstotliwości bazy
+   - Boost bar będzie animował wartość co klatkę (`requestAnimationFrame`) do ostatniej otrzymanej wartości.
+   - Przy spadku boosta użyjemy płynnego „drain”, a przy wzroście szybkie, ale nadal płynne dogonienie wartości.
+   - Dzięki temu nawet przy update co 100–250 ms pasek nie będzie wyglądał jak skok 80 → 54 → 33.
 
-## Rozwiązanie
+2. Zmienić `BoostBarV2` tak, żeby pasek i liczba korzystały z wygładzonej wartości
+   - Pasek przestanie polegać wyłącznie na Framer Motion tween między rzadkimi snapshotami.
+   - Liczba boosta może pozostać zaokrąglona, ale liczona z tej samej wygładzonej wartości, żeby nie migała brutalnie.
 
-Rozdzielić strukturę PlayerCard na dwie warstwy w jednym wrapperze pozycjonującym:
+3. Dodać prostą diagnostykę do wygenerowanego `relay.py`
+   - Heartbeat będzie pokazywał efektywną liczbę flushy / zapisów graczy na 5 sekund.
+   - To pozwoli od razu zobaczyć, czy faktycznie działa nowo pobrany relay z `0.1s`, czy nadal stary plik.
 
-```text
-<wrapper position:absolute (positionToStyle)>
-  <card-clip overflow:hidden width/height/skew>   ← tło, MMR watermark, photo, ranga, statsy
-  </card-clip>
-  <nick-layer position:absolute>                  ← nick + flaga, BEZ overflow:hidden
-  </nick-layer>
-</wrapper>
-```
+4. Zaktualizować opis na stronie `/relay`
+   - Jasno dopisać, że po zmianie trzeba pobrać nowy `relay.py` i zrestartować proces.
+   - Dodać oczekiwany wynik: przy 6 graczach powinno być około 60 zapisów graczy/s w logach, a nie pojedyncze aktualizacje.
 
-Dzięki temu nick zachowuje wszystkie obecne ustawienia (font, kolor, skew, offsety, transformOrigin), ale nie jest już przycinany przez clip karty i może być przesuwany dowolnie poza obrys.
-
-### Zmiany w kodzie
-
-**1. `src/components/v2/PlayerCardV2.tsx`**
-- Dodać zewnętrzny wrapper o tej samej szerokości/wysokości co karta (bez `overflow`, bez tła).
-- Wewnątrz przenieść istniejący `<div className="relative flex items-stretch" overflow:hidden>` jako pierwsze dziecko (zawiera tło, MMR, photo, rank, stats — bez zmian).
-- Blok "Nick row" przenieść jako drugie, równorzędne dziecko wrappera (poza clip-boxem). Pozycjonowanie pozostaje takie samo (`left: bodyLeft`, `top: 32%`, ten sam transform z `nickOffsetX/Y` i `skewInner`).
-- Animacja `motion.div` (entry/exit) obejmuje cały wrapper, więc nick i karta nadal animują się razem.
-
-**2. `src/components/creator/StyleEditorV2.tsx`**
-- Rozszerzyć zakres suwaków nick offset:
-  - `Nick - offset X`: min/max `-800/800` (zamiast `-400/400`)
-  - `Nick - offset Y`: min/max `-400/400` (zamiast `-200/200`)
-- Dodać krótki opis pod sekcją: "Nick może być przesuwany poza kartę".
-
-### Co pozostaje bez zmian
-
-- Wszystkie pozostałe ustawienia karty (rozmiar, skew, padding, MMR, ranga, zdjęcie, statsy).
-- `c.nickOffsetX/Y` w typach i w `defaultOverlayV2Config` — istnieją.
-- Logika `inheritParentSkew` i `transformOrigin` nicka.
-- Statsy nadal są wewnątrz clip-boxa (zgodnie z dotychczasowym zachowaniem). Jeśli w przyszłości chcesz to samo zrobić ze statsami, łatwo zreplikować ten sam wzorzec.
-
-## Pliki do edycji
-
-- `src/components/v2/PlayerCardV2.tsx` — restrukturyzacja JSX (nick poza clip-boxem)
-- `src/components/creator/StyleEditorV2.tsx` — szersze zakresy suwaków nick offset
+Efekt: nawet jeśli backend/realtime czasem dostarczy próbki nierówno, boost bary powinny wizualnie płynąć zamiast przeskakiwać.
