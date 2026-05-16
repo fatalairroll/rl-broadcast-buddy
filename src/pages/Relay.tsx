@@ -708,6 +708,7 @@ def main() -> None:
     threading.Thread(target=heartbeat_loop, daemon=True).start()
     threading.Thread(target=clock_loop, daemon=True).start()
     threading.Thread(target=db_worker_loop, daemon=True).start()
+    threading.Thread(target=raw_debug_loop, daemon=True).start()
     tcp_loop()
 
 
