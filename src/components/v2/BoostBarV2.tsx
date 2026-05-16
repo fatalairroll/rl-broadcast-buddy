@@ -44,14 +44,22 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
       const tgt = targetRef.current;
       const diff = tgt - cur;
 
+      // Bardzo krotki easing (~80-150 ms na pelna korekte) - duze skoki idą
+      // niemal natychmiast, drobne wahania >0.2 pp są ledwo wygladzone.
+      // Cala latencja vs HUD w grze to ~200 ms API + ~200 ms Realtime,
+      // wiec dodatkowe wygladzanie tylko by zwiekszalo opoznienie.
       if (Math.abs(diff) > 0.2) {
-        // Easing ~400-600 ms na pelna korekte. Brak sztucznego drainu —
-        // wartosci pochodza wprost ze snapshotow per-gracz z bota.
-        const rate = diff > 0 ? 180 : 150; // %/s
-        const step = Math.sign(diff) * Math.min(Math.abs(diff), rate * dt);
-        const next = cur + step;
-        smoothRef.current = next;
-        setSmooth(next);
+        // Dla duzych zmian (>15 pp): snap natychmiastowy.
+        if (Math.abs(diff) > 15) {
+          smoothRef.current = tgt;
+          setSmooth(tgt);
+        } else {
+          const rate = diff > 0 ? 600 : 500; // %/s ~ 170-200 ms full
+          const step = Math.sign(diff) * Math.min(Math.abs(diff), rate * dt);
+          const next = cur + step;
+          smoothRef.current = next;
+          setSmooth(next);
+        }
       } else if (cur !== tgt) {
         smoothRef.current = tgt;
         setSmooth(tgt);
