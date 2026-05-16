@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 import type { PlayerLive, PlayerRegistry } from '@/types/livestats';
 import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2';
 
@@ -19,7 +19,48 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
 
   const reverse = side === 'right';
   const displayName = registry?.display_name ?? player.player_name;
-  const boost = Math.max(0, Math.min(100, player.boost ?? 0));
+  const targetBoost = Math.max(0, Math.min(100, player.boost ?? 0));
+
+  // Lokalne wygładzanie boosta przez rAF. Niezależnie od tempa snapshotów z bazy
+  // pasek goni wartość docelową z ograniczoną prędkością (≈120%/s w górę,
+  // ≈90%/s w dół). To eliminuje skokowe przejścia 80→33 i wygląda płynnie.
+  const [smooth, setSmooth] = useState(targetBoost);
+  const smoothRef = useRef(targetBoost);
+  const targetRef = useRef(targetBoost);
+  const lastTsRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    targetRef.current = targetBoost;
+  }, [targetBoost]);
+
+  useEffect(() => {
+    let raf = 0;
+    const tick = (ts: number) => {
+      const last = lastTsRef.current ?? ts;
+      const dt = Math.min(0.1, (ts - last) / 1000); // clamp na wypadek lagów
+      lastTsRef.current = ts;
+
+      const cur = smoothRef.current;
+      const tgt = targetRef.current;
+      const diff = tgt - cur;
+      if (Math.abs(diff) > 0.05) {
+        const rate = diff > 0 ? 140 : 90; // %/s — szybciej rośnie niż maleje
+        const step = Math.sign(diff) * Math.min(Math.abs(diff), rate * dt);
+        const next = cur + step;
+        smoothRef.current = next;
+        setSmooth(next);
+      } else if (cur !== tgt) {
+        smoothRef.current = tgt;
+        setSmooth(tgt);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const boost = Math.round(smooth);
+  const barPct = smooth;
 
   return (
     <div
@@ -81,16 +122,16 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
           className="relative bg-white/10 overflow-hidden"
           style={{ height: c.barHeight, width: '100%', flex: '0 0 auto' }}
         >
-          <motion.div
+          <div
             className="absolute inset-y-0"
             style={{
               left: reverse ? 'auto' : 0,
               right: reverse ? 0 : 'auto',
               background: `linear-gradient(${reverse ? '270deg' : '90deg'}, ${colors.from}, ${colors.to})`,
               boxShadow: player.is_supersonic ? `0 0 12px ${colors.glow}` : undefined,
+              width: `${barPct}%`,
+              willChange: 'width',
             }}
-            animate={{ width: `${boost}%` }}
-            transition={{ duration: 0.18, ease: 'linear' }}
           />
         </div>
 
