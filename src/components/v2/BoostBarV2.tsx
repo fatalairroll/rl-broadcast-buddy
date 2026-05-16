@@ -21,42 +21,70 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
   const displayName = registry?.display_name ?? player.player_name;
   const targetBoost = Math.max(0, Math.min(100, player.boost ?? 0));
 
-  // Lokalne wygładzanie boosta przez rAF. Niezależnie od tempa snapshotów z bazy
-  // pasek goni wartość docelową z ograniczoną prędkością (≈120%/s w górę,
-  // ≈90%/s w dół). To eliminuje skokowe przejścia 80→33 i wygląda płynnie.
+  // Lokalne wygładzanie boosta. Snapshoty z bazy lecą partiami ~0,5–1 s
+  // (wszyscy gracze mają identyczny updated_at), więc oprócz szybszego gonienia
+  // targetu dorzucamy mały "drain" pomiędzy paczkami, a start animacji każdego
+  // paska jest losowo przesunięty w fazie, żeby 6 pasków nie ruszało równo.
   const [smooth, setSmooth] = useState(targetBoost);
   const smoothRef = useRef(targetBoost);
   const targetRef = useRef(targetBoost);
+  const prevTargetRef = useRef(targetBoost);
+  const lastTargetAtRef = useRef<number>(performance.now());
+  const trendRef = useRef<0 | -1 | 1>(0); // -1 = boost spada, 1 = rośnie
   const lastTsRef = useRef<number | null>(null);
+  const phaseOffsetRef = useRef<number>(Math.random() * 80); // ms
 
   useEffect(() => {
+    const prev = prevTargetRef.current;
+    if (targetBoost < prev - 0.5) trendRef.current = -1;
+    else if (targetBoost > prev + 0.5) trendRef.current = 1;
+    // jeśli ~równe — zostaw poprzedni trend (gracz prawdopodobnie dalej drenuje/zbiera)
+    prevTargetRef.current = targetBoost;
     targetRef.current = targetBoost;
+    lastTargetAtRef.current = performance.now();
   }, [targetBoost]);
 
   useEffect(() => {
     let raf = 0;
-    const tick = (ts: number) => {
-      const last = lastTsRef.current ?? ts;
-      const dt = Math.min(0.1, (ts - last) / 1000); // clamp na wypadek lagów
-      lastTsRef.current = ts;
+    let started = false;
+    const start = () => {
+      const tick = (ts: number) => {
+        const last = lastTsRef.current ?? ts;
+        const dt = Math.min(0.1, (ts - last) / 1000);
+        lastTsRef.current = ts;
 
-      const cur = smoothRef.current;
-      const tgt = targetRef.current;
-      const diff = tgt - cur;
-      if (Math.abs(diff) > 0.05) {
-        const rate = diff > 0 ? 140 : 90; // %/s — szybciej rośnie niż maleje
-        const step = Math.sign(diff) * Math.min(Math.abs(diff), rate * dt);
-        const next = cur + step;
-        smoothRef.current = next;
-        setSmooth(next);
-      } else if (cur !== tgt) {
-        smoothRef.current = tgt;
-        setSmooth(tgt);
-      }
+        const cur = smoothRef.current;
+        const tgt = targetRef.current;
+        const diff = tgt - cur;
+
+        let next = cur;
+        if (Math.abs(diff) > 0.05) {
+          // Gonienie ostatniego snapshotu (~300–500 ms na pełną korektę).
+          const rate = diff > 0 ? 220 : 160; // %/s
+          const step = Math.sign(diff) * Math.min(Math.abs(diff), rate * dt);
+          next = cur + step;
+        } else if (trendRef.current === -1 && cur > 0) {
+          // Między paczkami: jeśli gracz spadał, kontynuuj delikatny drain,
+          // żeby pasek nie zamierał. Korekta przyjdzie z następnym snapshotem.
+          next = Math.max(tgt - 5, cur - 25 * dt); // ~25%/s, max 5pp poniżej targetu
+        } else if (cur !== tgt) {
+          next = tgt;
+        }
+
+        if (next !== cur) {
+          smoothRef.current = next;
+          setSmooth(next);
+        }
+        raf = requestAnimationFrame(tick);
+      };
       raf = requestAnimationFrame(tick);
+      started = true;
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const timeout = window.setTimeout(start, phaseOffsetRef.current);
+    return () => {
+      window.clearTimeout(timeout);
+      if (started) cancelAnimationFrame(raf);
+    };
   }, []);
 
   const boost = Math.round(smooth);
