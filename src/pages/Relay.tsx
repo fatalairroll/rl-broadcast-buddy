@@ -53,7 +53,7 @@ SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
 RL_HOST = "127.0.0.1"
 RL_PORT = 49123
 
-WRITE_INTERVAL_S = 0.25      # tempo workera DB (~4 Hz)
+WRITE_INTERVAL_S = 0.1       # tempo workera DB (~10 Hz) - plynniejszy boost
 PRUNE_INTERVAL_S = 2.0       # co ile worker sprzata players_live
 HEARTBEAT_S = 5.0
 LOCAL_TICK_S = 0.1

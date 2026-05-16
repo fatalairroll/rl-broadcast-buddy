@@ -90,7 +90,7 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
               boxShadow: player.is_supersonic ? `0 0 12px ${colors.glow}` : undefined,
             }}
             animate={{ width: `${boost}%` }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            transition={{ duration: 0.18, ease: 'linear' }}
           />
         </div>
 
