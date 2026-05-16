@@ -53,8 +53,8 @@ SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
 RL_HOST = "127.0.0.1"
 RL_PORT = 49123
 
-WRITE_INTERVAL_S = 0.05      # tempo workera DB (~20 Hz) - 1 gracz / tick rozklada
-                             # eventy Realtime w czasie zamiast wysylac burst 6 graczy.
+WRITE_INTERVAL_S = 0.025     # tempo workera DB (~40 Hz). Round-robin 1 gracz/tick:
+                             # dla 4-6 graczy max ~100-150 ms od zmiany do upsertu.
 PRUNE_INTERVAL_S = 2.0       # co ile worker sprzata players_live
 HEARTBEAT_S = 5.0
 LOCAL_TICK_S = 0.1
