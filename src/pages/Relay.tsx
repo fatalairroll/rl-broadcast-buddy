@@ -37,7 +37,7 @@ import signal
 import sys
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 try:
     from supabase import create_client, Client  # type: ignore
@@ -53,7 +53,8 @@ SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
 RL_HOST = "127.0.0.1"
 RL_PORT = 49123
 
-WRITE_INTERVAL_S = 0.1       # tempo workera DB (~10 Hz) - plynniejszy boost
+WRITE_INTERVAL_S = 0.05      # tempo workera DB (~20 Hz) - 1 gracz / tick rozklada
+                             # eventy Realtime w czasie zamiast wysylac burst 6 graczy.
 PRUNE_INTERVAL_S = 2.0       # co ile worker sprzata players_live
 HEARTBEAT_S = 5.0
 LOCAL_TICK_S = 0.1
@@ -84,6 +85,11 @@ orange_score: int = 0
 
 # Snapshot graczy: { player_name -> row dict }. Worker DB go flushuje.
 players_snapshot: Dict[str, Dict[str, Any]] = {}
+# Ostatnio wyslane do bazy wiersze per-gracz — sluza do change-detection,
+# zeby nie generowac zbednych UPDATE'ow Realtime gdy gracz sie nie zmienil.
+last_pushed_players: Dict[str, Dict[str, Any]] = {}
+# Round-robin FIFO graczy z niezsynchronizowanymi zmianami.
+dirty_player_names: List[str] = []
 
 # Czy aktualnie trwa mecz (sterowane WYLACZNIE eventami z RL Stats API).
 # True  <- MatchCreated / MatchInitialized
@@ -94,7 +100,6 @@ shutting_down: bool = False
 # Flagi 'dirty' dla workera DB
 dirty_match: bool = False
 dirty_camera: bool = False
-dirty_players: bool = False
 clear_requested: bool = False  # nowy mecz -> wyczysc players_live
 
 stats = {
@@ -238,7 +243,7 @@ _dbg_printed = 0
 def handle_update_state(data: Dict[str, Any]) -> None:
     global current_match_guid, local_time_seconds, is_overtime
     global blue_score, orange_score, in_replay, last_state_update_at
-    global pending_camera, dirty_match, dirty_camera, dirty_players
+    global pending_camera, dirty_match, dirty_camera
 
     last_state_update_at = time.time()
 
@@ -298,7 +303,13 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     if new_snap:
         players_snapshot.clear()
         players_snapshot.update(new_snap)
-        dirty_players = True
+        # Per-gracz change-detection: dorzucamy do FIFO tylko tych, ktorych
+        # wiersz zmienil sie wzgledem ostatnio wyslanego do bazy. Dzieki temu
+        # worker DB wysyla jeden upsert na tick (rozlozenie w czasie zamiast
+        # bursta 6 wierszy w jednej transakcji).
+        for name, row in new_snap.items():
+            if last_pushed_players.get(name) != row and name not in dirty_player_names:
+                dirty_player_names.append(name)
 
 
 def handle_clock_updated(data: Dict[str, Any]) -> None:
@@ -373,6 +384,8 @@ def handle_event(evt: Dict[str, Any]) -> None:
         stats["mode"] = "live"
         # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
         players_snapshot.clear()
+        last_pushed_players.clear()
+        dirty_player_names.clear()
         clear_requested = True
         match_active = True
         dirty_match = True
@@ -420,7 +433,7 @@ def clock_loop() -> None:
 
 # === WORKER DB (jedyne miejsce z I/O do Supabase) ===
 def db_worker_loop() -> None:
-    global dirty_match, dirty_camera, dirty_players, clear_requested
+    global dirty_match, dirty_camera, clear_requested
     global pending_camera, last_pushed_camera
     last_prune = 0.0
     while True:
@@ -448,14 +461,27 @@ def db_worker_loop() -> None:
             dirty_camera = False
             cam_target = pending_camera
 
-            send_players = dirty_players
-            dirty_players = False
-            players_rows = list(players_snapshot.values()) if send_players else []
+            # Round-robin: zdejmujemy z FIFO jednego gracza per tick i piszemy
+            # tylko jego wiersz. Jesli od ostatniego flushu nic sie u niego
+            # nie zmienilo (re-add z handlera mogl byc no-op), pomijamy upsert.
+            player_row: Optional[Dict[str, Any]] = None
+            player_name_to_push: Optional[str] = None
+            while dirty_player_names:
+                candidate = dirty_player_names.pop(0)
+                row = players_snapshot.get(candidate)
+                if row is None:
+                    continue  # gracz zniknal ze snapshotu (np. reset)
+                if last_pushed_players.get(candidate) == row:
+                    continue  # juz wyslane, nic nowego
+                player_row = row
+                player_name_to_push = candidate
+                break
             current_names = list(players_snapshot.keys())
 
         # Poza lockiem: wszystkie HTTP-y do Supabase.
         if do_clear:
             db_clear_all_players()
+            last_pushed_players.clear()
 
         if match_payload is not None:
             db_upsert_match(match_payload)
@@ -464,8 +490,10 @@ def db_worker_loop() -> None:
             db_upsert_camera(cam_target)
             last_pushed_camera = cam_target
 
-        if players_rows:
-            db_upsert_players(players_rows)
+        if player_row is not None and player_name_to_push is not None:
+            db_upsert_players([player_row])
+            # Zapamietujemy ostatnio wyslany wiersz dla change-detection.
+            last_pushed_players[player_name_to_push] = dict(player_row)
 
         # Sprzatanie zalegych wpisow — rzadko.
         now = time.time()
