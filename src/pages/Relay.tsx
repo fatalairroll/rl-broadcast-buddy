@@ -110,6 +110,9 @@ stats = {
     "db_errors": 0, "db_errors_delta": 0,
     "players_seen": 0,
     "mode": "waiting",  # waiting / live / replay / podium
+    # Diagnostyka przepustowosci upstream (RL Stats API -> bot).
+    "update_state_delta": 0,         # ile UpdateState w okresie HB
+    "player_changes_delta": 0,       # ile faktycznych zmian wierszy w okresie HB
 }
 
 
@@ -246,6 +249,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     global pending_camera, dirty_match, dirty_camera
 
     last_state_update_at = time.time()
+    stats["update_state_delta"] += 1
 
     guid = data.get("MatchGuid")
     if guid:
@@ -310,6 +314,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         for name, row in new_snap.items():
             if last_pushed_players.get(name) != row and name not in dirty_player_names:
                 dirty_player_names.append(name)
+                stats["player_changes_delta"] += 1
 
 
 def handle_clock_updated(data: Dict[str, Any]) -> None:
@@ -515,9 +520,11 @@ def heartbeat_loop() -> None:
             print(
                 f"[HB] mode={mode} "
                 f"events=+{stats['events_delta']} (total {stats['events']}) "
+                f"| upstream: UpdateState/s={stats['update_state_delta'] / HEARTBEAT_S:.1f} "
+                f"changes/s={stats['player_changes_delta'] / HEARTBEAT_S:.1f} "
                 f"| players_seen={stats['players_seen']} "
                 f"| DB: match=+{stats['match_writes_delta']} "
-                f"players=+{stats['player_writes_delta']} "
+                f"players=+{stats['player_writes_delta']} ({stats['player_writes_delta'] / HEARTBEAT_S:.1f}/s) "
                 f"camera=+{stats['camera_writes_delta']} "
                 f"errors=+{stats['db_errors_delta']}"
                 f"{warn}"
@@ -527,6 +534,8 @@ def heartbeat_loop() -> None:
             stats["player_writes_delta"] = 0
             stats["camera_writes_delta"] = 0
             stats["db_errors_delta"] = 0
+            stats["update_state_delta"] = 0
+            stats["player_changes_delta"] = 0
 
 
 # === TCP STREAM (lokalny RL Stats API) ===
