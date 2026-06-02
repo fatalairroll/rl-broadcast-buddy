@@ -613,6 +613,7 @@ def heartbeat_loop() -> None:
                 f"skipped/s={stats['player_writes_skipped_delta'] / HEARTBEAT_S:.1f} "
                 f"camera=+{stats['camera_writes_delta']} "
                 f"errors=+{stats['db_errors_delta']}"
+                f" | WS: clients={len(ws_clients)} sends/s={stats['ws_sends_delta'] / HEARTBEAT_S:.1f}"
                 f"{warn}"
             )
             stats["events_delta"] = 0
@@ -624,6 +625,58 @@ def heartbeat_loop() -> None:
             stats["player_changes_delta"] = 0
             stats["flushes_delta"] = 0
             stats["player_writes_skipped_delta"] = 0
+            stats["ws_sends_delta"] = 0
+
+
+# === LOKALNY SERWER WEBSOCKET (v2.4) ===
+def ws_server_loop() -> None:
+    """Daemon thread: wystawia ws://127.0.0.1:49300 i utrzymuje set klientow.
+    Broadcast wykonywany jest z watku TCP przez asyncio.run_coroutine_threadsafe."""
+    global ws_loop, ws_enabled
+    try:
+        import websockets  # type: ignore
+    except Exception as e:
+        print(
+            "[WS] Pakiet 'websockets' niedostepny — boost local feed wylaczony.\\n"
+            "     Zainstaluj: pip install websockets\\n"
+            f"     Szczegol: {e}"
+        )
+        return
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    async def handler(ws, *_args, **_kwargs):
+        ws_clients.add(ws)
+        peer = getattr(ws, "remote_address", None)
+        print(f"[WS] Klient podlaczony {peer} (total={len(ws_clients)})")
+        try:
+            await ws.wait_closed()
+        except Exception:
+            pass
+        finally:
+            ws_clients.discard(ws)
+            print(f"[WS] Klient rozlaczony {peer} (total={len(ws_clients)})")
+
+    async def _start():
+        return await websockets.serve(handler, WS_HOST, WS_PORT, ping_interval=20)
+
+    try:
+        loop.run_until_complete(_start())
+    except OSError as e:
+        print(f"[WS] Nie udalo sie otworzyc ws://{WS_HOST}:{WS_PORT}: {e}")
+        return
+    except Exception as e:
+        print(f"[WS] Blad startu serwera WS: {e}")
+        return
+
+    ws_loop = loop
+    ws_enabled = True
+    print(f"[WS] Lokalny boost feed dziala na ws://{WS_HOST}:{WS_PORT} (tylko localhost).")
+    try:
+        loop.run_forever()
+    except Exception as e:
+        print(f"[WS] Loop crash: {e}")
 
 
 # === RAW DEBUG: surowy dump boost/speed graczy ===
