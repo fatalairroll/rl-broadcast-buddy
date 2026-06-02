@@ -936,7 +936,7 @@ PacketSendRate=30`}</pre>
                 <h3 className="font-semibold">3. Uruchomienie relay</h3>
                 <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
                   <li>Pobierz plik <code className="bg-secondary px-1 rounded">relay.py</code></li>
-                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install supabase requests</code></li>
+                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install supabase requests websockets</code></li>
                   <li>Uruchom: <code className="bg-secondary px-1 rounded">python relay.py</code></li>
                 </ol>
               </div>
@@ -959,9 +959,9 @@ PacketSendRate=30`}</pre>
 
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                 <p className="text-sm text-red-300">
-                  <strong>Wazna aktualizacja (v2.3)</strong>
+                  <strong>Wazna aktualizacja (v2.4)</strong>
                   <br />
-                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code>. v2.3 wysyla do bazy BATCH wszystkich graczy, ktorych dane sie zmienily (zamiast 1 gracz/tick round-robin z v2.2). Boost bary na overlayu odswiezaja sie ~40 razy/s rownolegle dla wszystkich graczy - koniec ze skokowym drainem. W terminalu sprawdz <code className="bg-secondary px-1 rounded">player_rows/s</code> w heartbeacie - przy 4 graczach trzymajacych boost powinno byc znacznie powyzej 10. v2.2 (auto-hide overlay po MatchEnded) i v2.1 (osobny watek DB) sa zachowane.
+                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code> i doinstaluj <code className="bg-secondary px-1 rounded">pip install websockets</code>. v2.4 wystawia lokalny WebSocket <code className="bg-secondary px-1 rounded">ws://127.0.0.1:49300</code> z boost/speed/supersonic (do 60 ramek/s). Overlay na <strong>tej samej maszynie</strong> sam sie podlaczy i pokaze boost z opoznieniem ~50-150 ms zamiast 200-400 ms przez Supabase. Tylko localhost — zadnych zmian w firewallu. Overlay na <strong>innej maszynie</strong> (OBS remote) WS nie zlapie i automatycznie zostanie przy Supabase, bez bledow. Score, timer, kamera i statystyki nadal leca przez Supabase. W terminalu sprawdz w heartbeacie <code className="bg-secondary px-1 rounded">WS: clients=N sends/s=...</code>.
                 </p>
               </div>
             </CardContent>
