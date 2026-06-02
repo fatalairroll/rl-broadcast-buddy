@@ -91,6 +91,19 @@ export function useBroadcast(sessionId?: string) {
     };
   }, [fetchSession, sessionId]);
 
+  // Hydratacja relaya po zaladowaniu / zmianie aktywnej sesji.
+  // Wysylamy aktualne nazwy druzyn i wynik serii do relay HTTP raz na sesje
+  // (a nie na kazda edycje), zeby overlay od startu pokazal poprawny stan,
+  // nawet zanim ktokolwiek dotknie +/-. Edytowanie pol jest obslugiwane
+  // niezaleznie w updateSession.
+  const hydratedForIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session?.id) return;
+    if (hydratedForIdRef.current === session.id) return;
+    hydratedForIdRef.current = session.id;
+    syncSessionToRelay(session);
+  }, [session]);
+
   // Update session
   const updateSession = useCallback(
     async (updates: Partial<BroadcastSession>) => {
