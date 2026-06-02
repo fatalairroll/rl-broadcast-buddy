@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { BroadcastSession, GameState, Team } from '@/types/broadcast';
+import { syncSessionToRelay } from '@/lib/relay-http';
 
 const BROADCAST_CHANNEL = 'rl_broadcast_room';
 
@@ -90,6 +91,19 @@ export function useBroadcast(sessionId?: string) {
     };
   }, [fetchSession, sessionId]);
 
+  // Hydratacja relaya po zaladowaniu / zmianie aktywnej sesji.
+  // Wysylamy aktualne nazwy druzyn i wynik serii do relay HTTP raz na sesje
+  // (a nie na kazda edycje), zeby overlay od startu pokazal poprawny stan,
+  // nawet zanim ktokolwiek dotknie +/-. Edytowanie pol jest obslugiwane
+  // niezaleznie w updateSession.
+  const hydratedForIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session?.id) return;
+    if (hydratedForIdRef.current === session.id) return;
+    hydratedForIdRef.current = session.id;
+    syncSessionToRelay(session);
+  }, [session]);
+
   // Update session
   const updateSession = useCallback(
     async (updates: Partial<BroadcastSession>) => {
@@ -108,6 +122,9 @@ export function useBroadcast(sessionId?: string) {
         event: 'SET_TEAMS',
         payload: { session: { ...session, ...updates } },
       });
+
+      // Wyslij nowy stan do lokalnego relaya (v3 HTTP). Fire-and-forget.
+      syncSessionToRelay({ ...session, ...updates });
 
       return { error: null };
     },
