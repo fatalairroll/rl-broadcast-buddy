@@ -8,12 +8,12 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2.3 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
+RL Broadcast Relay V2.4 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
 
 Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
 Skrypt laczy sie z lokalnym TCP streamem RL i parsuje strumien JSON-ow.
 
-ARCHITEKTURA (v2.3):
+ARCHITEKTURA (v2.4):
   Wątek TCP NIGDY nie wykonuje synchronicznych zapisow do Supabase.
   Recv -> parse -> aktualizacja stanu w pamieci (pod lockiem).
   Osobny watek 'db_worker' co WRITE_INTERVAL_S (0.25 s) flushuje stan
@@ -26,17 +26,27 @@ ARCHITEKTURA (v2.3):
   boost barow do ~10/s przy 4 graczach. Teraz przy WRITE_INTERVAL_S=0.025
   uzyskujemy do ~40 flushy/s * N graczy zmienionych = realne wygladzanie.
 
+  v2.4: Dodatkowo wystawiamy lokalny serwer WebSocket (127.0.0.1:49300),
+  na ktory broadcastujemy wylacznie {player_name, boost, speed, is_supersonic}
+  z throttle do 60 ramek/s. Overlay na TEJ samej maszynie podpina sie pod
+  WS i dostaje boost z opoznieniem rzedu 50-150 ms (zamiast 200-400 ms
+  przez Supabase Realtime). Reszta danych (score, timer, kamera, statystyki)
+  nadal leci wylacznie przez Supabase — to zostaje pelnym zrodlem prawdy.
+  Overlay na innej maszynie (OBS remote) WS nie zlapie i automatycznie
+  zostanie przy Supabase, bez bledow.
+
 Dziala w meczach competitive online, meczach z botami oraz w replayach z Match History.
 
 INSTALACJA:
   1) Python 3.10+
-  2) pip install supabase requests
+  2) pip install supabase requests websockets
   3) Wlacz w grze plik DefaultStatsAPI.ini (patrz /relay w aplikacji).
   4) python relay.py
 
 Plik wygenerowany na stronie /relay — nie musisz nic edytowac.
 """
 
+import asyncio
 import json
 import socket
 import signal
@@ -73,6 +83,15 @@ RECV_SO_RCVBUF = 1 << 20     # 1 MiB — zapas na bufor TCP
 # Safety cap: max liczba wierszy graczy flushowanych w ciagu 1 s. Chroni przed
 # zalaniem Supabase przy nietypowych warunkach. 200/s = bardzo z gora przy 6 graczach.
 MAX_PLAYER_ROWS_PER_S = 200
+
+# === LOKALNY WEBSOCKET (v2.4) — szybki kanal boost/speed/supersonic ===
+# Tylko localhost. Overlay na tej samej maszynie laczy sie i dostaje
+# boost prawie natychmiast. Reszta (score, timer, kamera, statystyki)
+# i tak leci przez Supabase — WS jest TYLKO przyspieszeniem boost barow.
+WS_HOST = "127.0.0.1"
+WS_PORT = 49300
+WS_MAX_BROADCASTS_PER_S = 60
+WS_BROADCAST_MIN_INTERVAL_S = 1.0 / WS_MAX_BROADCASTS_PER_S
 
 sb: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -124,7 +143,15 @@ stats = {
     "player_changes_delta": 0,       # ile faktycznych zmian wierszy w okresie HB
     "flushes_delta": 0,              # ile tickow workera faktycznie cos upsertowalo
     "player_writes_skipped_delta": 0,  # ile wierszy pominieto z powodu cap'a
+    "ws_sends_delta": 0,             # ile broadcastow WS w okresie HB
 }
+
+# === WS GLOBALS ===
+ws_clients: Set[Any] = set()
+ws_loop: Optional[asyncio.AbstractEventLoop] = None
+last_ws_send_ts: float = 0.0
+last_ws_players: Dict[str, tuple] = {}  # name -> (boost, speed, is_supersonic)
+ws_enabled: bool = False
 
 
 def fmt_timer(seconds: float) -> str:
