@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { BroadcastSession, GameState, Team } from '@/types/broadcast';
+import { syncSessionToRelay } from '@/lib/relay-http';
 
 const BROADCAST_CHANNEL = 'rl_broadcast_room';
 
@@ -108,6 +109,9 @@ export function useBroadcast(sessionId?: string) {
         event: 'SET_TEAMS',
         payload: { session: { ...session, ...updates } },
       });
+
+      // Wyslij nowy stan do lokalnego relaya (v3 HTTP). Fire-and-forget.
+      syncSessionToRelay({ ...session, ...updates });
 
       return { error: null };
     },
