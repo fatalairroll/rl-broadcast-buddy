@@ -831,9 +831,10 @@ def _signal_handler(signum, _frame) -> None:
 
 
 def main() -> None:
-    print("== RL Broadcast Relay V2.3 (Python) ==")
+    print("== RL Broadcast Relay V2.4 (Python) ==")
     print(f"   Stats API: tcp://{RL_HOST}:{RL_PORT} (lokalny JSON stream)")
     print(f"   Supabase:  {SUPABASE_URL}")
+    print(f"   WS feed:   ws://{WS_HOST}:{WS_PORT} (boost/speed, tylko localhost)")
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
     print("   I/O do Supabase wykonywane TYLKO w osobnym watku (db_worker).")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
@@ -850,6 +851,7 @@ def main() -> None:
     threading.Thread(target=clock_loop, daemon=True).start()
     threading.Thread(target=db_worker_loop, daemon=True).start()
     threading.Thread(target=raw_debug_loop, daemon=True).start()
+    threading.Thread(target=ws_server_loop, daemon=True).start()
     tcp_loop()
 
 
