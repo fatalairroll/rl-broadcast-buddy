@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocalBoostFeed } from '@/hooks/useLocalBoostFeed';
 import type {
   ActiveCamera,
   MatchMetadata,
@@ -20,6 +21,7 @@ export function useLiveStatsV2() {
   const [players, setPlayers] = useState<PlayerLive[]>([]);
   const [camera, setCamera] = useState<ActiveCamera | null>(null);
   const [registry, setRegistry] = useState<PlayerRegistry[]>([]);
+  const localBoost = useLocalBoostFeed();
 
   // Initial load
   useEffect(() => {
@@ -54,10 +56,13 @@ export function useLiveStatsV2() {
     let debugTimer: ReturnType<typeof setInterval> | null = null;
     if (debug) {
       debugTimer = setInterval(() => {
+        const wsAge = localBoost.getLastMessageAge();
         // eslint-disable-next-line no-console
         console.log(
           `[live-stats] players_live events/2s=${evtCount} lastGapMs=${
             lastEventAt ? Math.round(performance.now() - lastEventAt) : 'n/a'
+          } | ws connected=${localBoost.connected} lastMsgAgeMs=${
+            wsAge == null ? 'n/a' : Math.round(wsAge)
           }`,
         );
         evtCount = 0;
@@ -128,7 +133,7 @@ export function useLiveStatsV2() {
       if (debugTimer) clearInterval(debugTimer);
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [localBoost]);
 
   const registryMap = useMemo(() => {
     const m = new Map<string, PlayerRegistry>();
@@ -162,20 +167,41 @@ export function useLiveStatsV2() {
     });
   }, [sorted]);
 
-  const blue = useMemo(() => fresh.filter((p) => p.team_num === 0), [fresh]);
-  const orange = useMemo(() => fresh.filter((p) => p.team_num === 1), [fresh]);
+  // Merge WS (jesli aktywny i swiezy) tylko w pola boost/speed/is_supersonic.
+  // Wszystko inne (goals/assists/saves/shots/demos/is_demolished/mmr/updated_at)
+  // pozostaje z Supabase. Gdy WS nieaktywny — fallback do czystego Supabase.
+  const enriched = useMemo<PlayerLive[]>(() => {
+    if (fresh.length === 0) return fresh;
+    return fresh.map((p) => {
+      const wsRow = localBoost.getBoost(p.player_name);
+      if (!wsRow) return p;
+      return {
+        ...p,
+        boost: wsRow.boost,
+        speed: wsRow.speed,
+        is_supersonic: wsRow.is_supersonic,
+      };
+    });
+    // Uwaga: localBoost.getBoost odczytuje refa, ktora moze sie zmieniac
+    // pomiedzy renderami bez zmiany identycznosci `localBoost`. Re-renderem
+    // steruje Supabase Realtime na `players_live` (40 Hz przy aktywnym boost),
+    // wiec wartosci WS bedziemy odswiezac wystarczajaco czesto.
+  }, [fresh, localBoost]);
+
+  const blue = useMemo(() => enriched.filter((p) => p.team_num === 0), [enriched]);
+  const orange = useMemo(() => enriched.filter((p) => p.team_num === 1), [enriched]);
 
   const activeCameraTarget = camera?.target_name ?? null;
   const activePlayer =
     activeCameraTarget != null
-      ? players.find((p) => p.player_name === activeCameraTarget) ?? null
+      ? enriched.find((p) => p.player_name === activeCameraTarget) ?? null
       : null;
   const activeRegistry =
     activeCameraTarget != null ? registryMap.get(activeCameraTarget) ?? null : null;
 
   return {
     match,
-    players: fresh,
+    players: enriched,
     blue,
     orange,
     activeCameraTarget,

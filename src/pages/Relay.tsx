@@ -8,12 +8,12 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2.3 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
+RL Broadcast Relay V2.4 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
 
 Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
 Skrypt laczy sie z lokalnym TCP streamem RL i parsuje strumien JSON-ow.
 
-ARCHITEKTURA (v2.3):
+ARCHITEKTURA (v2.4):
   Wątek TCP NIGDY nie wykonuje synchronicznych zapisow do Supabase.
   Recv -> parse -> aktualizacja stanu w pamieci (pod lockiem).
   Osobny watek 'db_worker' co WRITE_INTERVAL_S (0.25 s) flushuje stan
@@ -26,17 +26,27 @@ ARCHITEKTURA (v2.3):
   boost barow do ~10/s przy 4 graczach. Teraz przy WRITE_INTERVAL_S=0.025
   uzyskujemy do ~40 flushy/s * N graczy zmienionych = realne wygladzanie.
 
+  v2.4: Dodatkowo wystawiamy lokalny serwer WebSocket (127.0.0.1:49300),
+  na ktory broadcastujemy wylacznie {player_name, boost, speed, is_supersonic}
+  z throttle do 60 ramek/s. Overlay na TEJ samej maszynie podpina sie pod
+  WS i dostaje boost z opoznieniem rzedu 50-150 ms (zamiast 200-400 ms
+  przez Supabase Realtime). Reszta danych (score, timer, kamera, statystyki)
+  nadal leci wylacznie przez Supabase — to zostaje pelnym zrodlem prawdy.
+  Overlay na innej maszynie (OBS remote) WS nie zlapie i automatycznie
+  zostanie przy Supabase, bez bledow.
+
 Dziala w meczach competitive online, meczach z botami oraz w replayach z Match History.
 
 INSTALACJA:
   1) Python 3.10+
-  2) pip install supabase requests
+  2) pip install supabase requests websockets
   3) Wlacz w grze plik DefaultStatsAPI.ini (patrz /relay w aplikacji).
   4) python relay.py
 
 Plik wygenerowany na stronie /relay — nie musisz nic edytowac.
 """
 
+import asyncio
 import json
 import socket
 import signal
@@ -73,6 +83,15 @@ RECV_SO_RCVBUF = 1 << 20     # 1 MiB — zapas na bufor TCP
 # Safety cap: max liczba wierszy graczy flushowanych w ciagu 1 s. Chroni przed
 # zalaniem Supabase przy nietypowych warunkach. 200/s = bardzo z gora przy 6 graczach.
 MAX_PLAYER_ROWS_PER_S = 200
+
+# === LOKALNY WEBSOCKET (v2.4) — szybki kanal boost/speed/supersonic ===
+# Tylko localhost. Overlay na tej samej maszynie laczy sie i dostaje
+# boost prawie natychmiast. Reszta (score, timer, kamera, statystyki)
+# i tak leci przez Supabase — WS jest TYLKO przyspieszeniem boost barow.
+WS_HOST = "127.0.0.1"
+WS_PORT = 49300
+WS_MAX_BROADCASTS_PER_S = 60
+WS_BROADCAST_MIN_INTERVAL_S = 1.0 / WS_MAX_BROADCASTS_PER_S
 
 sb: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -124,7 +143,15 @@ stats = {
     "player_changes_delta": 0,       # ile faktycznych zmian wierszy w okresie HB
     "flushes_delta": 0,              # ile tickow workera faktycznie cos upsertowalo
     "player_writes_skipped_delta": 0,  # ile wierszy pominieto z powodu cap'a
+    "ws_sends_delta": 0,             # ile broadcastow WS w okresie HB
 }
+
+# === WS GLOBALS ===
+ws_clients: Set[Any] = set()
+ws_loop: Optional[asyncio.AbstractEventLoop] = None
+last_ws_send_ts: float = 0.0
+last_ws_players: Dict[str, tuple] = {}  # name -> (boost, speed, is_supersonic)
+ws_enabled: bool = False
 
 
 def fmt_timer(seconds: float) -> str:
@@ -324,6 +351,46 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         for name, row in new_snap.items():
             if last_pushed_players.get(name) != row:
                 stats["player_changes_delta"] += 1
+        # WS broadcast: lekki kanal boost/speed/supersonic do overlaya na
+        # tej samej maszynie. Throttle + skip-if-no-change.
+        _maybe_broadcast_ws(new_snap)
+
+
+def _maybe_broadcast_ws(snap: Dict[str, Dict[str, Any]]) -> None:
+    global last_ws_send_ts, last_ws_players
+    if not ws_enabled or ws_loop is None or not ws_clients:
+        return
+    now = time.time()
+    if now - last_ws_send_ts < WS_BROADCAST_MIN_INTERVAL_S:
+        return
+    # Skip-if-no-change po boost/speed/is_supersonic.
+    cur: Dict[str, tuple] = {}
+    payload_players = []
+    for name, row in snap.items():
+        b = int(row.get("boost", 0) or 0)
+        s = float(row.get("speed", 0) or 0)
+        ss = bool(row.get("is_supersonic", False))
+        cur[name] = (b, s, ss)
+        payload_players.append({
+            "player_name": name,
+            "boost": b,
+            "speed": s,
+            "is_supersonic": ss,
+        })
+    if cur == last_ws_players:
+        return
+    last_ws_players = cur
+    last_ws_send_ts = now
+    msg = json.dumps({"t": now, "players": payload_players})
+    # Snapshot klientow zeby moc bezpiecznie iterowac.
+    clients = list(ws_clients)
+    loop = ws_loop
+    for ws in clients:
+        try:
+            asyncio.run_coroutine_threadsafe(ws.send(msg), loop)
+        except Exception:
+            pass
+    stats["ws_sends_delta"] += 1
 
 
 def handle_clock_updated(data: Dict[str, Any]) -> None:
@@ -546,6 +613,7 @@ def heartbeat_loop() -> None:
                 f"skipped/s={stats['player_writes_skipped_delta'] / HEARTBEAT_S:.1f} "
                 f"camera=+{stats['camera_writes_delta']} "
                 f"errors=+{stats['db_errors_delta']}"
+                f" | WS: clients={len(ws_clients)} sends/s={stats['ws_sends_delta'] / HEARTBEAT_S:.1f}"
                 f"{warn}"
             )
             stats["events_delta"] = 0
@@ -557,6 +625,58 @@ def heartbeat_loop() -> None:
             stats["player_changes_delta"] = 0
             stats["flushes_delta"] = 0
             stats["player_writes_skipped_delta"] = 0
+            stats["ws_sends_delta"] = 0
+
+
+# === LOKALNY SERWER WEBSOCKET (v2.4) ===
+def ws_server_loop() -> None:
+    """Daemon thread: wystawia ws://127.0.0.1:49300 i utrzymuje set klientow.
+    Broadcast wykonywany jest z watku TCP przez asyncio.run_coroutine_threadsafe."""
+    global ws_loop, ws_enabled
+    try:
+        import websockets  # type: ignore
+    except Exception as e:
+        print(
+            "[WS] Pakiet 'websockets' niedostepny — boost local feed wylaczony.\\n"
+            "     Zainstaluj: pip install websockets\\n"
+            f"     Szczegol: {e}"
+        )
+        return
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    async def handler(ws, *_args, **_kwargs):
+        ws_clients.add(ws)
+        peer = getattr(ws, "remote_address", None)
+        print(f"[WS] Klient podlaczony {peer} (total={len(ws_clients)})")
+        try:
+            await ws.wait_closed()
+        except Exception:
+            pass
+        finally:
+            ws_clients.discard(ws)
+            print(f"[WS] Klient rozlaczony {peer} (total={len(ws_clients)})")
+
+    async def _start():
+        return await websockets.serve(handler, WS_HOST, WS_PORT, ping_interval=20)
+
+    try:
+        loop.run_until_complete(_start())
+    except OSError as e:
+        print(f"[WS] Nie udalo sie otworzyc ws://{WS_HOST}:{WS_PORT}: {e}")
+        return
+    except Exception as e:
+        print(f"[WS] Blad startu serwera WS: {e}")
+        return
+
+    ws_loop = loop
+    ws_enabled = True
+    print(f"[WS] Lokalny boost feed dziala na ws://{WS_HOST}:{WS_PORT} (tylko localhost).")
+    try:
+        loop.run_forever()
+    except Exception as e:
+        print(f"[WS] Loop crash: {e}")
 
 
 # === RAW DEBUG: surowy dump boost/speed graczy ===
@@ -711,9 +831,10 @@ def _signal_handler(signum, _frame) -> None:
 
 
 def main() -> None:
-    print("== RL Broadcast Relay V2.3 (Python) ==")
+    print("== RL Broadcast Relay V2.4 (Python) ==")
     print(f"   Stats API: tcp://{RL_HOST}:{RL_PORT} (lokalny JSON stream)")
     print(f"   Supabase:  {SUPABASE_URL}")
+    print(f"   WS feed:   ws://{WS_HOST}:{WS_PORT} (boost/speed, tylko localhost)")
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
     print("   I/O do Supabase wykonywane TYLKO w osobnym watku (db_worker).")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
@@ -730,6 +851,7 @@ def main() -> None:
     threading.Thread(target=clock_loop, daemon=True).start()
     threading.Thread(target=db_worker_loop, daemon=True).start()
     threading.Thread(target=raw_debug_loop, daemon=True).start()
+    threading.Thread(target=ws_server_loop, daemon=True).start()
     tcp_loop()
 
 
@@ -814,7 +936,7 @@ PacketSendRate=30`}</pre>
                 <h3 className="font-semibold">3. Uruchomienie relay</h3>
                 <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
                   <li>Pobierz plik <code className="bg-secondary px-1 rounded">relay.py</code></li>
-                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install supabase requests</code></li>
+                  <li>Zainstaluj zaleznosci: <code className="bg-secondary px-1 rounded">pip install supabase requests websockets</code></li>
                   <li>Uruchom: <code className="bg-secondary px-1 rounded">python relay.py</code></li>
                 </ol>
               </div>
@@ -837,9 +959,9 @@ PacketSendRate=30`}</pre>
 
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                 <p className="text-sm text-red-300">
-                  <strong>Wazna aktualizacja (v2.3)</strong>
+                  <strong>Wazna aktualizacja (v2.4)</strong>
                   <br />
-                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code>. v2.3 wysyla do bazy BATCH wszystkich graczy, ktorych dane sie zmienily (zamiast 1 gracz/tick round-robin z v2.2). Boost bary na overlayu odswiezaja sie ~40 razy/s rownolegle dla wszystkich graczy - koniec ze skokowym drainem. W terminalu sprawdz <code className="bg-secondary px-1 rounded">player_rows/s</code> w heartbeacie - przy 4 graczach trzymajacych boost powinno byc znacznie powyzej 10. v2.2 (auto-hide overlay po MatchEnded) i v2.1 (osobny watek DB) sa zachowane.
+                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code> i doinstaluj <code className="bg-secondary px-1 rounded">pip install websockets</code>. v2.4 wystawia lokalny WebSocket <code className="bg-secondary px-1 rounded">ws://127.0.0.1:49300</code> z boost/speed/supersonic (do 60 ramek/s). Overlay na <strong>tej samej maszynie</strong> sam sie podlaczy i pokaze boost z opoznieniem ~50-150 ms zamiast 200-400 ms przez Supabase. Tylko localhost — zadnych zmian w firewallu. Overlay na <strong>innej maszynie</strong> (OBS remote) WS nie zlapie i automatycznie zostanie przy Supabase, bez bledow. Score, timer, kamera i statystyki nadal leca przez Supabase. W terminalu sprawdz w heartbeacie <code className="bg-secondary px-1 rounded">WS: clients=N sends/s=...</code>.
                 </p>
               </div>
             </CardContent>
