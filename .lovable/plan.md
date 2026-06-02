@@ -1,25 +1,66 @@
-Zmierzyłem realne tempo zapisów do bazy: nowe rekordy wchodzą co ~400–800 ms (czyli ~1,5–2,5 Hz), a wszystkie 6 wpisów graczy ma identyczny `updated_at`. To potwierdza Twoją obserwację — nie jest to płynny strumień, tylko paczka „wszyscy gracze naraz, raz na ~0,5–1 s".
+## Cel
 
-Dwie niezależne przyczyny:
+Wyeliminować skokowe paski boostu na `/v2/overlay`. Przyczyna: relay (v2.2) flushuje **1 gracza na tick db_workera** (round-robin po `dirty_player_names`), więc przy 4 graczach każdy gracz dostaje aktualizację co ~100 ms (≈10/s razem), a w praktyce HB pokazuje ~6 wierszy/s. Bar w UI dostaje dane „skokowo" i ease ich nie ratuje, bo źródło jest rzadkie.
 
-1. Relay na PC nie wysyła tak szybko, jak ustawiono w repo
-   - W kodzie `relay.py` w repo `WRITE_INTERVAL_S = 0.1` (10 Hz).
-   - W bazie widać realnie ~2 Hz, czyli proces na PC działa ze starym throttle. Najpewniej nie został pobrany / zrestartowany nowy plik, albo Supabase rate-limit dla anon przycina UPSERTy.
+## Zmiany
 
-2. Wygładzanie w overlay było zbyt zachowawcze
-   - Aktualne tempo (~120–140 %/s) goni snapshot ~700–800 ms, więc pasek wyraźnie „spóźnia się" za rzeczywistością.
-   - Przy interwałach 500–1000 ms i dużych skokach (np. 100 → 20) widać równoczesny start animacji u wszystkich graczy — co czyta się jako „wszyscy się odświeżają razem".
+### 1. `src/pages/Relay.tsx` → `getRelayScript()` (skrypt Python `relay.py`)
 
-Plan naprawy (bez ruszania `relay.py`, bo nie chcesz/nie musisz):
+Podbić nagłówek do **v2.3** i zrefaktorować flush graczy z round-robin na batch.
 
-A. Przyspieszyć i odporniejsze wygładzanie po stronie `BoostBarV2`
-   - Zwiększyć szybkość gonienia targetu (np. 220 %/s w górę, 160 %/s w dół) — pasek dogania snapshot w ~300–500 ms zamiast ~700–800 ms.
-   - Dodać proste „dryfowanie w dół" pomiędzy snapshotami (~20–30 %/s), jeśli gracz aktualnie spada — żeby między batchami pasek nie stał, tylko sensownie schodził, a po nadejściu paczki delikatnie się korygował. Dla gracza, który właśnie zbiera boost, dryf się nie aktywuje, bo target będzie wyższy.
+**Stan:**
+- Usunąć całkowicie `dirty_player_names: List[str]` oraz całą logikę FIFO/gating po nazwie.
+- Zostawić `players_snapshot` i `last_pushed_players` (do change-detection per-row).
 
-B. Rozsynchronizować start animacji
-   - Każdy pasek dostanie niewielkie losowe „phase offset" (0–80 ms) startujące rAF, żeby równoczesne snapshoty u 6 graczy nie wyglądały jak jeden wspólny skok.
+**`handle_update_state` (gracze, ~linia 307–317):**
+- Po przebudowie `new_snap` nie dotykać żadnej kolejki.
+- `stats["player_changes_delta"]` liczyć jako liczbę graczy, których `row != last_pushed_players.get(name)` (tylko do HB; sama detekcja i tak idzie w workerze).
 
-C. Diagnostyka źródła wąskiego gardła (tylko log, nic nie zmienia)
-   - Dodać w overlay (tylko w trybie deweloperskim / `?debug=1`) prosty licznik „events/s" i „last gap ms" dla `players_live`. Zobaczysz w konsoli, czy realnie idzie 2 Hz czy 10 Hz — to jednoznacznie pokaże, czy bot na PC działa już z nowym plikiem.
+**`db_worker_loop` (~linia 440–507):**
+- Pod lockiem zrobić shallow-copy snapshotu (`snap_copy = {n: dict(r) for n,r in players_snapshot.items()}`), zwolnić lock.
+- Poza lockiem zbudować `rows_to_push = [r for n, r in snap_copy.items() if last_pushed_players.get(n) != r]`.
+- Jeden `db_upsert_players(rows_to_push)` per tick (już istnieje, przyjmuje listę).
+- Po sukcesie: `for n, r in zip(...): last_pushed_players[n] = r`.
+- **Opcjonalny safety cap** (stała `MAX_PLAYER_ROWS_PER_S = 200`): jeżeli liczba wierszy w bieżącej sekundzie przekracza limit, ten tick pominąć (zliczyć w `stats["player_writes_skipped_delta"]`). Liczyć w prostym oknie sekundowym, bez dodatkowych wątków.
 
-Co Ty robisz po mojej stronie: nic. Overlay sam pociągnie nowe wartości i wygląd po przeładowaniu. Jeśli po tych zmianach nadal czujesz „klatkowanie", to jednoznacznie znaczy, że relay na PC trzeba pobrać ponownie z `/relay` i zrestartować — wtedy chętnie wrócimy do tematu.
+**Tempo flushu:**
+- `WRITE_INTERVAL_S` zostawić **0.025 s** (40 Hz) — przy 4 graczach to do 160 wierszy/s, mieści się w cap. Komentarz przy stałej zaktualizować: „batch upsert wszystkich zmienionych graczy".
+
+**Heartbeat (`heartbeat_loop`):**
+- Dodać metrykę `player_rows/s` (już jest `player_writes_delta / HEARTBEAT_S` — przemianować w logu na `player_rows/s`).
+- Dodać `flushes/s = ticks_with_rows_delta / HEARTBEAT_S` (nowa zmienna w `stats`, inkrementowana w workerze gdy `rows_to_push` niepusta).
+- Jeżeli cap został użyty, dopisać `skipped/s`.
+
+**Kompatybilność:** żadnych zmian w schemacie bazy, w eventach RL, w kamerze ani w `match_metadata`. Wątek TCP pozostaje DB-free.
+
+### 2. `src/components/v2/BoostBarV2.tsx`
+
+Tylko tuning easingu — bez zmiany logiki źródła danych.
+
+- Zwiększyć tempo zjazdu, zostawić łagodny wzrost. Zamiast obecnych `rate = diff > 0 ? 320 : 260`:
+  - `rate = diff > 0 ? 280 : 900` (%/s) → drain 100→0 w ~110 ms, wzrost lekko wygładzony.
+- Próg snapowania bez zmian (`Math.abs(diff) > 0.2`).
+- Zostawić komentarz wyjaśniający: dane z bota wpadają teraz „gęsto" (~40 Hz dla każdego), więc ease ma tylko maskować jitter sieci.
+
+### 3. (Opcjonalnie) wspólny hook `useSmoothBoost`
+
+Wydzielić raf-easing z `BoostBarV2` do `src/hooks/useSmoothBoost.ts` (input: `target: number, opts?: { upRate?: number; downRate?: number }`, output: `smooth: number`). Podpiąć w `BoostBarV2` oraz w `PlayerCardV2` (`BoostStat` używa surowego `player.boost` — przepuścić przez hook). Bez zmian wizualnych poza płynnością.
+
+## Czego NIE zmieniamy
+
+- Nie ruszamy rang / `useActivePlayerMmrInfo` / `PlayerCardV2` poza wartością boost przekazywaną do `BoostStat`.
+- Bez zmian w `useLiveStatsV2`, RLS, edge functions, OBS layoutu.
+- Bez zmian w `WRITE_INTERVAL_S` jako parametrze konfiguracyjnym przez UI.
+
+## Kryteria akceptacji
+
+- `[HB]` w terminalu pokazuje `player_rows/s` znacznie powyżej 10 przy 4 graczach trzymających boost (oczekiwane ~30–120/s zależnie od aktywności).
+- Na `/v2/overlay` zjazd boosta 100→0 w ciągu ~2 s wygląda płynnie, bez schodków.
+- `UpdateState/s` w HB pozostaje na ~100–120 (bez regresji upstreamu).
+- Brak zmian w wyświetlaniu rang.
+
+## Plik po pliku
+
+- `src/pages/Relay.tsx` — refaktor `getRelayScript()` (v2.3) + opis w UI sekcji „Wazna aktualizacja".
+- `src/components/v2/BoostBarV2.tsx` — tuning `rate`.
+- *(opcjonalnie)* `src/hooks/useSmoothBoost.ts` — nowy hook + użycie w `BoostBarV2.tsx` i `PlayerCardV2.tsx`.
