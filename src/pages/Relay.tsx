@@ -351,6 +351,46 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         for name, row in new_snap.items():
             if last_pushed_players.get(name) != row:
                 stats["player_changes_delta"] += 1
+        # WS broadcast: lekki kanal boost/speed/supersonic do overlaya na
+        # tej samej maszynie. Throttle + skip-if-no-change.
+        _maybe_broadcast_ws(new_snap)
+
+
+def _maybe_broadcast_ws(snap: Dict[str, Dict[str, Any]]) -> None:
+    global last_ws_send_ts, last_ws_players
+    if not ws_enabled or ws_loop is None or not ws_clients:
+        return
+    now = time.time()
+    if now - last_ws_send_ts < WS_BROADCAST_MIN_INTERVAL_S:
+        return
+    # Skip-if-no-change po boost/speed/is_supersonic.
+    cur: Dict[str, tuple] = {}
+    payload_players = []
+    for name, row in snap.items():
+        b = int(row.get("boost", 0) or 0)
+        s = float(row.get("speed", 0) or 0)
+        ss = bool(row.get("is_supersonic", False))
+        cur[name] = (b, s, ss)
+        payload_players.append({
+            "player_name": name,
+            "boost": b,
+            "speed": s,
+            "is_supersonic": ss,
+        })
+    if cur == last_ws_players:
+        return
+    last_ws_players = cur
+    last_ws_send_ts = now
+    msg = json.dumps({"t": now, "players": payload_players})
+    # Snapshot klientow zeby moc bezpiecznie iterowac.
+    clients = list(ws_clients)
+    loop = ws_loop
+    for ws in clients:
+        try:
+            asyncio.run_coroutine_threadsafe(ws.send(msg), loop)
+        except Exception:
+            pass
+    stats["ws_sends_delta"] += 1
 
 
 def handle_clock_updated(data: Dict[str, Any]) -> None:
