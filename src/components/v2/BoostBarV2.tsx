@@ -21,9 +21,10 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
   const displayName = registry?.display_name ?? player.player_name;
   const targetBoost = Math.max(0, Math.min(100, player.boost ?? 0));
 
-  // Lokalne wygładzanie boosta. Bot wysyla teraz UPDATE'y per-gracz w round-robin
-  // (~50 ms/tick), wiec snapshoty wpadaja naturalnie rozlozone w czasie. Tutaj
-  // wystarczy delikatny easing, zeby drobny jitter sieci nie wygladal jak skok.
+  // Lokalne wygladzanie boosta. Od relay v2.3 bot wysyla BATCH upserty
+  // wszystkich zmienionych graczy ~40 razy/s, wiec snapshoty wpadaja gesto
+  // i ease ma juz tylko maskowac jitter sieci. Drain jest szybki (~110 ms
+  // ze 100 do 0), wzrost lekko wygladzony.
   const [smooth, setSmooth] = useState(targetBoost);
   const smoothRef = useRef(targetBoost);
   const targetRef = useRef(targetBoost);
@@ -44,10 +45,9 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
       const tgt = targetRef.current;
       const diff = tgt - cur;
 
-      // Plynne wygladzanie ~250-300 ms na pelna korekte. Bez snapow - dane
-      // ida juz naturalnie rozlozone z bota, zostaje tylko delikatny ease.
       if (Math.abs(diff) > 0.2) {
-        const rate = diff > 0 ? 320 : 260; // %/s
+        // Szybciej w dol (zuzycie boosta), wolniej w gore (pickup czuje sie miekko).
+        const rate = diff > 0 ? 280 : 900; // %/s
         const step = Math.sign(diff) * Math.min(Math.abs(diff), rate * dt);
         const next = cur + step;
         smoothRef.current = next;

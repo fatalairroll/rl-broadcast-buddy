@@ -8,17 +8,23 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2.2 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
+RL Broadcast Relay V2.3 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
 
 Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
 Skrypt laczy sie z lokalnym TCP streamem RL i parsuje strumien JSON-ow.
 
-ARCHITEKTURA (vs. v2.0):
+ARCHITEKTURA (v2.3):
   Wątek TCP NIGDY nie wykonuje synchronicznych zapisow do Supabase.
   Recv -> parse -> aktualizacja stanu w pamieci (pod lockiem).
   Osobny watek 'db_worker' co WRITE_INTERVAL_S (0.25 s) flushuje stan
   do Supabase (koalescjacja). Dzieki temu sieciowe lagi do Supabase
   NIE mogą zatkac bufora TCP gry i nie powoduja zawieszen Rocket League.
+
+  v2.3: db_worker robi BATCH upsert wszystkich graczy, ktorych wiersz
+  zmienil sie wzgledem ostatnio wyslanego (porownanie row-by-row).
+  Zrezygnowano z round-robin (1 gracz/tick), ktory ograniczal odswiezanie
+  boost barow do ~10/s przy 4 graczach. Teraz przy WRITE_INTERVAL_S=0.025
+  uzyskujemy do ~40 flushy/s * N graczy zmienionych = realne wygladzanie.
 
 Dziala w meczach competitive online, meczach z botami oraz w replayach z Match History.
 
@@ -53,8 +59,9 @@ SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
 RL_HOST = "127.0.0.1"
 RL_PORT = 49123
 
-WRITE_INTERVAL_S = 0.025     # tempo workera DB (~40 Hz). Round-robin 1 gracz/tick:
-                             # dla 4-6 graczy max ~100-150 ms od zmiany do upsertu.
+WRITE_INTERVAL_S = 0.025     # tempo workera DB (~40 Hz). Batch upsert wszystkich
+                             # graczy ze zmienionym wierszem -> wszyscy aktualizowani
+                             # rownolegle, nie po kolei.
 PRUNE_INTERVAL_S = 2.0       # co ile worker sprzata players_live
 HEARTBEAT_S = 5.0
 LOCAL_TICK_S = 0.1
@@ -62,6 +69,10 @@ NO_DATA_WARN_S = 10.0
 RECONNECT_DELAY_S = 3.0
 RECV_CHUNK = 65536
 RECV_SO_RCVBUF = 1 << 20     # 1 MiB — zapas na bufor TCP
+
+# Safety cap: max liczba wierszy graczy flushowanych w ciagu 1 s. Chroni przed
+# zalaniem Supabase przy nietypowych warunkach. 200/s = bardzo z gora przy 6 graczach.
+MAX_PLAYER_ROWS_PER_S = 200
 
 sb: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -88,8 +99,6 @@ players_snapshot: Dict[str, Dict[str, Any]] = {}
 # Ostatnio wyslane do bazy wiersze per-gracz — sluza do change-detection,
 # zeby nie generowac zbednych UPDATE'ow Realtime gdy gracz sie nie zmienil.
 last_pushed_players: Dict[str, Dict[str, Any]] = {}
-# Round-robin FIFO graczy z niezsynchronizowanymi zmianami.
-dirty_player_names: List[str] = []
 
 # Czy aktualnie trwa mecz (sterowane WYLACZNIE eventami z RL Stats API).
 # True  <- MatchCreated / MatchInitialized
@@ -113,6 +122,8 @@ stats = {
     # Diagnostyka przepustowosci upstream (RL Stats API -> bot).
     "update_state_delta": 0,         # ile UpdateState w okresie HB
     "player_changes_delta": 0,       # ile faktycznych zmian wierszy w okresie HB
+    "flushes_delta": 0,              # ile tickow workera faktycznie cos upsertowalo
+    "player_writes_skipped_delta": 0,  # ile wierszy pominieto z powodu cap'a
 }
 
 
@@ -307,13 +318,11 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     if new_snap:
         players_snapshot.clear()
         players_snapshot.update(new_snap)
-        # Per-gracz change-detection: dorzucamy do FIFO tylko tych, ktorych
-        # wiersz zmienil sie wzgledem ostatnio wyslanego do bazy. Dzieki temu
-        # worker DB wysyla jeden upsert na tick (rozlozenie w czasie zamiast
-        # bursta 6 wierszy w jednej transakcji).
+        # Per-gracz change-detection (tylko do metryki HB; faktyczna decyzja
+        # o flushu zapada w db_workerze, ktory porownuje snapshot z
+        # last_pushed_players i robi BATCH upsert wszystkich zmienionych).
         for name, row in new_snap.items():
-            if last_pushed_players.get(name) != row and name not in dirty_player_names:
-                dirty_player_names.append(name)
+            if last_pushed_players.get(name) != row:
                 stats["player_changes_delta"] += 1
 
 
@@ -390,7 +399,6 @@ def handle_event(evt: Dict[str, Any]) -> None:
         # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
         players_snapshot.clear()
         last_pushed_players.clear()
-        dirty_player_names.clear()
         clear_requested = True
         match_active = True
         dirty_match = True
@@ -441,6 +449,9 @@ def db_worker_loop() -> None:
     global dirty_match, dirty_camera, clear_requested
     global pending_camera, last_pushed_camera
     last_prune = 0.0
+    # Okno sekundowe na cap MAX_PLAYER_ROWS_PER_S.
+    cap_window_start = time.time()
+    cap_window_rows = 0
     while True:
         time.sleep(WRITE_INTERVAL_S)
 
@@ -466,21 +477,8 @@ def db_worker_loop() -> None:
             dirty_camera = False
             cam_target = pending_camera
 
-            # Round-robin: zdejmujemy z FIFO jednego gracza per tick i piszemy
-            # tylko jego wiersz. Jesli od ostatniego flushu nic sie u niego
-            # nie zmienilo (re-add z handlera mogl byc no-op), pomijamy upsert.
-            player_row: Optional[Dict[str, Any]] = None
-            player_name_to_push: Optional[str] = None
-            while dirty_player_names:
-                candidate = dirty_player_names.pop(0)
-                row = players_snapshot.get(candidate)
-                if row is None:
-                    continue  # gracz zniknal ze snapshotu (np. reset)
-                if last_pushed_players.get(candidate) == row:
-                    continue  # juz wyslane, nic nowego
-                player_row = row
-                player_name_to_push = candidate
-                break
+            # Batch: kopia snapshotu pod lockiem, decyzja o flushu poza lockiem.
+            snap_copy: Dict[str, Dict[str, Any]] = {n: dict(r) for n, r in players_snapshot.items()}
             current_names = list(players_snapshot.keys())
 
         # Poza lockiem: wszystkie HTTP-y do Supabase.
@@ -495,10 +493,29 @@ def db_worker_loop() -> None:
             db_upsert_camera(cam_target)
             last_pushed_camera = cam_target
 
-        if player_row is not None and player_name_to_push is not None:
-            db_upsert_players([player_row])
-            # Zapamietujemy ostatnio wyslany wiersz dla change-detection.
-            last_pushed_players[player_name_to_push] = dict(player_row)
+        # Batch flush wszystkich graczy ze zmienionym wierszem.
+        rows_to_push: List[Dict[str, Any]] = []
+        for name, row in snap_copy.items():
+            if last_pushed_players.get(name) != row:
+                rows_to_push.append(row)
+
+        if rows_to_push:
+            now_ts = time.time()
+            if now_ts - cap_window_start >= 1.0:
+                cap_window_start = now_ts
+                cap_window_rows = 0
+            allowed = max(0, MAX_PLAYER_ROWS_PER_S - cap_window_rows)
+            if allowed <= 0:
+                stats["player_writes_skipped_delta"] += len(rows_to_push)
+            else:
+                if len(rows_to_push) > allowed:
+                    stats["player_writes_skipped_delta"] += len(rows_to_push) - allowed
+                    rows_to_push = rows_to_push[:allowed]
+                db_upsert_players(rows_to_push)
+                cap_window_rows += len(rows_to_push)
+                stats["flushes_delta"] += 1
+                for row in rows_to_push:
+                    last_pushed_players[row["player_name"]] = dict(row)
 
         # Sprzatanie zalegych wpisow — rzadko.
         now = time.time()
@@ -524,7 +541,9 @@ def heartbeat_loop() -> None:
                 f"changes/s={stats['player_changes_delta'] / HEARTBEAT_S:.1f} "
                 f"| players_seen={stats['players_seen']} "
                 f"| DB: match=+{stats['match_writes_delta']} "
-                f"players=+{stats['player_writes_delta']} ({stats['player_writes_delta'] / HEARTBEAT_S:.1f}/s) "
+                f"player_rows/s={stats['player_writes_delta'] / HEARTBEAT_S:.1f} "
+                f"flushes/s={stats['flushes_delta'] / HEARTBEAT_S:.1f} "
+                f"skipped/s={stats['player_writes_skipped_delta'] / HEARTBEAT_S:.1f} "
                 f"camera=+{stats['camera_writes_delta']} "
                 f"errors=+{stats['db_errors_delta']}"
                 f"{warn}"
@@ -536,6 +555,8 @@ def heartbeat_loop() -> None:
             stats["db_errors_delta"] = 0
             stats["update_state_delta"] = 0
             stats["player_changes_delta"] = 0
+            stats["flushes_delta"] = 0
+            stats["player_writes_skipped_delta"] = 0
 
 
 # === RAW DEBUG: surowy dump boost/speed graczy ===
@@ -690,7 +711,7 @@ def _signal_handler(signum, _frame) -> None:
 
 
 def main() -> None:
-    print("== RL Broadcast Relay V2.2 (Python) ==")
+    print("== RL Broadcast Relay V2.3 (Python) ==")
     print(f"   Stats API: tcp://{RL_HOST}:{RL_PORT} (lokalny JSON stream)")
     print(f"   Supabase:  {SUPABASE_URL}")
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
@@ -816,9 +837,9 @@ PacketSendRate=30`}</pre>
 
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                 <p className="text-sm text-red-300">
-                  <strong>Wazna aktualizacja (v2.2)</strong>
+                  <strong>Wazna aktualizacja (v2.3)</strong>
                   <br />
-                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code>. v2.2 chowa overlay automatycznie dokladnie wtedy, kiedy gra zglosi koniec meczu (<code className="bg-secondary px-1 rounded">MatchEnded</code> / <code className="bg-secondary px-1 rounded">MatchDestroyed</code>) lub kiedy zamkniesz bota (Ctrl+C). Zadne timeouty bezczynnosci nie chowaja overlaya - jesli mecz trwa, overlay stoi, niezaleznie od chwilowych przerw w pakietach. v2.1 (osobny watek DB, brak zawieszen RL) jest zachowane.
+                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code>. v2.3 wysyla do bazy BATCH wszystkich graczy, ktorych dane sie zmienily (zamiast 1 gracz/tick round-robin z v2.2). Boost bary na overlayu odswiezaja sie ~40 razy/s rownolegle dla wszystkich graczy - koniec ze skokowym drainem. W terminalu sprawdz <code className="bg-secondary px-1 rounded">player_rows/s</code> w heartbeacie - przy 4 graczach trzymajacych boost powinno byc znacznie powyzej 10. v2.2 (auto-hide overlay po MatchEnded) i v2.1 (osobny watek DB) sa zachowane.
                 </p>
               </div>
             </CardContent>
