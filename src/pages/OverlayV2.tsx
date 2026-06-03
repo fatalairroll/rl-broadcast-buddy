@@ -22,6 +22,9 @@ export default function OverlayV2() {
     activePlayer,
     activeRegistry,
     registryMap,
+    relayConnected,
+    relayLastMessageAgeMs,
+    relayLastFrame,
   } = useLiveStatsV2();
   const { config } = useActiveV2Config();
   const series = useBroadcastSeries();
@@ -59,7 +62,11 @@ export default function OverlayV2() {
   const safeGlobalScale = Number.isFinite(config.general.globalScale) ? config.general.globalScale : 1;
   const stageScale = fit * safeGlobalScale;
 
-  const visible = useOverlayVisibility(match);
+  const visible = useOverlayVisibility(match, {
+    relayConnected,
+    lastMessageAgeMs: relayLastMessageAgeMs,
+    lastFrameIsActive: relayLastFrame?.match?.is_active,
+  });
 
   return (
     <ScoreboardBoundsProvider>
@@ -99,6 +106,7 @@ export default function OverlayV2() {
           side="left"
           activeName={activeCameraTarget}
           config={config}
+          relayConnected={relayConnected}
         />
         <BoostStackV2
           players={orange}
@@ -106,6 +114,7 @@ export default function OverlayV2() {
           side="right"
           activeName={activeCameraTarget}
           config={config}
+          relayConnected={relayConnected}
         />
           <PlayerCardV2 player={activePlayer} registry={activeRegistry} config={config} mmrOverride={mmrOverride} />
         </div>

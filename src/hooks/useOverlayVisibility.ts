@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MatchMetadata } from '@/types/livestats';
 
+interface RelayLiveness {
+  relayConnected: boolean;
+  lastMessageAgeMs: number | null;
+  lastFrameIsActive?: boolean;
+}
+
 const HIDE_DEBOUNCE_MS = 5000;
 const STALE_MS = 30_000;
 const TICK_MS = 1000;
@@ -13,7 +19,10 @@ const TICK_MS = 1000;
  *       OR updated_at older than 30s (fail-safe — bot lost).
  * Missing is_active field is treated as true (legacy compatibility).
  */
-export function useOverlayVisibility(match: MatchMetadata | null): boolean {
+export function useOverlayVisibility(
+  match: MatchMetadata | null,
+  relay?: RelayLiveness,
+): boolean {
   const [visible, setVisible] = useState<boolean>(false);
   const inactiveSinceRef = useRef<number | null>(null);
 
@@ -36,6 +45,15 @@ export function useOverlayVisibility(match: MatchMetadata | null): boolean {
   // Recompute visibility on each tick + on signal change
   useEffect(() => {
     const compute = () => {
+      // WS override: jezeli relay zywy i swiezy, wierzymy mu bez wzgledu na Supabase.
+      if (
+        relay?.relayConnected &&
+        relay.lastMessageAgeMs != null &&
+        relay.lastMessageAgeMs < 1500
+      ) {
+        setVisible(relay.lastFrameIsActive !== false);
+        return;
+      }
       if (!match || !updatedAt) {
         setVisible(false);
         return;
@@ -55,7 +73,7 @@ export function useOverlayVisibility(match: MatchMetadata | null): boolean {
     compute();
     const id = window.setInterval(compute, TICK_MS);
     return () => window.clearInterval(id);
-  }, [match, updatedAt, isActive]);
+  }, [match, updatedAt, isActive, relay?.relayConnected, relay?.lastMessageAgeMs, relay?.lastFrameIsActive]);
 
   return visible;
 }
