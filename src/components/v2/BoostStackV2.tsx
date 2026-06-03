@@ -9,9 +9,10 @@ interface Props {
   side: 'left' | 'right';
   activeName?: string | null;
   config?: OverlayV2Config;
+  relayConnected?: boolean;
 }
 
-export function BoostStackV2({ players, registryMap, side, activeName, config = defaultOverlayV2Config }: Props) {
+export function BoostStackV2({ players, registryMap, side, activeName, config = defaultOverlayV2Config, relayConnected = false }: Props) {
   const c = config.boostBar;
   if (!c.visible) return null;
 
@@ -33,6 +34,7 @@ export function BoostStackV2({ players, registryMap, side, activeName, config = 
           side={side}
           isActive={activeName === p.player_name}
           config={config}
+          relayConnected={relayConnected}
         />
       ))}
     </div>

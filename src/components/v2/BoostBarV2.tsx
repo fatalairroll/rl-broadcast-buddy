@@ -8,9 +8,10 @@ interface Props {
   side: 'left' | 'right';
   isActive?: boolean;
   config?: OverlayV2Config;
+  relayConnected?: boolean;
 }
 
-export function BoostBarV2({ player, registry, side, isActive, config = defaultOverlayV2Config }: Props) {
+export function BoostBarV2({ player, registry, side, isActive, config = defaultOverlayV2Config, relayConnected = false }: Props) {
   const c = config.boostBar;
   const team = (player.team_num as 0 | 1) ?? 0;
   const colors = team === 0
@@ -21,10 +22,9 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
   const displayName = registry?.display_name ?? player.player_name;
   const targetBoost = Math.max(0, Math.min(100, player.boost ?? 0));
 
-  // Lokalne wygladzanie boosta. Od relay v2.3 bot wysyla BATCH upserty
-  // wszystkich zmienionych graczy ~40 razy/s, wiec snapshoty wpadaja gesto
-  // i ease ma juz tylko maskowac jitter sieci. Drain jest szybki (~110 ms
-  // ze 100 do 0), wzrost lekko wygladzony.
+  // Lokalne wygladzanie boosta dla zrodla Supabase. Gdy WS relay jest podlaczony,
+  // boost przychodzi 30-60 Hz i RAF easing tylko dodaje opoznienia + obciaza CPU —
+  // wtedy renderujemy raw targetBoost.
   const [smooth, setSmooth] = useState(targetBoost);
   const smoothRef = useRef(targetBoost);
   const targetRef = useRef(targetBoost);
@@ -35,6 +35,12 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
   }, [targetBoost]);
 
   useEffect(() => {
+    if (relayConnected) {
+      // Bypass — boost juz jest plynny dzieki WS.
+      smoothRef.current = targetRef.current;
+      setSmooth(targetRef.current);
+      return;
+    }
     let raf = 0;
     const tick = (ts: number) => {
       const last = lastTsRef.current ?? ts;
@@ -60,10 +66,10 @@ export function BoostBarV2({ player, registry, side, isActive, config = defaultO
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [relayConnected]);
 
-  const boost = Math.round(smooth);
-  const barPct = smooth;
+  const boost = relayConnected ? Math.round(targetBoost) : Math.round(smooth);
+  const barPct = relayConnected ? targetBoost : smooth;
 
   return (
     <div
