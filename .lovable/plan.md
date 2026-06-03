@@ -1,105 +1,135 @@
-# Hotfix overlay freeze + WS-as-primary fallback
+## Cel
 
-Two-part change. Part A is the accepted freeze hotfix. Part B wires `getLastFrame()` from the WS feed into `match`, `players`, and `camera` so the overlay works when relay v3 has Supabase live writes disabled (WS becomes the primary source; Supabase is the fallback).
+Przepisać `getRelayScript()` w `src/pages/Relay.tsx` z v2.4 do v3 zgodnie z Architecture v3:
 
----
+1. **WebSocket 49300** wysyła pełne ramki v3 (match + players + camera + series + teams).
+2. **`SUPABASE_LIVE_WRITES = False`** (domyślnie) — relay nie spamuje Supabase w trakcie meczu. Zapisy do `match_metadata` / `players_live` / `active_camera` wyłączone; WS staje się jedynym kanałem live dla overlayu lokalnego.
+3. **HTTP serwer na 127.0.0.1:49301** z `POST /series` i `POST /teams` — przyjmuje nadpisy z Dashboardu (przez istniejący `src/lib/relay-http.ts`) i wpina je do każdej kolejnej ramki WS.
 
-## PART A — Freeze hotfix
-
-### A1. `src/hooks/useLocalBoostFeed.ts` → rename to `useLocalRelayFeed.ts`
-
-- Add `revision` state; coalesce all incoming WS messages into ONE `setRevision` per `requestAnimationFrame`. Schedule rAF only if not already scheduled.
-- Parse both shapes:
-  - v2: `{ t, players: [...] }` → fills boost map only.
-  - v3: `{ v:3, t, match, players, camera, series, teams }` → fills boost map AND stores full snapshot in `lastFrameRef`.
-- Refs: `mapRef` (per-player boost), `lastFrameRef` (full v3 frame or null), `lastMsgRef` (perf.now timestamp).
-- Stable return memoized on `[connected, revision]`:
-  ```
-  { connected, lastMessageAgeMs, getBoost, getLastFrame, getLastMessageAge }
-  ```
-- Keep `useLocalBoostFeed` as a re-export alias so nothing breaks mid-merge.
-
-### A2. `src/hooks/useLiveStatsV2.ts` — stop subscription churn
-
-- Remove `localBoost` from the Realtime `useEffect` deps; read it via `localBoostRef.current` updated every render.
-- Memoize the hook's return object on its real inputs so `OverlayV2` consumers don't re-render per WS frame unless data changed.
-
-### A3. `src/hooks/useOverlayVisibility.ts` — WS liveness override
-
-- New optional second arg `{ relayConnected, lastMessageAgeMs, lastFrameIsActive }`.
-- If `relayConnected && lastMessageAgeMs != null && lastMessageAgeMs < 1500`: `visible = lastFrameIsActive !== false`. Skip `updated_at` staleness check.
-- Else: current logic.
-- `OverlayV2.tsx`: pass relay feed snapshot in.
-
-### A4. `src/components/v2/BoostBarV2.tsx` — bypass easing when WS connected
-
-- Optional `relayConnected?: boolean`. When true: render `boost = targetBoost`, skip RAF easing loop. When false: current ease retained as Supabase fallback.
-- Thread the prop through `BoostStackV2` from `OverlayV2`.
+Zmiany ograniczone do `src/pages/Relay.tsx` (string `getRelayScript()` + drobny update wersji w UI). `relay-http.ts` i hydratacja w `useBroadcast` są już na produkcji — bez zmian.
 
 ---
 
-## PART B — WS as primary for match / players / camera
+## Szczegóły techniczne (treść skryptu `relay.py` v3)
 
-Goal: when the v3 relay is sending full frames and Supabase live writes are off (or just lagging), `useLiveStatsV2` must serve `match`, `players`, and `camera` from `getLastFrame()` instead of stale Supabase rows. Registry stays Supabase-only (admin-edited, low-frequency).
+### Nagłówek
+- Baner: `RL Broadcast Relay V3 (Python)`.
+- Krótki opis: TCP→stan w pamięci, WS=primary live channel, HTTP=control plane, Supabase opcjonalnie (writes off domyślnie).
 
-### B1. Frame shape contract (consumed by overlay)
-
-`getLastFrame()` returns `null` or:
-
-```ts
-interface RelayFrameV3 {
-  v: 3;
-  t: number;                      // server time
-  match: MatchMetadata;           // id=1 shape, includes is_active + updated_at (ISO from relay)
-  players: PlayerLive[];          // full rows incl. goals/assists/saves/shots/demos/is_demolished/mmr
-  camera: { target_name: string | null };
-  series?: unknown;               // handled elsewhere
-  teams?: unknown;
-}
+### Nowe flagi konfiguracyjne
+```python
+SUPABASE_LIVE_WRITES = False   # v3: domyslnie OFF. Overlay zywi sie WS-em.
+HTTP_HOST = "127.0.0.1"
+HTTP_PORT = 49301
+WS_FULL_FRAME_HZ = 30
+WS_FULL_FRAME_MIN_INTERVAL_S = 1.0 / WS_FULL_FRAME_HZ
 ```
 
-Relay v3 is expected to emit these fields; if any are missing (older v3 build), fall back to Supabase value for that field only (per-field merge, not all-or-nothing).
-
-### B2. `useLiveStatsV2.ts` — merge logic
-
-Compute a single `liveSource` flag:
-```
-const liveWs = relay.connected && relay.lastMessageAgeMs != null && relay.lastMessageAgeMs < 1500;
-const frame  = liveWs ? relay.getLastFrame() : null;
+### Nowy stan overrides (z HTTP)
+```python
+override_lock = threading.Lock()
+override_teams = {"blue_name": "", "orange_name": ""}
+override_series = {"type": "bo3", "blue": 0, "orange": 0,
+                   "blue_name": "", "orange_name": ""}
 ```
 
-Then:
-
-- **match**: `frame?.match ?? supabaseMatch`.
-- **camera**: `frame?.camera ? { id:1, target_name: frame.camera.target_name, updated_at: ... } : supabaseCamera`.
-- **players**: when `frame?.players` present, use frame players as the base list (replaces `fresh` from Supabase). Then still run the existing boost-map enrichment from `relay.getBoost(name)` so per-frame boost stays smooth even between full frames (which may be throttled). When frame absent, keep current Supabase `fresh` path.
-- **registry**: unchanged (Supabase only).
-- Drop the 30 s staleness filter when `liveWs` is true (frame freshness is authoritative).
-- Memoize final return once, derived from `[match, players, camera, registryMap, activeCameraTarget]`.
-
-### B3. Optional: keep Supabase Realtime subscribed even when WS is primary
-
-Yes — subscriptions stay on so OBS-on-other-machine instances still work, and so we auto-fall-back if WS dies mid-match. No conditional unsubscribe.
-
-### B4. Debug log (`?debug=1`)
-
-Print one line every 2 s:
+### WS broadcast — pełna ramka v3
+`_maybe_broadcast_ws` buduje:
+```json
+{"v":3,"t":...,
+ "match":{id,match_guid,timer,time_seconds,blue_score,orange_score,
+          is_overtime,is_active,updated_at},
+ "players":[{player_name,team_num,boost,speed,goals,assists,saves,shots,
+             demos,is_demolished,is_supersonic,mmr:null,updated_at}],
+ "camera":{"target_name":...},
+ "series":{type,blue,orange,blue_name,orange_name},
+ "teams":{blue_name,orange_name}}
 ```
-[live-stats] source=ws|sb wsAge=120ms frameAge=33ms players=ws(6)|sb(6) revs/2s=...
+
+Throttle: min 1/30 s, max 1/60 s (boost). Dodatkowo `ws_keepalive_loop` (osobny daemon) wysyła ramkę co `WS_FULL_FRAME_MIN_INTERVAL_S` nawet gdy RL nie pchnął `UpdateState` (menu/między rundami) — overlay musi widzieć aktualny `series/teams/match_active`.
+
+### HTTP control server
+Stdlib `http.server.ThreadingHTTPServer` (bez nowych zależności).
+
+```python
+def do_POST(self):
+    body = self._read_json() or {}
+    with override_lock:
+        if self.path == "/series":
+            override_series.update({
+                "type": str(body.get("type", "bo3")),
+                "blue": int(body.get("blue", 0)),
+                "orange": int(body.get("orange", 0)),
+                "blue_name": str(body.get("blue_name") or override_series["blue_name"]),
+                "orange_name": str(body.get("orange_name") or override_series["orange_name"]),
+            })
+        elif self.path == "/teams":
+            override_teams.update({
+                "blue_name": str(body.get("blue_name", "")),
+                "orange_name": str(body.get("orange_name", "")),
+            })
+            if not override_series["blue_name"]:
+                override_series["blue_name"] = override_teams["blue_name"]
+            if not override_series["orange_name"]:
+                override_series["orange_name"] = override_teams["orange_name"]
+        else:
+            self.send_error(404); return
+    self._ok()
+def do_OPTIONS(self): self._ok()  # CORS preflight
 ```
+
+CORS `Access-Control-Allow-Origin: *` — OK, bind tylko na 127.0.0.1.
+Port zajęty → log warning, brak crashu.
+
+### Wyłączenie zapisów Supabase live
+W `db_worker_loop` przy `SUPABASE_LIVE_WRITES = False`:
+- Pomiń `db_upsert_match` / `db_upsert_players` / `db_upsert_camera` / `db_prune_players` / `db_clear_all_players`.
+- Czyść tylko flagi (`dirty_match`, `dirty_camera`, `clear_requested`), żeby się nie kumulowały.
+
+**`clock_loop`**: przy `SUPABASE_LIVE_WRITES = False` **NIE ustawiaj `dirty_match = True`** po dekrementacji zegara — i tak nic z tego nie poleci do Supabase, a zbędne flippowanie flagi tylko obciąża lock co 0.1 s. Zegar w WS jest budowany ad-hoc z aktualnego `local_time_seconds`, więc kompletnie niezależnie od `dirty_match`. Pozostałe ścieżki (`handle_update_state`, `handle_clock_updated`, `handle_event`) zostawiamy bez zmian — `dirty_match` ma znaczenie wyłącznie dla DB workera.
+
+`_shutdown_flush()` również gated przez `SUPABASE_LIVE_WRITES` (off → no-op).
+
+Gdy ktoś ręcznie ustawi `SUPABASE_LIVE_WRITES = True`, zachowanie wraca do v2.4 (z WS w nowym formacie v3).
+
+### Heartbeat
+Nowe pola: `live_writes=on|off`, `http_clients=ok|err`, `ws_full_frames/s`.
+
+### Wątki w `main()`
+Dorzucamy:
+- `threading.Thread(target=http_server_loop, daemon=True).start()`
+- `threading.Thread(target=ws_keepalive_loop, daemon=True).start()`
 
 ---
 
-## Acceptance
+## UI strony /relay
 
-- `/v2/overlay?debug=1` open in OBS for 10 min: no freeze, stable memory, `revision` increments at ≤ frame-rate.
-- With relay v3 + Supabase live writes ENABLED: behaves like before, overlay shows live data (no regression).
-- With relay v3 + Supabase live writes DISABLED: overlay still shows full match, players, camera, and live boost — sourced entirely from WS.
-- WS drops mid-match: within ~1.5 s overlay falls back to Supabase (or hides via visibility logic if Supabase is also stale).
-- Supabase Realtime channel `live-stats-v2` is subscribed exactly once per page lifetime (no `phx_join` churn in network panel).
+- Tytuł: `Relay Script (Overlay V3)`.
+- Dopisać że relay v3 domyślnie nie pisze do bazy (overlay lokalny korzysta z WS), oraz że Dashboard wysyła nadpisy serii/drużyn na `http://127.0.0.1:49301`.
+- `pip install supabase requests websockets` zostaje (Supabase wciąż używany przy `SUPABASE_LIVE_WRITES=True`).
 
-## Out of scope
+---
 
-- `Relay.tsx` (Python generator) — separate task. Hotfix works against v2.4 (boost-only) via the v2 parser branch; Part B activates automatically once v3 frames arrive.
-- `useBroadcast`, `relay-http.ts`, Dashboard hydration — untouched.
-- `players_registry` — stays Supabase.
+## Kompatybilność / fallback
+
+- Overlay v3 (po hotfixie) parsuje obie formy: stary `{t, players}` i nowy `{v:3, ...}` — upgrade v2.4 → v3 bez koordynacji.
+- WS padnie + `SUPABASE_LIVE_WRITES=False` → overlay ukryje się przez `useOverlayVisibility` (1500 ms WS staleness). To celowe.
+- Użytkownik chcący „belt-and-suspenders" ustawia `SUPABASE_LIVE_WRITES = True` ręcznie.
+
+---
+
+## Poza zakresem (już na produkcji)
+
+- `src/lib/relay-http.ts` — `postSeries` / `postTeams` / `syncSessionToRelay` → `http://127.0.0.1:49301`, AbortSignal 1.5 s, silent errors. **Bez zmian.**
+- `src/hooks/useBroadcast.tsx` — `useEffect` z `hydratedForIdRef` woła `syncSessionToRelay` raz na załadowaną aktywną sesję; każdy `updateSession` re-syncuje. **Bez zmian.**
+- `useLocalRelayFeed`, `useLiveStatsV2`, `useOverlayVisibility` — zaktualizowane w poprzednim PR.
+- Brak migracji Supabase.
+
+## Akceptacja
+
+- `python relay.py` startuje, nasłuchuje na `tcp://127.0.0.1:49123`, `ws://127.0.0.1:49300`, `http://127.0.0.1:49301`.
+- HB: `live_writes=off`, `ws_full_frames/s ~ 30`, zero requestów Supabase podczas meczu.
+- `curl -X POST http://127.0.0.1:49301/teams -d '{"blue_name":"A","orange_name":"B"}' -H 'Content-Type: application/json'` → 200; następna ramka WS ma te nazwy w `teams`.
+- `/v2/overlay` (ta sama maszyna) działa bez wpisów w `match_metadata` / `players_live` w Supabase.
+- Dashboard `+/-` serii natychmiast widoczny w overlayu (HTTP → WS → `useLiveStatsV2`).
+- `clock_loop` przy live_writes=off nie generuje ruchu w state_lock z tytułu `dirty_match`.
