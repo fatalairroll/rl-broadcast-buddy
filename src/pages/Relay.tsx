@@ -8,32 +8,26 @@ const SUPABASE_URL = 'https://swgisbcfmtzrbevsqtwr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN3Z2lzYmNmbXR6cmJldnNxdHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNjgxNzQsImV4cCI6MjA4NDk0NDE3NH0.IEk5RfQw5kYOXbaNycV5_xkP5j106AKfwy4zYX6Oqjk';
 
 const getRelayScript = () => `"""
-RL Broadcast Relay V2.4 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
+RL Broadcast Relay V3 (Python) — oficjalne RL Stats API (lokalny TCP/JSON stream)
 
 Zrodlo danych: Rocket League Stats API (TAGame.MatchStatsExporter_TA), port 49123.
 Skrypt laczy sie z lokalnym TCP streamem RL i parsuje strumien JSON-ow.
 
-ARCHITEKTURA (v2.4):
-  Wątek TCP NIGDY nie wykonuje synchronicznych zapisow do Supabase.
-  Recv -> parse -> aktualizacja stanu w pamieci (pod lockiem).
-  Osobny watek 'db_worker' co WRITE_INTERVAL_S (0.25 s) flushuje stan
-  do Supabase (koalescjacja). Dzieki temu sieciowe lagi do Supabase
-  NIE mogą zatkac bufora TCP gry i nie powoduja zawieszen Rocket League.
+ARCHITEKTURA (v3):
+  TCP (49123) -> stan w pamieci (state_lock).
+  WS  (49300) = PRIMARY live channel dla overlayu na TEJ samej maszynie.
+                Wysyla pelne ramki v3: match + players + camera + series + teams,
+                30-60 Hz, plus keepalive nawet gdy RL nie pcha UpdateState.
+  HTTP (49301) = control plane. Dashboard wysyla nadpisy serii / drużyn
+                 przez relay-http.ts; relay wpina je do kolejnych ramek WS.
+  Supabase    = opcjonalny fallback. SUPABASE_LIVE_WRITES=False (default) ->
+                relay nie spamuje bazy w trakcie meczu. Overlay zywi sie WS-em.
+                Gdy potrzebny remote overlay (OBS na innej maszynie), ustaw
+                SUPABASE_LIVE_WRITES=True ponizej — wraca zachowanie v2.4
+                (zapisy match_metadata / players_live / active_camera).
 
-  v2.3: db_worker robi BATCH upsert wszystkich graczy, ktorych wiersz
-  zmienil sie wzgledem ostatnio wyslanego (porownanie row-by-row).
-  Zrezygnowano z round-robin (1 gracz/tick), ktory ograniczal odswiezanie
-  boost barow do ~10/s przy 4 graczach. Teraz przy WRITE_INTERVAL_S=0.025
-  uzyskujemy do ~40 flushy/s * N graczy zmienionych = realne wygladzanie.
-
-  v2.4: Dodatkowo wystawiamy lokalny serwer WebSocket (127.0.0.1:49300),
-  na ktory broadcastujemy wylacznie {player_name, boost, speed, is_supersonic}
-  z throttle do 60 ramek/s. Overlay na TEJ samej maszynie podpina sie pod
-  WS i dostaje boost z opoznieniem rzedu 50-150 ms (zamiast 200-400 ms
-  przez Supabase Realtime). Reszta danych (score, timer, kamera, statystyki)
-  nadal leci wylacznie przez Supabase — to zostaje pelnym zrodlem prawdy.
-  Overlay na innej maszynie (OBS remote) WS nie zlapie i automatycznie
-  zostanie przy Supabase, bez bledow.
+Overlay /v2/overlay parsuje obie formy ramki: stary {t, players} i nowy
+{v:3, match, players, camera, series, teams}. Upgrade v2.4 -> v3 bez koordynacji.
 
 Dziala w meczach competitive online, meczach z botami oraz w replayach z Match History.
 
@@ -53,6 +47,8 @@ import signal
 import sys
 import threading
 import time
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Set
 
 try:
@@ -69,9 +65,15 @@ SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
 RL_HOST = "127.0.0.1"
 RL_PORT = 49123
 
-WRITE_INTERVAL_S = 0.025     # tempo workera DB (~40 Hz). Batch upsert wszystkich
-                             # graczy ze zmienionym wierszem -> wszyscy aktualizowani
-                             # rownolegle, nie po kolei.
+# === ARCHITECTURE v3: WS = PRIMARY, Supabase = OPCJONALNY ===
+# Domyslnie relay NIE pisze do Supabase w trakcie meczu — overlay /v2/overlay
+# na tej samej maszynie czyta WSZYSTKO z WS (match + players + camera + series
+# + teams). Ustaw True jesli potrzebujesz remote overlayu (OBS na innej maszynie)
+# lub historycznych zapisow w bazie.
+SUPABASE_LIVE_WRITES = False
+
+WRITE_INTERVAL_S = 0.025     # tempo workera DB (~40 Hz). Uzywane tylko gdy
+                             # SUPABASE_LIVE_WRITES=True.
 PRUNE_INTERVAL_S = 2.0       # co ile worker sprzata players_live
 HEARTBEAT_S = 5.0
 LOCAL_TICK_S = 0.1
@@ -84,14 +86,21 @@ RECV_SO_RCVBUF = 1 << 20     # 1 MiB — zapas na bufor TCP
 # zalaniem Supabase przy nietypowych warunkach. 200/s = bardzo z gora przy 6 graczach.
 MAX_PLAYER_ROWS_PER_S = 200
 
-# === LOKALNY WEBSOCKET (v2.4) — szybki kanal boost/speed/supersonic ===
-# Tylko localhost. Overlay na tej samej maszynie laczy sie i dostaje
-# boost prawie natychmiast. Reszta (score, timer, kamera, statystyki)
-# i tak leci przez Supabase — WS jest TYLKO przyspieszeniem boost barow.
+# === LOKALNY WEBSOCKET (v3) — pelne ramki live ===
+# Tylko localhost. Overlay na tej samej maszynie laczy sie i dostaje pelny
+# stan meczu (match/players/camera/series/teams) z opoznieniem ~10-30 ms.
 WS_HOST = "127.0.0.1"
 WS_PORT = 49300
-WS_MAX_BROADCASTS_PER_S = 60
+WS_MAX_BROADCASTS_PER_S = 60                    # gorny limit zmian-driven
 WS_BROADCAST_MIN_INTERVAL_S = 1.0 / WS_MAX_BROADCASTS_PER_S
+WS_FULL_FRAME_HZ = 30                           # keepalive cadence
+WS_FULL_FRAME_MIN_INTERVAL_S = 1.0 / WS_FULL_FRAME_HZ
+
+# === LOKALNY HTTP CONTROL PLANE (v3) ===
+# Dashboard / relay-http.ts wysylaja tu POST /series i POST /teams.
+# Tylko localhost — bind 127.0.0.1, brak autoryzacji.
+HTTP_HOST = "127.0.0.1"
+HTTP_PORT = 49301
 
 sb: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
@@ -130,6 +139,15 @@ dirty_match: bool = False
 dirty_camera: bool = False
 clear_requested: bool = False  # nowy mecz -> wyczysc players_live
 
+# === OVERRIDES Z HTTP (v3) ===
+override_lock = threading.Lock()
+override_teams: Dict[str, str] = {"blue_name": "", "orange_name": ""}
+override_series: Dict[str, Any] = {
+    "type": "bo3", "blue": 0, "orange": 0,
+    "blue_name": "", "orange_name": "",
+}
+http_clients_ok = True
+
 stats = {
     "events": 0, "events_delta": 0,
     "match_writes": 0, "match_writes_delta": 0,
@@ -144,14 +162,19 @@ stats = {
     "flushes_delta": 0,              # ile tickow workera faktycznie cos upsertowalo
     "player_writes_skipped_delta": 0,  # ile wierszy pominieto z powodu cap'a
     "ws_sends_delta": 0,             # ile broadcastow WS w okresie HB
+    "ws_full_frames_delta": 0,       # ile pelnych ramek v3 wyslanych
+    "http_requests_delta": 0,        # ile requestow HTTP control plane
 }
 
 # === WS GLOBALS ===
 ws_clients: Set[Any] = set()
 ws_loop: Optional[asyncio.AbstractEventLoop] = None
 last_ws_send_ts: float = 0.0
-last_ws_players: Dict[str, tuple] = {}  # name -> (boost, speed, is_supersonic)
 ws_enabled: bool = False
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def fmt_timer(seconds: float) -> str:
@@ -309,14 +332,16 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     is_overtime = bool(game.get("bOvertime", False))
     in_replay = bool(game.get("bReplay", False))
 
-    dirty_match = True
+    if SUPABASE_LIVE_WRITES:
+        dirty_match = True
 
     # Kamera aktywna -> zapisz w stanie, worker DB sflushuje
     if game.get("bHasTarget"):
         pending_camera = _coerce_dict(game.get("Target")).get("Name") or None
     else:
         pending_camera = None
-    dirty_camera = True
+    if SUPABASE_LIVE_WRITES:
+        dirty_camera = True
 
     # Gracze -> tylko aktualizacja snapshotu w pamieci
     players = _coerce_list(data.get("Players"))
@@ -351,38 +376,67 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         for name, row in new_snap.items():
             if last_pushed_players.get(name) != row:
                 stats["player_changes_delta"] += 1
-        # WS broadcast: lekki kanal boost/speed/supersonic do overlaya na
-        # tej samej maszynie. Throttle + skip-if-no-change.
-        _maybe_broadcast_ws(new_snap)
+        # WS broadcast: pelna ramka v3 (match + players + camera + series + teams).
+        _maybe_broadcast_ws(force=False)
 
 
-def _maybe_broadcast_ws(snap: Dict[str, Dict[str, Any]]) -> None:
-    global last_ws_send_ts, last_ws_players
+def _build_frame_v3() -> str:
+    """Buduje pelna ramke v3. Wolane pod state_lock."""
+    now_iso = _now_iso()
+    match_obj = {
+        "id": 1,
+        "match_guid": current_match_guid,
+        "timer": fmt_timer(local_time_seconds),
+        "time_seconds": int(round(max(0, local_time_seconds))),
+        "blue_score": int(blue_score),
+        "orange_score": int(orange_score),
+        "is_overtime": bool(is_overtime),
+        "is_active": bool(match_active),
+        "updated_at": now_iso,
+    }
+    players_arr: List[Dict[str, Any]] = []
+    for name, row in players_snapshot.items():
+        players_arr.append({
+            "player_name": name,
+            "team_num": int(row.get("team_num", 0) or 0),
+            "boost": int(row.get("boost", 0) or 0),
+            "speed": float(row.get("speed", 0) or 0),
+            "goals": int(row.get("goals", 0) or 0),
+            "assists": int(row.get("assists", 0) or 0),
+            "saves": int(row.get("saves", 0) or 0),
+            "shots": int(row.get("shots", 0) or 0),
+            "demos": int(row.get("demos", 0) or 0),
+            "is_demolished": bool(row.get("is_demolished", False)),
+            "is_supersonic": bool(row.get("is_supersonic", False)),
+            "mmr": None,
+            "updated_at": now_iso,
+        })
+    camera_obj = {"target_name": pending_camera} if pending_camera else None
+    with override_lock:
+        series_obj = dict(override_series)
+        teams_obj = dict(override_teams)
+    return json.dumps({
+        "v": 3,
+        "t": time.time(),
+        "match": match_obj,
+        "players": players_arr,
+        "camera": camera_obj,
+        "series": series_obj,
+        "teams": teams_obj,
+    })
+
+
+def _maybe_broadcast_ws(force: bool = False) -> None:
+    """Wysyla pelna ramke v3 na wszystkich klientow WS. force=True ignoruje throttle.
+    UWAGA: musi byc wolane pod state_lock (czyta snapshot + match state)."""
+    global last_ws_send_ts
     if not ws_enabled or ws_loop is None or not ws_clients:
         return
     now = time.time()
-    if now - last_ws_send_ts < WS_BROADCAST_MIN_INTERVAL_S:
+    if not force and (now - last_ws_send_ts) < WS_BROADCAST_MIN_INTERVAL_S:
         return
-    # Skip-if-no-change po boost/speed/is_supersonic.
-    cur: Dict[str, tuple] = {}
-    payload_players = []
-    for name, row in snap.items():
-        b = int(row.get("boost", 0) or 0)
-        s = float(row.get("speed", 0) or 0)
-        ss = bool(row.get("is_supersonic", False))
-        cur[name] = (b, s, ss)
-        payload_players.append({
-            "player_name": name,
-            "boost": b,
-            "speed": s,
-            "is_supersonic": ss,
-        })
-    if cur == last_ws_players:
-        return
-    last_ws_players = cur
     last_ws_send_ts = now
-    msg = json.dumps({"t": now, "players": payload_players})
-    # Snapshot klientow zeby moc bezpiecznie iterowac.
+    msg = _build_frame_v3()
     clients = list(ws_clients)
     loop = ws_loop
     for ws in clients:
@@ -391,6 +445,7 @@ def _maybe_broadcast_ws(snap: Dict[str, Dict[str, Any]]) -> None:
         except Exception:
             pass
     stats["ws_sends_delta"] += 1
+    stats["ws_full_frames_delta"] += 1
 
 
 def handle_clock_updated(data: Dict[str, Any]) -> None:
@@ -403,7 +458,8 @@ def handle_clock_updated(data: Dict[str, Any]) -> None:
         except Exception:
             return
     is_overtime = bool(data.get("bOvertime", is_overtime))
-    dirty_match = True
+    if SUPABASE_LIVE_WRITES:
+        dirty_match = True
 
 
 def handle_event(evt: Dict[str, Any]) -> None:
@@ -466,9 +522,11 @@ def handle_event(evt: Dict[str, Any]) -> None:
         # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
         players_snapshot.clear()
         last_pushed_players.clear()
-        clear_requested = True
+        if SUPABASE_LIVE_WRITES:
+            clear_requested = True
         match_active = True
-        dirty_match = True
+        if SUPABASE_LIVE_WRITES:
+            dirty_match = True
         return
 
     if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
@@ -477,7 +535,8 @@ def handle_event(evt: Dict[str, Any]) -> None:
             stats["mode"] = "podium"
         if name in ("MatchEnded", "MatchDestroyed"):
             match_active = False
-            dirty_match = True
+            if SUPABASE_LIVE_WRITES:
+                dirty_match = True
         return
 
     if name == "MatchPaused":
@@ -508,7 +567,11 @@ def clock_loop() -> None:
                 local_time_seconds += LOCAL_TICK_S
             else:
                 local_time_seconds = max(0.0, local_time_seconds - LOCAL_TICK_S)
-            dirty_match = True
+            # v3: gdy live_writes=off, NIE flippujemy dirty_match co 0.1 s —
+            # i tak nic z tego nie poleci do DB. Zegar w WS budowany jest
+            # ad-hoc z aktualnego local_time_seconds.
+            if SUPABASE_LIVE_WRITES:
+                dirty_match = True
 
 
 # === WORKER DB (jedyne miejsce z I/O do Supabase) ===
@@ -521,6 +584,15 @@ def db_worker_loop() -> None:
     cap_window_rows = 0
     while True:
         time.sleep(WRITE_INTERVAL_S)
+
+        if not SUPABASE_LIVE_WRITES:
+            # v3 default: zero zapisow. Czyscimy flagi, zeby nie kumulowaly sie
+            # bez celu (w razie gdyby user przelaczyl flag w trakcie).
+            with state_lock:
+                dirty_match = False
+                dirty_camera = False
+                clear_requested = False
+            continue
 
         # Sekcja krytyczna: tylko zrzut stanu + wyczyszczenie flag.
         with state_lock:
@@ -601,8 +673,11 @@ def heartbeat_loop() -> None:
             warn = ""
             if last_event_at == 0 or (no_data_for is not None and no_data_for > NO_DATA_WARN_S):
                 warn = " | [WARN] brak danych z RL — sprawdz DefaultStatsAPI.ini i restart RL"
+            live_writes = "on" if SUPABASE_LIVE_WRITES else "off"
+            http_ok = "ok" if http_clients_ok else "err"
             print(
                 f"[HB] mode={mode} "
+                f"live_writes={live_writes} http={http_ok} "
                 f"events=+{stats['events_delta']} (total {stats['events']}) "
                 f"| upstream: UpdateState/s={stats['update_state_delta'] / HEARTBEAT_S:.1f} "
                 f"changes/s={stats['player_changes_delta'] / HEARTBEAT_S:.1f} "
@@ -613,7 +688,9 @@ def heartbeat_loop() -> None:
                 f"skipped/s={stats['player_writes_skipped_delta'] / HEARTBEAT_S:.1f} "
                 f"camera=+{stats['camera_writes_delta']} "
                 f"errors=+{stats['db_errors_delta']}"
-                f" | WS: clients={len(ws_clients)} sends/s={stats['ws_sends_delta'] / HEARTBEAT_S:.1f}"
+                f" | WS: clients={len(ws_clients)} "
+                f"full_frames/s={stats['ws_full_frames_delta'] / HEARTBEAT_S:.1f} "
+                f"| HTTP: req=+{stats['http_requests_delta']}"
                 f"{warn}"
             )
             stats["events_delta"] = 0
@@ -626,6 +703,8 @@ def heartbeat_loop() -> None:
             stats["flushes_delta"] = 0
             stats["player_writes_skipped_delta"] = 0
             stats["ws_sends_delta"] = 0
+            stats["ws_full_frames_delta"] = 0
+            stats["http_requests_delta"] = 0
 
 
 # === LOKALNY SERWER WEBSOCKET (v2.4) ===
@@ -677,6 +756,115 @@ def ws_server_loop() -> None:
         loop.run_forever()
     except Exception as e:
         print(f"[WS] Loop crash: {e}")
+
+
+# === KEEPALIVE WS (v3) ===
+# Wysyla pelna ramke co WS_FULL_FRAME_MIN_INTERVAL_S nawet gdy RL nie pcha
+# UpdateState (menu / miedzy rundami / waiting screen). Overlay musi widziec
+# aktualny series/teams/match_active.
+def ws_keepalive_loop() -> None:
+    while True:
+        time.sleep(WS_FULL_FRAME_MIN_INTERVAL_S)
+        if not ws_enabled or not ws_clients:
+            continue
+        with state_lock:
+            _maybe_broadcast_ws(force=False)
+
+
+# === LOKALNY HTTP CONTROL PLANE (v3) ===
+# Dashboard / src/lib/relay-http.ts wysyla tu:
+#   POST /series  {type, blue, orange, blue_name?, orange_name?}
+#   POST /teams   {blue_name, orange_name}
+class _OverrideHandler(BaseHTTPRequestHandler):
+    def _set_cors(self) -> None:
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+    def _ok(self, payload: Optional[Dict[str, Any]] = None) -> None:
+        body = json.dumps(payload or {"ok": True}).encode("utf-8")
+        self.send_response(200)
+        self._set_cors()
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _read_json(self) -> Dict[str, Any]:
+        try:
+            ln = int(self.headers.get("Content-Length", "0") or "0")
+            if ln <= 0:
+                return {}
+            raw = self.rfile.read(ln)
+            data = json.loads(raw.decode("utf-8", errors="replace"))
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def do_OPTIONS(self):  # noqa: N802
+        self.send_response(204)
+        self._set_cors()
+        self.end_headers()
+
+    def do_POST(self):  # noqa: N802
+        global http_clients_ok
+        stats["http_requests_delta"] += 1
+        body = self._read_json()
+        try:
+            if self.path == "/series":
+                with override_lock:
+                    override_series["type"] = str(body.get("type", override_series.get("type", "bo3")) or "bo3")
+                    override_series["blue"] = int(body.get("blue", 0) or 0)
+                    override_series["orange"] = int(body.get("orange", 0) or 0)
+                    bn = body.get("blue_name")
+                    on = body.get("orange_name")
+                    if bn is not None and str(bn) != "":
+                        override_series["blue_name"] = str(bn)
+                    if on is not None and str(on) != "":
+                        override_series["orange_name"] = str(on)
+                http_clients_ok = True
+                self._ok({"ok": True, "series": override_series})
+                return
+            if self.path == "/teams":
+                with override_lock:
+                    override_teams["blue_name"] = str(body.get("blue_name", "") or "")
+                    override_teams["orange_name"] = str(body.get("orange_name", "") or "")
+                    # Propaguj do serii, jesli pusto.
+                    if not override_series.get("blue_name"):
+                        override_series["blue_name"] = override_teams["blue_name"]
+                    if not override_series.get("orange_name"):
+                        override_series["orange_name"] = override_teams["orange_name"]
+                http_clients_ok = True
+                self._ok({"ok": True, "teams": override_teams})
+                return
+            self.send_response(404)
+            self._set_cors()
+            self.end_headers()
+        except Exception as e:
+            http_clients_ok = False
+            print(f"[HTTP] Blad obslugi {self.path}: {e}")
+            self.send_response(500)
+            self._set_cors()
+            self.end_headers()
+
+    def log_message(self, format, *args):  # noqa: A002
+        return  # cisza w terminalu — HB pokazuje licznik
+
+
+def http_server_loop() -> None:
+    global http_clients_ok
+    try:
+        srv = ThreadingHTTPServer((HTTP_HOST, HTTP_PORT), _OverrideHandler)
+    except OSError as e:
+        print(f"[HTTP] Nie udalo sie zbindowac http://{HTTP_HOST}:{HTTP_PORT}: {e}")
+        http_clients_ok = False
+        return
+    print(f"[HTTP] Control plane na http://{HTTP_HOST}:{HTTP_PORT} (POST /series, /teams).")
+    try:
+        srv.serve_forever()
+    except Exception as e:
+        print(f"[HTTP] serve_forever crash: {e}")
+        http_clients_ok = False
 
 
 # === RAW DEBUG: surowy dump boost/speed graczy ===
@@ -802,6 +990,10 @@ def _shutdown_flush() -> None:
     if shutting_down:
         return
     shutting_down = True
+    if not SUPABASE_LIVE_WRITES:
+        # v3: brak zapisow live -> brak shutdown flush. Overlay i tak zauwazy
+        # ze WS umilkl (1500 ms) i ukryje sie przez useOverlayVisibility.
+        return
     try:
         with state_lock:
             payload = {
@@ -831,12 +1023,13 @@ def _signal_handler(signum, _frame) -> None:
 
 
 def main() -> None:
-    print("== RL Broadcast Relay V2.4 (Python) ==")
+    print("== RL Broadcast Relay V3 (Python) ==")
     print(f"   Stats API: tcp://{RL_HOST}:{RL_PORT} (lokalny JSON stream)")
-    print(f"   Supabase:  {SUPABASE_URL}")
-    print(f"   WS feed:   ws://{WS_HOST}:{WS_PORT} (boost/speed, tylko localhost)")
+    print(f"   WS feed:   ws://{WS_HOST}:{WS_PORT} (pelne ramki v3, tylko localhost)")
+    print(f"   HTTP ctrl: http://{HTTP_HOST}:{HTTP_PORT} (POST /series, /teams)")
+    live = "ON" if SUPABASE_LIVE_WRITES else "OFF (default v3 — overlay zywi sie WS-em)"
+    print(f"   Supabase:  {SUPABASE_URL}  | live writes: {live}")
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
-    print("   I/O do Supabase wykonywane TYLKO w osobnym watku (db_worker).")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
 
     import atexit
@@ -852,6 +1045,8 @@ def main() -> None:
     threading.Thread(target=db_worker_loop, daemon=True).start()
     threading.Thread(target=raw_debug_loop, daemon=True).start()
     threading.Thread(target=ws_server_loop, daemon=True).start()
+    threading.Thread(target=ws_keepalive_loop, daemon=True).start()
+    threading.Thread(target=http_server_loop, daemon=True).start()
     tcp_loop()
 
 
