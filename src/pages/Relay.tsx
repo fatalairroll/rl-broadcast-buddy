@@ -1084,7 +1084,7 @@ export default function Relay() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <Gamepad2 className="h-6 w-6 text-primary" />
-            <h1 className="text-lg font-bold">Relay Script (Overlay V2)</h1>
+            <h1 className="text-lg font-bold">Relay Script (Overlay V3)</h1>
           </div>
 
           <div className="flex gap-2">
@@ -1154,9 +1154,15 @@ PacketSendRate=30`}</pre>
 
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                 <p className="text-sm text-red-300">
-                  <strong>Wazna aktualizacja (v2.4)</strong>
+                  <strong>Wazna aktualizacja (v3)</strong>
                   <br />
-                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code> i doinstaluj <code className="bg-secondary px-1 rounded">pip install websockets</code>. v2.4 wystawia lokalny WebSocket <code className="bg-secondary px-1 rounded">ws://127.0.0.1:49300</code> z boost/speed/supersonic (do 60 ramek/s). Overlay na <strong>tej samej maszynie</strong> sam sie podlaczy i pokaze boost z opoznieniem ~50-150 ms zamiast 200-400 ms przez Supabase. Tylko localhost — zadnych zmian w firewallu. Overlay na <strong>innej maszynie</strong> (OBS remote) WS nie zlapie i automatycznie zostanie przy Supabase, bez bledow. Score, timer, kamera i statystyki nadal leca przez Supabase. W terminalu sprawdz w heartbeacie <code className="bg-secondary px-1 rounded">WS: clients=N sends/s=...</code>.
+                  Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code>. v3 wystawia <strong>trzy</strong> lokalne kanaly:
+                  WebSocket <code className="bg-secondary px-1 rounded">ws://127.0.0.1:49300</code> z <strong>pelnymi ramkami</strong>
+                  (match + players + camera + series + teams, 30-60 Hz) oraz HTTP control plane <code className="bg-secondary px-1 rounded">http://127.0.0.1:49301</code>
+                  (Dashboard wysyla tu nadpisy serii i drużyn). Domyslnie <code className="bg-secondary px-1 rounded">SUPABASE_LIVE_WRITES=False</code> —
+                  relay <strong>nie pisze do bazy</strong> w trakcie meczu, overlay <code className="bg-secondary px-1 rounded">/v2/overlay</code> na tej samej maszynie zywi sie WS-em.
+                  Jesli potrzebujesz remote overlayu (OBS na innej maszynie) ustaw w pliku <code className="bg-secondary px-1 rounded">SUPABASE_LIVE_WRITES = True</code> — wraca zachowanie v2.4.
+                  W terminalu HB pokazuje <code className="bg-secondary px-1 rounded">live_writes=on|off</code>, <code className="bg-secondary px-1 rounded">WS: full_frames/s</code> i licznik HTTP.
                 </p>
               </div>
             </CardContent>
