@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ActiveCamera, MatchMetadata, PlayerLive } from '@/types/livestats';
+import type { MatchMetadata, PlayerLive } from '@/types/livestats';
 
 /**
  * Lokalny WebSocket feed z relay.py (ws://127.0.0.1:49300).
