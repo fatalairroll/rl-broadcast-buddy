@@ -549,6 +549,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     global current_match_guid, local_time_seconds, is_overtime
     global blue_score, orange_score, in_replay, last_state_update_at
     global pending_camera, dirty_match, dirty_camera
+    global prev_overtime, ot_started_at, last_tick_at
 
     last_state_update_at = time.time()
     stats["update_state_delta"] += 1
@@ -570,8 +571,13 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             local_time_seconds = float(ts)
         except Exception:
             pass
-    is_overtime = bool(game.get("bOvertime", False))
+    new_is_overtime = bool(game.get("bOvertime", False))
     in_replay = bool(game.get("bReplay", False))
+    now_ts = time.time()
+    if new_is_overtime and not prev_overtime:
+        ot_started_at = now_ts
+    prev_overtime = new_is_overtime
+    is_overtime = new_is_overtime
 
     if SUPABASE_LIVE_WRITES:
         dirty_match = True
@@ -608,6 +614,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             "score": int(p.get("Score", 0) or 0),           # Postgame ranking
             "is_demolished": bool(p.get("bDemolished", False)),
             "is_supersonic": bool(p.get("bSupersonic", False)),
+            "_has_boost": ("Boost" in p),                   # SPECTATOR only
         }
     if new_snap:
         players_snapshot.clear()
@@ -618,12 +625,33 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         for name, row in new_snap.items():
             if last_pushed_players.get(name) != row:
                 stats["player_changes_delta"] += 1
-        # Postgame accumulator (Faza 1): kopiuje ostatnie wartosci API per gracz.
+        # Postgame accumulator (Faza 2): kopiuje wartosci API + heurystyki
+        # czasowe (pady/boost/supersonic). dt clamp do 0.5 s aby pauzy/lagi
+        # nie zawyzaly time_at_100/supersonic.
         global current_accum
         if current_accum is None:
             current_accum = MatchStatsAccumulator()
+        if last_tick_at > 0:
+            dt = min(max(now_ts - last_tick_at, 0.0), 0.5)
+        else:
+            dt = 1.0 / 120.0
+        # Prune prev_boost dla graczy ktorzy zniknęli ze snapu (np. po MatchCreated).
+        snap_names = set(new_snap.keys())
+        for known in list(current_accum.players.keys()):
+            if known not in snap_names:
+                current_accum.reset_prev_boost(known)
         for row in new_snap.values():
-            current_accum.on_player_row(row)
+            current_accum.on_player_row(
+                row,
+                dt=dt,
+                now=now_ts,
+                match_active_flag=match_active,
+                in_replay_flag=in_replay,
+                last_goal_at_val=last_goal_at,
+                last_kickoff_at_val=last_kickoff_at,
+                ot_started_at_val=ot_started_at,
+            )
+        last_tick_at = now_ts
         # WS broadcast: pelna ramka v3 (match + players + camera + series + teams).
         _maybe_broadcast_ws(force=False)
 
