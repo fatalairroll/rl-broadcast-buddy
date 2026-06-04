@@ -6,6 +6,9 @@ import { useStudioData } from '@/hooks/useStudioData';
 import { MatchCard } from '@/components/studio/MatchCard';
 import { BracketView } from '@/components/studio/BracketView';
 import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
+import { PostgamePlayerCompare } from '@/components/studio/PostgamePlayerCompare';
+import { PostgameTeamSummary } from '@/components/studio/PostgameTeamSummary';
+import { usePostgameRelay } from '@/hooks/usePostgameRelay';
 import { supabase } from '@/integrations/supabase/client';
 import type { StudioMode, MatchData, PollResults } from '@/types/studio';
 
@@ -16,6 +19,8 @@ const MODES: { key: StudioMode; label: string }[] = [
   { key: 'next_3', label: 'Następne mecze' },
   { key: 'bracket', label: 'Drabinka' },
   { key: 'recent', label: 'Zakończone mecze' },
+  { key: 'postgame_players', label: 'Postgame: gracze' },
+  { key: 'postgame_summary', label: 'Postgame: drużyny' },
 ];
 
 export default function StudioRender() {
@@ -33,9 +38,11 @@ export default function StudioRender() {
     tournamentId,
     mode,
     count,
-    enabled: authorized && !!tournamentId,
+    enabled: authorized && !!tournamentId && mode !== 'postgame_players' && mode !== 'postgame_summary',
     pollInterval: 5000,
   });
+
+  const { postgame, connected: pgConnected, error: pgError } = usePostgameRelay();
 
   // Queue-based rotation for next_3
   const [queue, setQueue] = useState<MatchData[]>([]);
@@ -145,7 +152,7 @@ export default function StudioRender() {
   }, [activePollId]);
 
   if (!authorized) return null;
-  if (isLoading) return null;
+  if (isLoading && mode !== 'postgame_players' && mode !== 'postgame_summary') return null;
 
   if (error) {
     return (
@@ -247,6 +254,16 @@ export default function StudioRender() {
           <BracketView matches={matches} />
         ) : mode === 'recent' ? (
           <RecentMatchesTable matches={matches} />
+        ) : mode === 'postgame_players' ? (
+          <PostgamePlayerCompare
+            data={postgame}
+            state={{ connected: pgConnected, error: pgError }}
+          />
+        ) : mode === 'postgame_summary' ? (
+          <PostgameTeamSummary
+            data={postgame}
+            state={{ connected: pgConnected, error: pgError }}
+          />
         ) : (
           <div className="flex flex-col gap-4 p-4">
             <AnimatePresence mode="wait">

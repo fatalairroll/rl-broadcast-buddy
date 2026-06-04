@@ -157,6 +157,15 @@ current_accum: Optional["MatchStatsAccumulator"] = None
 last_postgame: Optional[Dict[str, Any]] = None
 postgame_finalized: bool = False
 
+# === POSTGAME (Faza 2) ===
+# Liczniki czasowe potrzebne do heurystyk grantow padow + kickoff goals.
+# Wszystkie pod state_lock.
+last_kickoff_at: float = 0.0   # RoundStarted / GoalReplayEnd
+last_goal_at: float = 0.0      # GoalScored
+prev_overtime: bool = False
+ot_started_at: float = 0.0
+last_tick_at: float = 0.0      # ostatni UpdateState (do dt)
+
 stats = {
     "events": 0, "events_delta": 0,
     "match_writes": 0, "match_writes_delta": 0,
@@ -191,38 +200,109 @@ def fmt_timer(seconds: float) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
-# === POSTGAME ACCUMULATOR (Faza 1) ===
-# Minimal: trzyma ostatnie wartosci API per gracz, ranking po Player.Score.
-# Pola Fazy 2 (pad_pickups, supersonic_seconds, avg_boost, time_at_100_seconds,
-# kickoff_goals_10s) wystawiane jako null/0, ale obecne w kontrakcie JSON.
-# Wszystkie metody wolane pod state_lock. Klasa nie robi I/O.
+# === POSTGAME ACCUMULATOR (Faza 2) ===
+# Trzyma ostatnie wartosci API per gracz + metryki czasowe (boost / supersonic /
+# pad pickups) liczone tick po ticku oraz drużynowe kickoff goals (≤10 s od
+# RoundStarted/GoalReplayEnd). Ranking par po Player.Score. Klasa nie robi I/O.
 class MatchStatsAccumulator:
     def __init__(self) -> None:
         self.players: Dict[str, Dict[str, Any]] = {}
+        self.team_kickoff_goals: Dict[int, int] = {0: 0, 1: 0}
 
     def reset(self) -> None:
         self.players.clear()
+        self.team_kickoff_goals = {0: 0, 1: 0}
 
-    def on_player_row(self, row: Dict[str, Any]) -> None:
+    def _ensure(self, name: str) -> Dict[str, Any]:
+        p = self.players.get(name)
+        if p is None:
+            p = {
+                "team_num": 0,
+                "score": 0, "goals": 0, "assists": 0,
+                "saves": 0, "shots": 0, "demos": 0,
+                # Faza 2 — robocze
+                "pad_pickups": 0,
+                "supersonic_seconds": 0.0,
+                "boost_sum": 0.0,
+                "boost_samples": 0,
+                "time_at_100_seconds": 0.0,
+                "prev_boost": None,  # type: Optional[int]
+            }
+            self.players[name] = p
+        return p
+
+    def reset_prev_boost(self, name: str) -> None:
+        p = self.players.get(name)
+        if p is not None:
+            p["prev_boost"] = None
+
+    def on_player_row(
+        self,
+        row: Dict[str, Any],
+        dt: float = 0.0,
+        now: float = 0.0,
+        match_active_flag: bool = False,
+        in_replay_flag: bool = False,
+        last_goal_at_val: float = 0.0,
+        last_kickoff_at_val: float = 0.0,
+        ot_started_at_val: float = 0.0,
+    ) -> None:
         name = row.get("player_name")
         if not name:
             return
-        self.players[name] = {
-            "team_num": int(row.get("team_num", 0) or 0),
-            "score": int(row.get("score", 0) or 0),
-            "goals": int(row.get("goals", 0) or 0),
-            "assists": int(row.get("assists", 0) or 0),
-            "saves": int(row.get("saves", 0) or 0),
-            "shots": int(row.get("shots", 0) or 0),
-            "demos": int(row.get("demos", 0) or 0),
-        }
+        p = self._ensure(name)
+        # Faza 1: ostatnie wartosci API (last-write-wins).
+        p["team_num"] = int(row.get("team_num", 0) or 0)
+        p["score"] = int(row.get("score", 0) or 0)
+        p["goals"] = int(row.get("goals", 0) or 0)
+        p["assists"] = int(row.get("assists", 0) or 0)
+        p["saves"] = int(row.get("saves", 0) or 0)
+        p["shots"] = int(row.get("shots", 0) or 0)
+        p["demos"] = int(row.get("demos", 0) or 0)
+
+        has_boost = bool(row.get("_has_boost"))
+        boost = int(row.get("boost", 0) or 0)
+        is_super = bool(row.get("is_supersonic", False))
+
+        if not (match_active_flag and not in_replay_flag):
+            # Poza aktywnym meczem / w replayu: tylko sledz baseline boost,
+            # zeby pierwszy delta po wznowieniu nie wybuchnal.
+            if has_boost:
+                p["prev_boost"] = boost
+            return
+
+        if has_boost:
+            p["boost_sum"] += boost
+            p["boost_samples"] += 1
+            if boost >= 100:
+                p["time_at_100_seconds"] += dt
+        if is_super:
+            p["supersonic_seconds"] += dt
+        if has_boost:
+            prev = p.get("prev_boost")
+            if prev is not None:
+                delta = boost - int(prev)
+                grant = False
+                if 32 <= delta <= 34:
+                    grant = True  # respawn
+                elif last_goal_at_val and (now - last_goal_at_val) <= 3.0:
+                    grant = True  # post-goal
+                elif last_kickoff_at_val and (now - last_kickoff_at_val) <= 2.0:
+                    grant = True  # kickoff
+                elif ot_started_at_val and (now - ot_started_at_val) <= 2.0:
+                    grant = True  # start OT
+                if not grant and delta > 0:
+                    p["pad_pickups"] += 1
+            p["prev_boost"] = boost
 
     def _rank_side(self, team_num: int) -> List[Dict[str, Any]]:
-        rows = [
-            {"player_name": name, **data}
-            for name, data in self.players.items()
-            if int(data.get("team_num", 0) or 0) == team_num
-        ]
+        rows: List[Dict[str, Any]] = []
+        for name, data in self.players.items():
+            if int(data.get("team_num", 0) or 0) != team_num:
+                continue
+            row = dict(data)
+            row["player_name"] = name
+            rows.append(row)
         rows.sort(key=lambda r: (
             -int(r.get("score", 0) or 0),
             -int(r.get("goals", 0) or 0),
@@ -238,6 +318,20 @@ class MatchStatsAccumulator:
 
     @staticmethod
     def _player_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+        samples = int(row.get("boost_samples", 0) or 0)
+        boost_seen = samples > 0
+        if boost_seen:
+            avg_boost = round(float(row.get("boost_sum", 0.0) or 0.0) / samples, 1)
+            supersonic_seconds: Optional[float] = round(
+                float(row.get("supersonic_seconds", 0.0) or 0.0), 1
+            )
+            time_at_100 = round(float(row.get("time_at_100_seconds", 0.0) or 0.0), 1)
+            pad_pickups: Optional[int] = int(row.get("pad_pickups", 0) or 0)
+        else:
+            avg_boost = None
+            supersonic_seconds = None
+            time_at_100 = None
+            pad_pickups = None
         return {
             "player_name": str(row.get("player_name") or ""),
             "team_num": int(row.get("team_num", 0) or 0),
@@ -248,11 +342,10 @@ class MatchStatsAccumulator:
             "saves": int(row.get("saves", 0) or 0),
             "shots": int(row.get("shots", 0) or 0),
             "demos": int(row.get("demos", 0) or 0),
-            # Faza 2 — zawsze null w Fazie 1.
-            "pad_pickups": None,
-            "supersonic_seconds": None,
-            "avg_boost": None,
-            "time_at_100_seconds": None,
+            "pad_pickups": pad_pickups,
+            "supersonic_seconds": supersonic_seconds,
+            "avg_boost": avg_boost,
+            "time_at_100_seconds": time_at_100,
         }
 
     def finalize(
@@ -282,8 +375,26 @@ class MatchStatsAccumulator:
         team_blue_demos = sum(int(p["blue"]["demos"] or 0) for p in pairs)
         team_orange_saves = sum(int(p["orange"]["saves"] or 0) for p in pairs)
         team_orange_demos = sum(int(p["orange"]["demos"] or 0) for p in pairs)
+
+        def _team_pads(side: str) -> int:
+            return sum(int(p[side].get("pad_pickups") or 0) for p in pairs)
+
+        def _team_avg_boost(side: str) -> Optional[float]:
+            vals = [p[side].get("avg_boost") for p in pairs
+                    if p[side].get("avg_boost") is not None]
+            if not vals:
+                return None
+            return round(sum(float(v) for v in vals) / len(vals), 1)
+
+        team_blue_pads = _team_pads("blue")
+        team_orange_pads = _team_pads("orange")
+        team_blue_avg = _team_avg_boost("blue")
+        team_orange_avg = _team_avg_boost("orange")
+        kg_blue = int(self.team_kickoff_goals.get(0, 0) or 0)
+        kg_orange = int(self.team_kickoff_goals.get(1, 0) or 0)
+
         return {
-            "phase": 1,
+            "phase": 2,
             "match_guid": match_guid,
             "finalized_at": _now_iso(),
             "blue_score": int(blue_score_val),
@@ -294,18 +405,18 @@ class MatchStatsAccumulator:
             },
             "team": {
                 "blue": {
-                    "kickoff_goals_10s": 0,
+                    "kickoff_goals_10s": kg_blue,
                     "saves": team_blue_saves,
                     "demos": team_blue_demos,
-                    "avg_boost": None,
-                    "pad_pickups": 0,
+                    "avg_boost": team_blue_avg,
+                    "pad_pickups": team_blue_pads,
                 },
                 "orange": {
-                    "kickoff_goals_10s": 0,
+                    "kickoff_goals_10s": kg_orange,
                     "saves": team_orange_saves,
                     "demos": team_orange_demos,
-                    "avg_boost": None,
-                    "pad_pickups": 0,
+                    "avg_boost": team_orange_avg,
+                    "pad_pickups": team_orange_pads,
                 },
             },
             "pairs": pairs,
@@ -438,6 +549,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     global current_match_guid, local_time_seconds, is_overtime
     global blue_score, orange_score, in_replay, last_state_update_at
     global pending_camera, dirty_match, dirty_camera
+    global prev_overtime, ot_started_at, last_tick_at
 
     last_state_update_at = time.time()
     stats["update_state_delta"] += 1
@@ -459,8 +571,13 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             local_time_seconds = float(ts)
         except Exception:
             pass
-    is_overtime = bool(game.get("bOvertime", False))
+    new_is_overtime = bool(game.get("bOvertime", False))
     in_replay = bool(game.get("bReplay", False))
+    now_ts = time.time()
+    if new_is_overtime and not prev_overtime:
+        ot_started_at = now_ts
+    prev_overtime = new_is_overtime
+    is_overtime = new_is_overtime
 
     if SUPABASE_LIVE_WRITES:
         dirty_match = True
@@ -497,6 +614,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             "score": int(p.get("Score", 0) or 0),           # Postgame ranking
             "is_demolished": bool(p.get("bDemolished", False)),
             "is_supersonic": bool(p.get("bSupersonic", False)),
+            "_has_boost": ("Boost" in p),                   # SPECTATOR only
         }
     if new_snap:
         players_snapshot.clear()
@@ -507,12 +625,33 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         for name, row in new_snap.items():
             if last_pushed_players.get(name) != row:
                 stats["player_changes_delta"] += 1
-        # Postgame accumulator (Faza 1): kopiuje ostatnie wartosci API per gracz.
+        # Postgame accumulator (Faza 2): kopiuje wartosci API + heurystyki
+        # czasowe (pady/boost/supersonic). dt clamp do 0.5 s aby pauzy/lagi
+        # nie zawyzaly time_at_100/supersonic.
         global current_accum
         if current_accum is None:
             current_accum = MatchStatsAccumulator()
+        if last_tick_at > 0:
+            dt = min(max(now_ts - last_tick_at, 0.0), 0.5)
+        else:
+            dt = 1.0 / 120.0
+        # Prune prev_boost dla graczy ktorzy zniknęli ze snapu (np. po MatchCreated).
+        snap_names = set(new_snap.keys())
+        for known in list(current_accum.players.keys()):
+            if known not in snap_names:
+                current_accum.reset_prev_boost(known)
         for row in new_snap.values():
-            current_accum.on_player_row(row)
+            current_accum.on_player_row(
+                row,
+                dt=dt,
+                now=now_ts,
+                match_active_flag=match_active,
+                in_replay_flag=in_replay,
+                last_goal_at_val=last_goal_at,
+                last_kickoff_at_val=last_kickoff_at,
+                ot_started_at_val=ot_started_at,
+            )
+        last_tick_at = now_ts
         # WS broadcast: pelna ramka v3 (match + players + camera + series + teams).
         _maybe_broadcast_ws(force=False)
 
@@ -607,6 +746,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
     global current_accum, last_postgame, postgame_finalized
     global blue_score, orange_score, local_time_seconds, is_overtime
     global dirty_match, clear_requested, match_active
+    global last_kickoff_at, last_goal_at, prev_overtime, ot_started_at
 
     name = evt.get("Event") or evt.get("event") or ""
     raw_data = evt.get("Data")
@@ -627,8 +767,27 @@ def handle_event(evt: Dict[str, Any]) -> None:
         return
 
     if name == "GoalScored":
-        scorer = _coerce_dict(data.get("Scorer")).get("Name", "?")
-        print(f"[GOAL] {scorer}")
+        scorer_dict = _coerce_dict(data.get("Scorer"))
+        scorer = scorer_dict.get("Name", "?")
+        now = time.time()
+        last_goal_at = now
+        scorer_team = -1
+        try:
+            scorer_team = int(scorer_dict.get("TeamNum", -1))
+        except Exception:
+            scorer_team = -1
+        if (current_accum is not None
+                and scorer_team in (0, 1)
+                and last_kickoff_at > 0
+                and (now - last_kickoff_at) <= 10.0):
+            current_accum.team_kickoff_goals[scorer_team] = \
+                current_accum.team_kickoff_goals.get(scorer_team, 0) + 1
+            print(
+                f"[POSTGAME] kickoff goal team={scorer_team} "
+                f"dt={now - last_kickoff_at:.2f}s scorer={scorer}"
+            )
+        else:
+            print(f"[GOAL] {scorer}")
         return
 
     if name == "GoalReplayStart":
@@ -639,10 +798,12 @@ def handle_event(evt: Dict[str, Any]) -> None:
     if name in ("GoalReplayEnd", "GoalReplayWillEnd"):
         in_replay = False
         clock_running = True
+        last_kickoff_at = time.time()
         return
 
     if name == "RoundStarted":
         clock_running = True
+        last_kickoff_at = time.time()
         return
 
     if name == "CountdownBegin":
@@ -668,10 +829,14 @@ def handle_event(evt: Dict[str, Any]) -> None:
         match_active = True
         if SUPABASE_LIVE_WRITES:
             dirty_match = True
-        # Postgame Faza 1: nowy akumulator, NIE czyscimy last_postgame
+        # Postgame Faza 2: nowy akumulator, NIE czyscimy last_postgame
         # (operator widzi poprzedni mecz az do nowej finalizacji).
         current_accum = MatchStatsAccumulator()
         postgame_finalized = False
+        last_kickoff_at = time.time()
+        last_goal_at = 0.0
+        prev_overtime = False
+        ot_started_at = 0.0
         return
 
     if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
@@ -861,7 +1026,7 @@ def heartbeat_loop() -> None:
                 f" | WS: clients={len(ws_clients)} "
                 f"full_frames/s={stats['ws_full_frames_delta'] / HEARTBEAT_S:.1f} "
                 f"| HTTP: req=+{stats['http_requests_delta']}"
-                f" | postgame={postgame_on} phase=1 last_guid={last_guid_short}"
+                f" | postgame={postgame_on} phase=2 last_guid={last_guid_short}"
                 f"{warn}"
             )
             stats["events_delta"] = 0
@@ -985,7 +1150,7 @@ class _OverrideHandler(BaseHTTPRequestHandler):
                 with state_lock:
                     pg = last_postgame
                 if pg is None:
-                    body_obj: Dict[str, Any] = {"available": False, "phase": 1}
+                    body_obj: Dict[str, Any] = {"available": False, "phase": 2}
                 else:
                     body_obj = pg
                 body = json.dumps(body_obj).encode("utf-8")
