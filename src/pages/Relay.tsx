@@ -842,6 +842,9 @@ def heartbeat_loop() -> None:
                 warn = " | [WARN] brak danych z RL — sprawdz DefaultStatsAPI.ini i restart RL"
             live_writes = "on" if SUPABASE_LIVE_WRITES else "off"
             http_ok = "ok" if http_clients_ok else "err"
+            postgame_on = "on" if last_postgame is not None else "off"
+            last_guid_str = (last_postgame.get("match_guid") or "-") if last_postgame else "-"
+            last_guid_short = str(last_guid_str)[:8] if last_guid_str else "-"
             print(
                 f"[HB] mode={mode} "
                 f"live_writes={live_writes} http={http_ok} "
@@ -858,6 +861,7 @@ def heartbeat_loop() -> None:
                 f" | WS: clients={len(ws_clients)} "
                 f"full_frames/s={stats['ws_full_frames_delta'] / HEARTBEAT_S:.1f} "
                 f"| HTTP: req=+{stats['http_requests_delta']}"
+                f" | postgame={postgame_on} phase=1 last_guid={last_guid_short}"
                 f"{warn}"
             )
             stats["events_delta"] = 0
