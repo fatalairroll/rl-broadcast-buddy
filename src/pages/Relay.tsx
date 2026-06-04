@@ -148,6 +148,15 @@ override_series: Dict[str, Any] = {
 }
 http_clients_ok = True
 
+# === POSTGAME (Faza 1) ===
+# Akumulator zbierany w trakcie meczu (kopiuje pola API z UpdateState).
+# Finalizowany RAZ na MatchEnded/PodiumStart -> last_postgame trzymany w pamieci
+# do nastepnej finalizacji. ZERO zapisow do Supabase, ZERO heurystyk (pady/boost
+# /supersonic/kickoff to Faza 2).
+current_accum: Optional["MatchStatsAccumulator"] = None
+last_postgame: Optional[Dict[str, Any]] = None
+postgame_finalized: bool = False
+
 stats = {
     "events": 0, "events_delta": 0,
     "match_writes": 0, "match_writes_delta": 0,
@@ -180,6 +189,127 @@ def _now_iso() -> str:
 def fmt_timer(seconds: float) -> str:
     s = max(0, int(round(seconds)))
     return f"{s // 60}:{s % 60:02d}"
+
+
+# === POSTGAME ACCUMULATOR (Faza 1) ===
+# Minimal: trzyma ostatnie wartosci API per gracz, ranking po Player.Score.
+# Pola Fazy 2 (pad_pickups, supersonic_seconds, avg_boost, time_at_100_seconds,
+# kickoff_goals_10s) wystawiane jako null/0, ale obecne w kontrakcie JSON.
+# Wszystkie metody wolane pod state_lock. Klasa nie robi I/O.
+class MatchStatsAccumulator:
+    def __init__(self) -> None:
+        self.players: Dict[str, Dict[str, Any]] = {}
+
+    def reset(self) -> None:
+        self.players.clear()
+
+    def on_player_row(self, row: Dict[str, Any]) -> None:
+        name = row.get("player_name")
+        if not name:
+            return
+        self.players[name] = {
+            "team_num": int(row.get("team_num", 0) or 0),
+            "score": int(row.get("score", 0) or 0),
+            "goals": int(row.get("goals", 0) or 0),
+            "assists": int(row.get("assists", 0) or 0),
+            "saves": int(row.get("saves", 0) or 0),
+            "shots": int(row.get("shots", 0) or 0),
+            "demos": int(row.get("demos", 0) or 0),
+        }
+
+    def _rank_side(self, team_num: int) -> List[Dict[str, Any]]:
+        rows = [
+            {"player_name": name, **data}
+            for name, data in self.players.items()
+            if int(data.get("team_num", 0) or 0) == team_num
+        ]
+        rows.sort(key=lambda r: (
+            -int(r.get("score", 0) or 0),
+            -int(r.get("goals", 0) or 0),
+            -int(r.get("assists", 0) or 0),
+            -int(r.get("saves", 0) or 0),
+            -int(r.get("shots", 0) or 0),
+            -int(r.get("demos", 0) or 0),
+            str(r.get("player_name") or ""),
+        ))
+        for i, r in enumerate(rows, start=1):
+            r["rank"] = i
+        return rows
+
+    @staticmethod
+    def _player_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "player_name": str(row.get("player_name") or ""),
+            "team_num": int(row.get("team_num", 0) or 0),
+            "rank": int(row.get("rank", 0) or 0),
+            "score": int(row.get("score", 0) or 0),
+            "goals": int(row.get("goals", 0) or 0),
+            "assists": int(row.get("assists", 0) or 0),
+            "saves": int(row.get("saves", 0) or 0),
+            "shots": int(row.get("shots", 0) or 0),
+            "demos": int(row.get("demos", 0) or 0),
+            # Faza 2 — zawsze null w Fazie 1.
+            "pad_pickups": None,
+            "supersonic_seconds": None,
+            "avg_boost": None,
+            "time_at_100_seconds": None,
+        }
+
+    def finalize(
+        self,
+        blue_score_val: int,
+        orange_score_val: int,
+        team_names: Dict[str, str],
+        match_guid: Optional[str],
+    ) -> Dict[str, Any]:
+        blue_ranked = self._rank_side(0)
+        orange_ranked = self._rank_side(1)
+        n_blue, n_orange = len(blue_ranked), len(orange_ranked)
+        if n_blue != n_orange:
+            print(
+                f"[POSTGAME] WARN: asymetria skladow blue={n_blue} orange={n_orange} "
+                f"-> pary tylko do min()."
+            )
+        pair_count = min(n_blue, n_orange)
+        pairs: List[Dict[str, Any]] = []
+        for k in range(pair_count):
+            pairs.append({
+                "rank": k + 1,
+                "blue": self._player_payload(blue_ranked[k]),
+                "orange": self._player_payload(orange_ranked[k]),
+            })
+        team_blue_saves = sum(int(p["blue"]["saves"] or 0) for p in pairs)
+        team_blue_demos = sum(int(p["blue"]["demos"] or 0) for p in pairs)
+        team_orange_saves = sum(int(p["orange"]["saves"] or 0) for p in pairs)
+        team_orange_demos = sum(int(p["orange"]["demos"] or 0) for p in pairs)
+        return {
+            "phase": 1,
+            "match_guid": match_guid,
+            "finalized_at": _now_iso(),
+            "blue_score": int(blue_score_val),
+            "orange_score": int(orange_score_val),
+            "team_names": {
+                "blue": str(team_names.get("blue") or "Blue"),
+                "orange": str(team_names.get("orange") or "Orange"),
+            },
+            "team": {
+                "blue": {
+                    "kickoff_goals_10s": 0,
+                    "saves": team_blue_saves,
+                    "demos": team_blue_demos,
+                    "avg_boost": None,
+                    "pad_pickups": 0,
+                },
+                "orange": {
+                    "kickoff_goals_10s": 0,
+                    "saves": team_orange_saves,
+                    "demos": team_orange_demos,
+                    "avg_boost": None,
+                    "pad_pickups": 0,
+                },
+            },
+            "pairs": pairs,
+        }
 
 
 # === ZAPISY DO DB ===
@@ -364,6 +494,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             "saves": int(p.get("Saves", 0) or 0),
             "shots": int(p.get("Shots", 0) or 0),
             "demos": int(p.get("Demos", 0) or 0),
+            "score": int(p.get("Score", 0) or 0),           # Postgame ranking
             "is_demolished": bool(p.get("bDemolished", False)),
             "is_supersonic": bool(p.get("bSupersonic", False)),
         }
@@ -376,6 +507,12 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         for name, row in new_snap.items():
             if last_pushed_players.get(name) != row:
                 stats["player_changes_delta"] += 1
+        # Postgame accumulator (Faza 1): kopiuje ostatnie wartosci API per gracz.
+        global current_accum
+        if current_accum is None:
+            current_accum = MatchStatsAccumulator()
+        for row in new_snap.values():
+            current_accum.on_player_row(row)
         # WS broadcast: pelna ramka v3 (match + players + camera + series + teams).
         _maybe_broadcast_ws(force=False)
 
@@ -415,7 +552,7 @@ def _build_frame_v3() -> str:
     with override_lock:
         series_obj = dict(override_series)
         teams_obj = dict(override_teams)
-    return json.dumps({
+    frame: Dict[str, Any] = {
         "v": 3,
         "t": time.time(),
         "match": match_obj,
@@ -423,7 +560,10 @@ def _build_frame_v3() -> str:
         "camera": camera_obj,
         "series": series_obj,
         "teams": teams_obj,
-    })
+    }
+    if last_postgame is not None:
+        frame["postgame"] = last_postgame
+    return json.dumps(frame)
 
 
 def _maybe_broadcast_ws(force: bool = False) -> None:
@@ -464,6 +604,7 @@ def handle_clock_updated(data: Dict[str, Any]) -> None:
 
 def handle_event(evt: Dict[str, Any]) -> None:
     global current_match_guid, clock_running, in_replay, _dbg_printed
+    global current_accum, last_postgame, postgame_finalized
     global blue_score, orange_score, local_time_seconds, is_overtime
     global dirty_match, clear_requested, match_active
 
@@ -527,6 +668,10 @@ def handle_event(evt: Dict[str, Any]) -> None:
         match_active = True
         if SUPABASE_LIVE_WRITES:
             dirty_match = True
+        # Postgame Faza 1: nowy akumulator, NIE czyscimy last_postgame
+        # (operator widzi poprzedni mecz az do nowej finalizacji).
+        current_accum = MatchStatsAccumulator()
+        postgame_finalized = False
         return
 
     if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
@@ -537,6 +682,28 @@ def handle_event(evt: Dict[str, Any]) -> None:
             match_active = False
             if SUPABASE_LIVE_WRITES:
                 dirty_match = True
+        # Postgame Faza 1: finalize raz na mecz (MatchEnded lub PodiumStart
+        # jako fallback). MatchDestroyed nie finalizuje — zostawia poprzedni
+        # last_postgame nietkniety.
+        if name in ("MatchEnded", "PodiumStart") and not postgame_finalized and current_accum is not None:
+            with override_lock:
+                team_names = {
+                    "blue": override_teams.get("blue_name") or "Blue",
+                    "orange": override_teams.get("orange_name") or "Orange",
+                }
+            try:
+                last_postgame = current_accum.finalize(
+                    blue_score, orange_score, team_names, current_match_guid,
+                )
+                postgame_finalized = True
+                print(
+                    f"[POSTGAME] finalize: {last_postgame['blue_score']}-"
+                    f"{last_postgame['orange_score']} pairs={len(last_postgame['pairs'])} "
+                    f"trigger={name}"
+                )
+                _maybe_broadcast_ws(force=True)
+            except Exception as e:
+                print(f"[POSTGAME] finalize ERROR: {e}")
         return
 
     if name == "MatchPaused":
@@ -675,6 +842,9 @@ def heartbeat_loop() -> None:
                 warn = " | [WARN] brak danych z RL — sprawdz DefaultStatsAPI.ini i restart RL"
             live_writes = "on" if SUPABASE_LIVE_WRITES else "off"
             http_ok = "ok" if http_clients_ok else "err"
+            postgame_on = "on" if last_postgame is not None else "off"
+            last_guid_str = (last_postgame.get("match_guid") or "-") if last_postgame else "-"
+            last_guid_short = str(last_guid_str)[:8] if last_guid_str else "-"
             print(
                 f"[HB] mode={mode} "
                 f"live_writes={live_writes} http={http_ok} "
@@ -691,6 +861,7 @@ def heartbeat_loop() -> None:
                 f" | WS: clients={len(ws_clients)} "
                 f"full_frames/s={stats['ws_full_frames_delta'] / HEARTBEAT_S:.1f} "
                 f"| HTTP: req=+{stats['http_requests_delta']}"
+                f" | postgame={postgame_on} phase=1 last_guid={last_guid_short}"
                 f"{warn}"
             )
             stats["events_delta"] = 0
@@ -778,7 +949,7 @@ def ws_keepalive_loop() -> None:
 class _OverrideHandler(BaseHTTPRequestHandler):
     def _set_cors(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def _ok(self, payload: Optional[Dict[str, Any]] = None) -> None:
@@ -805,6 +976,39 @@ class _OverrideHandler(BaseHTTPRequestHandler):
         self.send_response(204)
         self._set_cors()
         self.end_headers()
+
+    def do_GET(self):  # noqa: N802
+        global http_clients_ok
+        stats["http_requests_delta"] += 1
+        try:
+            if self.path == "/postgame":
+                with state_lock:
+                    pg = last_postgame
+                if pg is None:
+                    body_obj: Dict[str, Any] = {"available": False, "phase": 1}
+                else:
+                    body_obj = pg
+                body = json.dumps(body_obj).encode("utf-8")
+                self.send_response(200)
+                self._set_cors()
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                http_clients_ok = True
+                return
+            self.send_response(404)
+            self._set_cors()
+            self.end_headers()
+        except Exception as e:
+            http_clients_ok = False
+            print(f"[HTTP] Blad obslugi GET {self.path}: {e}")
+            try:
+                self.send_response(500)
+                self._set_cors()
+                self.end_headers()
+            except Exception:
+                pass
 
     def do_POST(self):  # noqa: N802
         global http_clients_ok
@@ -859,7 +1063,10 @@ def http_server_loop() -> None:
         print(f"[HTTP] Nie udalo sie zbindowac http://{HTTP_HOST}:{HTTP_PORT}: {e}")
         http_clients_ok = False
         return
-    print(f"[HTTP] Control plane na http://{HTTP_HOST}:{HTTP_PORT} (POST /series, /teams).")
+    print(
+        f"[HTTP] Control plane na http://{HTTP_HOST}:{HTTP_PORT} "
+        f"(POST /series, /teams, GET /postgame)."
+    )
     try:
         srv.serve_forever()
     except Exception as e:
@@ -1159,7 +1366,7 @@ PacketSendRate=30`}</pre>
                   Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code>. v3 wystawia <strong>trzy</strong> lokalne kanaly:
                   WebSocket <code className="bg-secondary px-1 rounded">ws://127.0.0.1:49300</code> z <strong>pelnymi ramkami</strong>
                   (match + players + camera + series + teams, 30-60 Hz) oraz HTTP control plane <code className="bg-secondary px-1 rounded">http://127.0.0.1:49301</code>
-                  (Dashboard wysyla tu nadpisy serii i drużyn). Domyslnie <code className="bg-secondary px-1 rounded">SUPABASE_LIVE_WRITES=False</code> —
+                  (Dashboard wysyla tu nadpisy serii i drużyn; <code className="bg-secondary px-1 rounded">GET /postgame</code> zwraca podsumowanie ostatniego meczu — Faza 1). Domyslnie <code className="bg-secondary px-1 rounded">SUPABASE_LIVE_WRITES=False</code> —
                   relay <strong>nie pisze do bazy</strong> w trakcie meczu, overlay <code className="bg-secondary px-1 rounded">/v2/overlay</code> na tej samej maszynie zywi sie WS-em.
                   Jesli potrzebujesz remote overlayu (OBS na innej maszynie) ustaw w pliku <code className="bg-secondary px-1 rounded">SUPABASE_LIVE_WRITES = True</code> — wraca zachowanie v2.4.
                   W terminalu HB pokazuje <code className="bg-secondary px-1 rounded">live_writes=on|off</code>, <code className="bg-secondary px-1 rounded">WS: full_frames/s</code> i licznik HTTP.
