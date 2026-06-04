@@ -945,7 +945,7 @@ def ws_keepalive_loop() -> None:
 class _OverrideHandler(BaseHTTPRequestHandler):
     def _set_cors(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def _ok(self, payload: Optional[Dict[str, Any]] = None) -> None:
@@ -972,6 +972,39 @@ class _OverrideHandler(BaseHTTPRequestHandler):
         self.send_response(204)
         self._set_cors()
         self.end_headers()
+
+    def do_GET(self):  # noqa: N802
+        global http_clients_ok
+        stats["http_requests_delta"] += 1
+        try:
+            if self.path == "/postgame":
+                with state_lock:
+                    pg = last_postgame
+                if pg is None:
+                    body_obj: Dict[str, Any] = {"available": False, "phase": 1}
+                else:
+                    body_obj = pg
+                body = json.dumps(body_obj).encode("utf-8")
+                self.send_response(200)
+                self._set_cors()
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                http_clients_ok = True
+                return
+            self.send_response(404)
+            self._set_cors()
+            self.end_headers()
+        except Exception as e:
+            http_clients_ok = False
+            print(f"[HTTP] Blad obslugi GET {self.path}: {e}")
+            try:
+                self.send_response(500)
+                self._set_cors()
+                self.end_headers()
+            except Exception:
+                pass
 
     def do_POST(self):  # noqa: N802
         global http_clients_ok
