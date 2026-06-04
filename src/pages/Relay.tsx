@@ -1059,7 +1059,10 @@ def http_server_loop() -> None:
         print(f"[HTTP] Nie udalo sie zbindowac http://{HTTP_HOST}:{HTTP_PORT}: {e}")
         http_clients_ok = False
         return
-    print(f"[HTTP] Control plane na http://{HTTP_HOST}:{HTTP_PORT} (POST /series, /teams).")
+    print(
+        f"[HTTP] Control plane na http://{HTTP_HOST}:{HTTP_PORT} "
+        f"(POST /series, /teams, GET /postgame)."
+    )
     try:
         srv.serve_forever()
     except Exception as e:
