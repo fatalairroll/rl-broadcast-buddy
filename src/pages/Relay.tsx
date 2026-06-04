@@ -296,11 +296,13 @@ class MatchStatsAccumulator:
             p["prev_boost"] = boost
 
     def _rank_side(self, team_num: int) -> List[Dict[str, Any]]:
-        rows = [
-            {"player_name": name, **data}
-            for name, data in self.players.items()
-            if int(data.get("team_num", 0) or 0) == team_num
-        ]
+        rows: List[Dict[str, Any]] = []
+        for name, data in self.players.items():
+            if int(data.get("team_num", 0) or 0) != team_num:
+                continue
+            row = dict(data)
+            row["player_name"] = name
+            rows.append(row)
         rows.sort(key=lambda r: (
             -int(r.get("score", 0) or 0),
             -int(r.get("goals", 0) or 0),
@@ -316,6 +318,20 @@ class MatchStatsAccumulator:
 
     @staticmethod
     def _player_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+        samples = int(row.get("boost_samples", 0) or 0)
+        boost_seen = samples > 0
+        if boost_seen:
+            avg_boost = round(float(row.get("boost_sum", 0.0) or 0.0) / samples, 1)
+            supersonic_seconds: Optional[float] = round(
+                float(row.get("supersonic_seconds", 0.0) or 0.0), 1
+            )
+            time_at_100 = round(float(row.get("time_at_100_seconds", 0.0) or 0.0), 1)
+            pad_pickups: Optional[int] = int(row.get("pad_pickups", 0) or 0)
+        else:
+            avg_boost = None
+            supersonic_seconds = None
+            time_at_100 = None
+            pad_pickups = None
         return {
             "player_name": str(row.get("player_name") or ""),
             "team_num": int(row.get("team_num", 0) or 0),
@@ -326,11 +342,10 @@ class MatchStatsAccumulator:
             "saves": int(row.get("saves", 0) or 0),
             "shots": int(row.get("shots", 0) or 0),
             "demos": int(row.get("demos", 0) or 0),
-            # Faza 2 — zawsze null w Fazie 1.
-            "pad_pickups": None,
-            "supersonic_seconds": None,
-            "avg_boost": None,
-            "time_at_100_seconds": None,
+            "pad_pickups": pad_pickups,
+            "supersonic_seconds": supersonic_seconds,
+            "avg_boost": avg_boost,
+            "time_at_100_seconds": time_at_100,
         }
 
     def finalize(
