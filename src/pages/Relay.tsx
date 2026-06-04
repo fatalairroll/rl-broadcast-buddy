@@ -1150,7 +1150,7 @@ class _OverrideHandler(BaseHTTPRequestHandler):
                 with state_lock:
                     pg = last_postgame
                 if pg is None:
-                    body_obj: Dict[str, Any] = {"available": False, "phase": 1}
+                    body_obj: Dict[str, Any] = {"available": False, "phase": 2}
                 else:
                     body_obj = pg
                 body = json.dumps(body_obj).encode("utf-8")
