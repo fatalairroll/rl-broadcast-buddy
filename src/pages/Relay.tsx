@@ -552,7 +552,7 @@ def _build_frame_v3() -> str:
     with override_lock:
         series_obj = dict(override_series)
         teams_obj = dict(override_teams)
-    return json.dumps({
+    frame: Dict[str, Any] = {
         "v": 3,
         "t": time.time(),
         "match": match_obj,
@@ -560,7 +560,10 @@ def _build_frame_v3() -> str:
         "camera": camera_obj,
         "series": series_obj,
         "teams": teams_obj,
-    })
+    }
+    if last_postgame is not None:
+        frame["postgame"] = last_postgame
+    return json.dumps(frame)
 
 
 def _maybe_broadcast_ws(force: bool = False) -> None:
