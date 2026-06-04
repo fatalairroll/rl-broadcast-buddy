@@ -604,6 +604,7 @@ def handle_clock_updated(data: Dict[str, Any]) -> None:
 
 def handle_event(evt: Dict[str, Any]) -> None:
     global current_match_guid, clock_running, in_replay, _dbg_printed
+    global current_accum, last_postgame, postgame_finalized
     global blue_score, orange_score, local_time_seconds, is_overtime
     global dirty_match, clear_requested, match_active
 
@@ -667,6 +668,10 @@ def handle_event(evt: Dict[str, Any]) -> None:
         match_active = True
         if SUPABASE_LIVE_WRITES:
             dirty_match = True
+        # Postgame Faza 1: nowy akumulator, NIE czyscimy last_postgame
+        # (operator widzi poprzedni mecz az do nowej finalizacji).
+        current_accum = MatchStatsAccumulator()
+        postgame_finalized = False
         return
 
     if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
@@ -677,6 +682,28 @@ def handle_event(evt: Dict[str, Any]) -> None:
             match_active = False
             if SUPABASE_LIVE_WRITES:
                 dirty_match = True
+        # Postgame Faza 1: finalize raz na mecz (MatchEnded lub PodiumStart
+        # jako fallback). MatchDestroyed nie finalizuje — zostawia poprzedni
+        # last_postgame nietkniety.
+        if name in ("MatchEnded", "PodiumStart") and not postgame_finalized and current_accum is not None:
+            with override_lock:
+                team_names = {
+                    "blue": override_teams.get("blue_name") or "Blue",
+                    "orange": override_teams.get("orange_name") or "Orange",
+                }
+            try:
+                last_postgame = current_accum.finalize(
+                    blue_score, orange_score, team_names, current_match_guid,
+                )
+                postgame_finalized = True
+                print(
+                    f"[POSTGAME] finalize: {last_postgame['blue_score']}-"
+                    f"{last_postgame['orange_score']} pairs={len(last_postgame['pairs'])} "
+                    f"trigger={name}"
+                )
+                _maybe_broadcast_ws(force=True)
+            except Exception as e:
+                print(f"[POSTGAME] finalize ERROR: {e}")
         return
 
     if name == "MatchPaused":
