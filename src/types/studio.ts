@@ -60,6 +60,11 @@ export interface MatchResponse {
   matches: MatchData[];
 }
 
-export type StudioMode = 'next_3' | 'bracket' | 'recent';
+export type StudioMode =
+  | 'next_3'
+  | 'bracket'
+  | 'recent'
+  | 'postgame_players'
+  | 'postgame_summary';
 
 export type PollResults = Record<string, number>;
