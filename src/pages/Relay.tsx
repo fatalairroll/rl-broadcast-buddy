@@ -157,6 +157,15 @@ current_accum: Optional["MatchStatsAccumulator"] = None
 last_postgame: Optional[Dict[str, Any]] = None
 postgame_finalized: bool = False
 
+# === POSTGAME (Faza 2) ===
+# Liczniki czasowe potrzebne do heurystyk grantow padow + kickoff goals.
+# Wszystkie pod state_lock.
+last_kickoff_at: float = 0.0   # RoundStarted / GoalReplayEnd
+last_goal_at: float = 0.0      # GoalScored
+prev_overtime: bool = False
+ot_started_at: float = 0.0
+last_tick_at: float = 0.0      # ostatni UpdateState (do dt)
+
 stats = {
     "events": 0, "events_delta": 0,
     "match_writes": 0, "match_writes_delta": 0,
