@@ -200,31 +200,100 @@ def fmt_timer(seconds: float) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
-# === POSTGAME ACCUMULATOR (Faza 1) ===
-# Minimal: trzyma ostatnie wartosci API per gracz, ranking po Player.Score.
-# Pola Fazy 2 (pad_pickups, supersonic_seconds, avg_boost, time_at_100_seconds,
-# kickoff_goals_10s) wystawiane jako null/0, ale obecne w kontrakcie JSON.
-# Wszystkie metody wolane pod state_lock. Klasa nie robi I/O.
+# === POSTGAME ACCUMULATOR (Faza 2) ===
+# Trzyma ostatnie wartosci API per gracz + metryki czasowe (boost / supersonic /
+# pad pickups) liczone tick po ticku oraz drużynowe kickoff goals (≤10 s od
+# RoundStarted/GoalReplayEnd). Ranking par po Player.Score. Klasa nie robi I/O.
 class MatchStatsAccumulator:
     def __init__(self) -> None:
         self.players: Dict[str, Dict[str, Any]] = {}
+        self.team_kickoff_goals: Dict[int, int] = {0: 0, 1: 0}
 
     def reset(self) -> None:
         self.players.clear()
+        self.team_kickoff_goals = {0: 0, 1: 0}
 
-    def on_player_row(self, row: Dict[str, Any]) -> None:
+    def _ensure(self, name: str) -> Dict[str, Any]:
+        p = self.players.get(name)
+        if p is None:
+            p = {
+                "team_num": 0,
+                "score": 0, "goals": 0, "assists": 0,
+                "saves": 0, "shots": 0, "demos": 0,
+                # Faza 2 — robocze
+                "pad_pickups": 0,
+                "supersonic_seconds": 0.0,
+                "boost_sum": 0.0,
+                "boost_samples": 0,
+                "time_at_100_seconds": 0.0,
+                "prev_boost": None,  # type: Optional[int]
+            }
+            self.players[name] = p
+        return p
+
+    def reset_prev_boost(self, name: str) -> None:
+        p = self.players.get(name)
+        if p is not None:
+            p["prev_boost"] = None
+
+    def on_player_row(
+        self,
+        row: Dict[str, Any],
+        dt: float = 0.0,
+        now: float = 0.0,
+        match_active_flag: bool = False,
+        in_replay_flag: bool = False,
+        last_goal_at_val: float = 0.0,
+        last_kickoff_at_val: float = 0.0,
+        ot_started_at_val: float = 0.0,
+    ) -> None:
         name = row.get("player_name")
         if not name:
             return
-        self.players[name] = {
-            "team_num": int(row.get("team_num", 0) or 0),
-            "score": int(row.get("score", 0) or 0),
-            "goals": int(row.get("goals", 0) or 0),
-            "assists": int(row.get("assists", 0) or 0),
-            "saves": int(row.get("saves", 0) or 0),
-            "shots": int(row.get("shots", 0) or 0),
-            "demos": int(row.get("demos", 0) or 0),
-        }
+        p = self._ensure(name)
+        # Faza 1: ostatnie wartosci API (last-write-wins).
+        p["team_num"] = int(row.get("team_num", 0) or 0)
+        p["score"] = int(row.get("score", 0) or 0)
+        p["goals"] = int(row.get("goals", 0) or 0)
+        p["assists"] = int(row.get("assists", 0) or 0)
+        p["saves"] = int(row.get("saves", 0) or 0)
+        p["shots"] = int(row.get("shots", 0) or 0)
+        p["demos"] = int(row.get("demos", 0) or 0)
+
+        has_boost = bool(row.get("_has_boost"))
+        boost = int(row.get("boost", 0) or 0)
+        is_super = bool(row.get("is_supersonic", False))
+
+        if not (match_active_flag and not in_replay_flag):
+            # Poza aktywnym meczem / w replayu: tylko sledz baseline boost,
+            # zeby pierwszy delta po wznowieniu nie wybuchnal.
+            if has_boost:
+                p["prev_boost"] = boost
+            return
+
+        if has_boost:
+            p["boost_sum"] += boost
+            p["boost_samples"] += 1
+            if boost >= 100:
+                p["time_at_100_seconds"] += dt
+        if is_super:
+            p["supersonic_seconds"] += dt
+        if has_boost:
+            prev = p.get("prev_boost")
+            if prev is not None:
+                delta = boost - int(prev)
+                grant = False
+                if 32 <= delta <= 34:
+                    grant = True  # respawn
+                elif last_goal_at_val and (now - last_goal_at_val) <= 3.0:
+                    grant = True  # post-goal
+                elif last_kickoff_at_val and (now - last_kickoff_at_val) <= 2.0:
+                    grant = True  # kickoff
+                elif ot_started_at_val and (now - ot_started_at_val) <= 2.0:
+                    grant = True  # start OT
+                if not grant and delta > 0:
+                    p["pad_pickups"] += 1
+            p["prev_boost"] = boost
 
     def _rank_side(self, team_num: int) -> List[Dict[str, Any]]:
         rows = [
