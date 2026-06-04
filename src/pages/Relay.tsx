@@ -1026,7 +1026,7 @@ def heartbeat_loop() -> None:
                 f" | WS: clients={len(ws_clients)} "
                 f"full_frames/s={stats['ws_full_frames_delta'] / HEARTBEAT_S:.1f} "
                 f"| HTTP: req=+{stats['http_requests_delta']}"
-                f" | postgame={postgame_on} phase=1 last_guid={last_guid_short}"
+                f" | postgame={postgame_on} phase=2 last_guid={last_guid_short}"
                 f"{warn}"
             )
             stats["events_delta"] = 0
