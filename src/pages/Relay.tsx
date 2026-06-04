@@ -494,6 +494,7 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             "saves": int(p.get("Saves", 0) or 0),
             "shots": int(p.get("Shots", 0) or 0),
             "demos": int(p.get("Demos", 0) or 0),
+            "score": int(p.get("Score", 0) or 0),           # Postgame ranking
             "is_demolished": bool(p.get("bDemolished", False)),
             "is_supersonic": bool(p.get("bSupersonic", False)),
         }
@@ -506,6 +507,12 @@ def handle_update_state(data: Dict[str, Any]) -> None:
         for name, row in new_snap.items():
             if last_pushed_players.get(name) != row:
                 stats["player_changes_delta"] += 1
+        # Postgame accumulator (Faza 1): kopiuje ostatnie wartosci API per gracz.
+        global current_accum
+        if current_accum is None:
+            current_accum = MatchStatsAccumulator()
+        for row in new_snap.values():
+            current_accum.on_player_row(row)
         # WS broadcast: pelna ramka v3 (match + players + camera + series + teams).
         _maybe_broadcast_ws(force=False)
 
