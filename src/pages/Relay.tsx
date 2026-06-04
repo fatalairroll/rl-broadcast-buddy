@@ -148,6 +148,15 @@ override_series: Dict[str, Any] = {
 }
 http_clients_ok = True
 
+# === POSTGAME (Faza 1) ===
+# Akumulator zbierany w trakcie meczu (kopiuje pola API z UpdateState).
+# Finalizowany RAZ na MatchEnded/PodiumStart -> last_postgame trzymany w pamieci
+# do nastepnej finalizacji. ZERO zapisow do Supabase, ZERO heurystyk (pady/boost
+# /supersonic/kickoff to Faza 2).
+current_accum: Optional["MatchStatsAccumulator"] = None
+last_postgame: Optional[Dict[str, Any]] = None
+postgame_finalized: bool = False
+
 stats = {
     "events": 0, "events_delta": 0,
     "match_writes": 0, "match_writes_delta": 0,
