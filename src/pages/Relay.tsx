@@ -191,6 +191,127 @@ def fmt_timer(seconds: float) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
+# === POSTGAME ACCUMULATOR (Faza 1) ===
+# Minimal: trzyma ostatnie wartosci API per gracz, ranking po Player.Score.
+# Pola Fazy 2 (pad_pickups, supersonic_seconds, avg_boost, time_at_100_seconds,
+# kickoff_goals_10s) wystawiane jako null/0, ale obecne w kontrakcie JSON.
+# Wszystkie metody wolane pod state_lock. Klasa nie robi I/O.
+class MatchStatsAccumulator:
+    def __init__(self) -> None:
+        self.players: Dict[str, Dict[str, Any]] = {}
+
+    def reset(self) -> None:
+        self.players.clear()
+
+    def on_player_row(self, row: Dict[str, Any]) -> None:
+        name = row.get("player_name")
+        if not name:
+            return
+        self.players[name] = {
+            "team_num": int(row.get("team_num", 0) or 0),
+            "score": int(row.get("score", 0) or 0),
+            "goals": int(row.get("goals", 0) or 0),
+            "assists": int(row.get("assists", 0) or 0),
+            "saves": int(row.get("saves", 0) or 0),
+            "shots": int(row.get("shots", 0) or 0),
+            "demos": int(row.get("demos", 0) or 0),
+        }
+
+    def _rank_side(self, team_num: int) -> List[Dict[str, Any]]:
+        rows = [
+            {"player_name": name, **data}
+            for name, data in self.players.items()
+            if int(data.get("team_num", 0) or 0) == team_num
+        ]
+        rows.sort(key=lambda r: (
+            -int(r.get("score", 0) or 0),
+            -int(r.get("goals", 0) or 0),
+            -int(r.get("assists", 0) or 0),
+            -int(r.get("saves", 0) or 0),
+            -int(r.get("shots", 0) or 0),
+            -int(r.get("demos", 0) or 0),
+            str(r.get("player_name") or ""),
+        ))
+        for i, r in enumerate(rows, start=1):
+            r["rank"] = i
+        return rows
+
+    @staticmethod
+    def _player_payload(row: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "player_name": str(row.get("player_name") or ""),
+            "team_num": int(row.get("team_num", 0) or 0),
+            "rank": int(row.get("rank", 0) or 0),
+            "score": int(row.get("score", 0) or 0),
+            "goals": int(row.get("goals", 0) or 0),
+            "assists": int(row.get("assists", 0) or 0),
+            "saves": int(row.get("saves", 0) or 0),
+            "shots": int(row.get("shots", 0) or 0),
+            "demos": int(row.get("demos", 0) or 0),
+            # Faza 2 — zawsze null w Fazie 1.
+            "pad_pickups": None,
+            "supersonic_seconds": None,
+            "avg_boost": None,
+            "time_at_100_seconds": None,
+        }
+
+    def finalize(
+        self,
+        blue_score_val: int,
+        orange_score_val: int,
+        team_names: Dict[str, str],
+        match_guid: Optional[str],
+    ) -> Dict[str, Any]:
+        blue_ranked = self._rank_side(0)
+        orange_ranked = self._rank_side(1)
+        n_blue, n_orange = len(blue_ranked), len(orange_ranked)
+        if n_blue != n_orange:
+            print(
+                f"[POSTGAME] WARN: asymetria skladow blue={n_blue} orange={n_orange} "
+                f"-> pary tylko do min()."
+            )
+        pair_count = min(n_blue, n_orange)
+        pairs: List[Dict[str, Any]] = []
+        for k in range(pair_count):
+            pairs.append({
+                "rank": k + 1,
+                "blue": self._player_payload(blue_ranked[k]),
+                "orange": self._player_payload(orange_ranked[k]),
+            })
+        team_blue_saves = sum(int(p["blue"]["saves"] or 0) for p in pairs)
+        team_blue_demos = sum(int(p["blue"]["demos"] or 0) for p in pairs)
+        team_orange_saves = sum(int(p["orange"]["saves"] or 0) for p in pairs)
+        team_orange_demos = sum(int(p["orange"]["demos"] or 0) for p in pairs)
+        return {
+            "phase": 1,
+            "match_guid": match_guid,
+            "finalized_at": _now_iso(),
+            "blue_score": int(blue_score_val),
+            "orange_score": int(orange_score_val),
+            "team_names": {
+                "blue": str(team_names.get("blue") or "Blue"),
+                "orange": str(team_names.get("orange") or "Orange"),
+            },
+            "team": {
+                "blue": {
+                    "kickoff_goals_10s": 0,
+                    "saves": team_blue_saves,
+                    "demos": team_blue_demos,
+                    "avg_boost": None,
+                    "pad_pickups": 0,
+                },
+                "orange": {
+                    "kickoff_goals_10s": 0,
+                    "saves": team_orange_saves,
+                    "demos": team_orange_demos,
+                    "avg_boost": None,
+                    "pad_pickups": 0,
+                },
+            },
+            "pairs": pairs,
+        }
+
+
 # === ZAPISY DO DB ===
 # UWAGA: te funkcje wywoluje TYLKO db_worker_loop, nigdy watek TCP.
 
