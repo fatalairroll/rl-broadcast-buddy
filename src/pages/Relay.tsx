@@ -746,6 +746,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
     global current_accum, last_postgame, postgame_finalized
     global blue_score, orange_score, local_time_seconds, is_overtime
     global dirty_match, clear_requested, match_active
+    global last_kickoff_at, last_goal_at, prev_overtime, ot_started_at
 
     name = evt.get("Event") or evt.get("event") or ""
     raw_data = evt.get("Data")
@@ -766,8 +767,27 @@ def handle_event(evt: Dict[str, Any]) -> None:
         return
 
     if name == "GoalScored":
-        scorer = _coerce_dict(data.get("Scorer")).get("Name", "?")
-        print(f"[GOAL] {scorer}")
+        scorer_dict = _coerce_dict(data.get("Scorer"))
+        scorer = scorer_dict.get("Name", "?")
+        now = time.time()
+        last_goal_at = now
+        scorer_team = -1
+        try:
+            scorer_team = int(scorer_dict.get("TeamNum", -1))
+        except Exception:
+            scorer_team = -1
+        if (current_accum is not None
+                and scorer_team in (0, 1)
+                and last_kickoff_at > 0
+                and (now - last_kickoff_at) <= 10.0):
+            current_accum.team_kickoff_goals[scorer_team] = \
+                current_accum.team_kickoff_goals.get(scorer_team, 0) + 1
+            print(
+                f"[POSTGAME] kickoff goal team={scorer_team} "
+                f"dt={now - last_kickoff_at:.2f}s scorer={scorer}"
+            )
+        else:
+            print(f"[GOAL] {scorer}")
         return
 
     if name == "GoalReplayStart":
@@ -778,10 +798,12 @@ def handle_event(evt: Dict[str, Any]) -> None:
     if name in ("GoalReplayEnd", "GoalReplayWillEnd"):
         in_replay = False
         clock_running = True
+        last_kickoff_at = time.time()
         return
 
     if name == "RoundStarted":
         clock_running = True
+        last_kickoff_at = time.time()
         return
 
     if name == "CountdownBegin":
@@ -807,10 +829,14 @@ def handle_event(evt: Dict[str, Any]) -> None:
         match_active = True
         if SUPABASE_LIVE_WRITES:
             dirty_match = True
-        # Postgame Faza 1: nowy akumulator, NIE czyscimy last_postgame
+        # Postgame Faza 2: nowy akumulator, NIE czyscimy last_postgame
         # (operator widzi poprzedni mecz az do nowej finalizacji).
         current_accum = MatchStatsAccumulator()
         postgame_finalized = False
+        last_kickoff_at = time.time()
+        last_goal_at = 0.0
+        prev_overtime = False
+        ot_started_at = 0.0
         return
 
     if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
