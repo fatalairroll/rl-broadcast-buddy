@@ -375,8 +375,26 @@ class MatchStatsAccumulator:
         team_blue_demos = sum(int(p["blue"]["demos"] or 0) for p in pairs)
         team_orange_saves = sum(int(p["orange"]["saves"] or 0) for p in pairs)
         team_orange_demos = sum(int(p["orange"]["demos"] or 0) for p in pairs)
+
+        def _team_pads(side: str) -> int:
+            return sum(int(p[side].get("pad_pickups") or 0) for p in pairs)
+
+        def _team_avg_boost(side: str) -> Optional[float]:
+            vals = [p[side].get("avg_boost") for p in pairs
+                    if p[side].get("avg_boost") is not None]
+            if not vals:
+                return None
+            return round(sum(float(v) for v in vals) / len(vals), 1)
+
+        team_blue_pads = _team_pads("blue")
+        team_orange_pads = _team_pads("orange")
+        team_blue_avg = _team_avg_boost("blue")
+        team_orange_avg = _team_avg_boost("orange")
+        kg_blue = int(self.team_kickoff_goals.get(0, 0) or 0)
+        kg_orange = int(self.team_kickoff_goals.get(1, 0) or 0)
+
         return {
-            "phase": 1,
+            "phase": 2,
             "match_guid": match_guid,
             "finalized_at": _now_iso(),
             "blue_score": int(blue_score_val),
@@ -387,18 +405,18 @@ class MatchStatsAccumulator:
             },
             "team": {
                 "blue": {
-                    "kickoff_goals_10s": 0,
+                    "kickoff_goals_10s": kg_blue,
                     "saves": team_blue_saves,
                     "demos": team_blue_demos,
-                    "avg_boost": None,
-                    "pad_pickups": 0,
+                    "avg_boost": team_blue_avg,
+                    "pad_pickups": team_blue_pads,
                 },
                 "orange": {
-                    "kickoff_goals_10s": 0,
+                    "kickoff_goals_10s": kg_orange,
                     "saves": team_orange_saves,
                     "demos": team_orange_demos,
-                    "avg_boost": None,
-                    "pad_pickups": 0,
+                    "avg_boost": team_orange_avg,
+                    "pad_pickups": team_orange_pads,
                 },
             },
             "pairs": pairs,
