@@ -647,16 +647,27 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             if known not in snap_names:
                 current_accum.reset_prev_boost(known)
         for row in new_snap.values():
-            current_accum.on_player_row(
-                row,
-                dt=dt,
-                now=now_ts,
-                match_active_flag=match_active,
-                in_replay_flag=in_replay,
-                last_goal_at_val=last_goal_at,
-                last_kickoff_at_val=last_kickoff_at,
-                ot_started_at_val=ot_started_at,
-            )
+            # Faza 1: pola API.
+            current_accum.on_player_row(row)
+            # Faza 2: boost/supersonic/pady — tylko jesli gracz ma realne
+            # pole Boost (spectator) i mecz jest aktywny poza replayem.
+            if row.get("_has_boost"):
+                pname = row.get("player_name") or ""
+                if match_active and not in_replay:
+                    current_accum.on_boost_tick(
+                        player_name=pname,
+                        team_num=int(row.get("team_num", 0) or 0),
+                        boost=int(row.get("boost", 0) or 0),
+                        is_supersonic=bool(row.get("is_supersonic", False)),
+                        dt=dt,
+                        now=now_ts,
+                        last_goal_at_val=last_goal_at,
+                        last_kickoff_at_val=last_kickoff_at,
+                        ot_started_at_val=ot_started_at,
+                    )
+                else:
+                    # Poza aktywnym meczem / w replayu: tylko baseline.
+                    current_accum.set_baseline_boost(pname, int(row.get("boost", 0) or 0))
         last_tick_at = now_ts
         # WS broadcast: pelna ramka v3 (match + players + camera + series + teams).
         _maybe_broadcast_ws(force=False)
