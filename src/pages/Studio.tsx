@@ -99,8 +99,8 @@ export default function Studio() {
                     <SelectItem value="next_3">Następne mecze</SelectItem>
                     <SelectItem value="bracket">Drabinka</SelectItem>
                     <SelectItem value="recent">Zakończone mecze</SelectItem>
-                    <SelectItem value="postgame_players">Postgame: porównanie graczy</SelectItem>
-                    <SelectItem value="postgame_summary">Postgame: podsumowanie meczu</SelectItem>
+                    <SelectItem value="postgame_players">Podsumowanie graczy</SelectItem>
+                    <SelectItem value="postgame_summary">Podsumowanie drużyn</SelectItem>
                   </SelectContent>
                 </Select>
                 {(mode === 'postgame_players' || mode === 'postgame_summary') && (

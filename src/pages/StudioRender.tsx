@@ -19,8 +19,8 @@ const MODES: { key: StudioMode; label: string }[] = [
   { key: 'next_3', label: 'Następne mecze' },
   { key: 'bracket', label: 'Drabinka' },
   { key: 'recent', label: 'Zakończone mecze' },
-  { key: 'postgame_players', label: 'Postgame: gracze' },
-  { key: 'postgame_summary', label: 'Postgame: drużyny' },
+  { key: 'postgame_players', label: 'Podsumowanie graczy' },
+  { key: 'postgame_summary', label: 'Podsumowanie drużyn' },
 ];
 
 export default function StudioRender() {
