@@ -236,22 +236,12 @@ class MatchStatsAccumulator:
         if p is not None:
             p["prev_boost"] = None
 
-    def on_player_row(
-        self,
-        row: Dict[str, Any],
-        dt: float = 0.0,
-        now: float = 0.0,
-        match_active_flag: bool = False,
-        in_replay_flag: bool = False,
-        last_goal_at_val: float = 0.0,
-        last_kickoff_at_val: float = 0.0,
-        ot_started_at_val: float = 0.0,
-    ) -> None:
+    def on_player_row(self, row: Dict[str, Any]) -> None:
+        """Faza 1: kopia pol API z UpdateState (last-write-wins). Bez heurystyk."""
         name = row.get("player_name")
         if not name:
             return
         p = self._ensure(name)
-        # Faza 1: ostatnie wartosci API (last-write-wins).
         p["team_num"] = int(row.get("team_num", 0) or 0)
         p["score"] = int(row.get("score", 0) or 0)
         p["goals"] = int(row.get("goals", 0) or 0)
@@ -260,40 +250,56 @@ class MatchStatsAccumulator:
         p["shots"] = int(row.get("shots", 0) or 0)
         p["demos"] = int(row.get("demos", 0) or 0)
 
-        has_boost = bool(row.get("_has_boost"))
-        boost = int(row.get("boost", 0) or 0)
-        is_super = bool(row.get("is_supersonic", False))
+    def set_baseline_boost(self, name: str, boost: int) -> None:
+        """Poza aktywnym meczem / w replayu: tylko aktualizuj prev_boost,
+        zeby pierwszy delta po wznowieniu nie wybuchnal."""
+        p = self._ensure(name)
+        p["prev_boost"] = int(boost)
 
-        if not (match_active_flag and not in_replay_flag):
-            # Poza aktywnym meczem / w replayu: tylko sledz baseline boost,
-            # zeby pierwszy delta po wznowieniu nie wybuchnal.
-            if has_boost:
-                p["prev_boost"] = boost
+    def on_boost_tick(
+        self,
+        player_name: str,
+        team_num: int,
+        boost: int,
+        is_supersonic: bool,
+        dt: float,
+        now: float,
+        last_goal_at_val: float = 0.0,
+        last_kickoff_at_val: float = 0.0,
+        ot_started_at_val: float = 0.0,
+    ) -> None:
+        """Faza 2: liczone TYLKO gdy match_active and not in_replay i gracz
+        ma realne pole Boost (spectator). Bez tych warunkow caller nie wola tej
+        metody — dzieki temu bez spectatora avg_boost/supersonic/time@100 = null."""
+        if not player_name:
             return
-
-        if has_boost:
-            p["boost_sum"] += boost
-            p["boost_samples"] += 1
-            if boost >= 100:
-                p["time_at_100_seconds"] += dt
-        if is_super:
+        p = self._ensure(player_name)
+        p["team_num"] = int(team_num or 0)
+        b = int(boost or 0)
+        # Boost samples / time at 100.
+        p["boost_sum"] += b
+        p["boost_samples"] += 1
+        if b >= 100:
+            p["time_at_100_seconds"] += dt
+        # Supersonic.
+        if is_supersonic:
             p["supersonic_seconds"] += dt
-        if has_boost:
-            prev = p.get("prev_boost")
-            if prev is not None:
-                delta = boost - int(prev)
-                grant = False
-                if 32 <= delta <= 34:
-                    grant = True  # respawn
-                elif last_goal_at_val and (now - last_goal_at_val) <= 3.0:
-                    grant = True  # post-goal
-                elif last_kickoff_at_val and (now - last_kickoff_at_val) <= 2.0:
-                    grant = True  # kickoff
-                elif ot_started_at_val and (now - ot_started_at_val) <= 2.0:
-                    grant = True  # start OT
-                if not grant and delta > 0:
-                    p["pad_pickups"] += 1
-            p["prev_boost"] = boost
+        # Pady — heurystyka grantow.
+        prev = p.get("prev_boost")
+        if prev is not None:
+            delta = b - int(prev)
+            grant = False
+            if 32 <= delta <= 34:
+                grant = True  # respawn
+            elif last_goal_at_val and (now - last_goal_at_val) <= 3.0:
+                grant = True  # post-goal
+            elif last_kickoff_at_val and (now - last_kickoff_at_val) <= 2.0:
+                grant = True  # kickoff
+            elif ot_started_at_val and (now - ot_started_at_val) <= 2.0:
+                grant = True  # start OT
+            if not grant and delta > 0:
+                p["pad_pickups"] += 1
+        p["prev_boost"] = b
 
     def _rank_side(self, team_num: int) -> List[Dict[str, Any]]:
         rows: List[Dict[str, Any]] = []
@@ -641,16 +647,27 @@ def handle_update_state(data: Dict[str, Any]) -> None:
             if known not in snap_names:
                 current_accum.reset_prev_boost(known)
         for row in new_snap.values():
-            current_accum.on_player_row(
-                row,
-                dt=dt,
-                now=now_ts,
-                match_active_flag=match_active,
-                in_replay_flag=in_replay,
-                last_goal_at_val=last_goal_at,
-                last_kickoff_at_val=last_kickoff_at,
-                ot_started_at_val=ot_started_at,
-            )
+            # Faza 1: pola API.
+            current_accum.on_player_row(row)
+            # Faza 2: boost/supersonic/pady — tylko jesli gracz ma realne
+            # pole Boost (spectator) i mecz jest aktywny poza replayem.
+            if row.get("_has_boost"):
+                pname = row.get("player_name") or ""
+                if match_active and not in_replay:
+                    current_accum.on_boost_tick(
+                        player_name=pname,
+                        team_num=int(row.get("team_num", 0) or 0),
+                        boost=int(row.get("boost", 0) or 0),
+                        is_supersonic=bool(row.get("is_supersonic", False)),
+                        dt=dt,
+                        now=now_ts,
+                        last_goal_at_val=last_goal_at,
+                        last_kickoff_at_val=last_kickoff_at,
+                        ot_started_at_val=ot_started_at,
+                    )
+                else:
+                    # Poza aktywnym meczem / w replayu: tylko baseline.
+                    current_accum.set_baseline_boost(pname, int(row.get("boost", 0) or 0))
         last_tick_at = now_ts
         # WS broadcast: pelna ramka v3 (match + players + camera + series + teams).
         _maybe_broadcast_ws(force=False)
@@ -1007,7 +1024,11 @@ def heartbeat_loop() -> None:
                 warn = " | [WARN] brak danych z RL — sprawdz DefaultStatsAPI.ini i restart RL"
             live_writes = "on" if SUPABASE_LIVE_WRITES else "off"
             http_ok = "ok" if http_clients_ok else "err"
-            postgame_on = "on" if last_postgame is not None else "off"
+            postgame_available = last_postgame is not None
+            postgame_phase_val = (
+                int(last_postgame.get("phase", 0) or 0) if postgame_available else 0
+            )
+            postgame_phase_str = str(postgame_phase_val) if postgame_available else "-"
             last_guid_str = (last_postgame.get("match_guid") or "-") if last_postgame else "-"
             last_guid_short = str(last_guid_str)[:8] if last_guid_str else "-"
             print(
@@ -1026,7 +1047,8 @@ def heartbeat_loop() -> None:
                 f" | WS: clients={len(ws_clients)} "
                 f"full_frames/s={stats['ws_full_frames_delta'] / HEARTBEAT_S:.1f} "
                 f"| HTTP: req=+{stats['http_requests_delta']}"
-                f" | postgame={postgame_on} phase=2 last_guid={last_guid_short}"
+                f" | postgame_available={postgame_available} "
+                f"postgame_phase={postgame_phase_str} last_guid={last_guid_short}"
                 f"{warn}"
             )
             stats["events_delta"] = 0
@@ -1531,7 +1553,7 @@ PacketSendRate=30`}</pre>
                   Pobierz najnowszy <code className="bg-secondary px-1 rounded">relay.py</code>. v3 wystawia <strong>trzy</strong> lokalne kanaly:
                   WebSocket <code className="bg-secondary px-1 rounded">ws://127.0.0.1:49300</code> z <strong>pelnymi ramkami</strong>
                   (match + players + camera + series + teams, 30-60 Hz) oraz HTTP control plane <code className="bg-secondary px-1 rounded">http://127.0.0.1:49301</code>
-                  (Dashboard wysyla tu nadpisy serii i drużyn; <code className="bg-secondary px-1 rounded">GET /postgame</code> zwraca podsumowanie ostatniego meczu — Faza 1). Domyslnie <code className="bg-secondary px-1 rounded">SUPABASE_LIVE_WRITES=False</code> —
+                  (Dashboard wysyla tu nadpisy serii i drużyn; <code className="bg-secondary px-1 rounded">GET /postgame</code> zwraca podsumowanie ostatniego meczu — Faza 2: kickoff goals, pady, supersonic, sredni boost). Domyslnie <code className="bg-secondary px-1 rounded">SUPABASE_LIVE_WRITES=False</code> —
                   relay <strong>nie pisze do bazy</strong> w trakcie meczu, overlay <code className="bg-secondary px-1 rounded">/v2/overlay</code> na tej samej maszynie zywi sie WS-em.
                   Jesli potrzebujesz remote overlayu (OBS na innej maszynie) ustaw w pliku <code className="bg-secondary px-1 rounded">SUPABASE_LIVE_WRITES = True</code> — wraca zachowanie v2.4.
                   W terminalu HB pokazuje <code className="bg-secondary px-1 rounded">live_writes=on|off</code>, <code className="bg-secondary px-1 rounded">WS: full_frames/s</code> i licznik HTTP.
