@@ -12,6 +12,7 @@ interface Props {
   obs: boolean;
   maxWidth?: number;
   style?: CSSProperties;
+  paddingBottom?: number;
 }
 
 export function StudioContentFrame({
@@ -19,6 +20,7 @@ export function StudioContentFrame({
   obs,
   maxWidth = STUDIO_MAX_WIDTH_DEFAULT,
   style,
+  paddingBottom,
 }: Props) {
   return (
     <div
@@ -28,7 +30,7 @@ export function StudioContentFrame({
         paddingLeft: 0,
         paddingRight: STUDIO_CAMERA_SAFE_RIGHT,
         paddingTop: STUDIO_PADDING_TOP,
-        paddingBottom: STUDIO_PADDING_BOTTOM,
+        paddingBottom: paddingBottom ?? STUDIO_PADDING_BOTTOM,
         marginLeft: obs ? 0 : STUDIO_SIDEBAR_WIDTH,
         alignItems: 'center',
         boxSizing: 'border-box',
