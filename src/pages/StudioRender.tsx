@@ -7,6 +7,8 @@ import { MatchCard } from '@/components/studio/MatchCard';
 import { BracketView } from '@/components/studio/BracketView';
 import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
 import { PostgameSummary } from '@/components/studio/PostgameSummary';
+import { StudioContentFrame } from '@/components/studio/StudioContentFrame';
+import { STUDIO_MAX_WIDTH_POSTGAME } from '@/lib/studio-layout';
 import { usePostgameRelay } from '@/hooks/usePostgameRelay';
 import { supabase } from '@/integrations/supabase/client';
 import type { StudioMode, MatchData, PollResults } from '@/types/studio';
@@ -166,11 +168,12 @@ export default function StudioRender() {
   const gameMode = tournament?.mode ?? '2v2';
   const activeMatch = queue[0];
   const upcomingMatches = queue.slice(1);
+  const obs = !!params.get('obs');
 
   return (
     <div className="min-h-screen" style={{ background: 'transparent' }}>
       {/* Sidebar — hidden from OBS via ?obs=1 param, visible only in browser */}
-      {!params.get('obs') && (
+      {!obs && (
         <div
           className="fixed top-1/2 left-0 z-50 flex -translate-y-1/2"
         >
@@ -251,19 +254,25 @@ export default function StudioRender() {
         </div>
       )}
 
-      {/* Content — offset when sidebar is visible */}
-      <div style={{ marginLeft: !params.get('obs') ? 118 : 0 }}>
-        {isPostgame ? (
+      {/* Content — unified frame for all modes */}
+      {isPostgame ? (
+        <StudioContentFrame obs={obs} maxWidth={STUDIO_MAX_WIDTH_POSTGAME}>
           <PostgameSummary
             data={postgame}
             state={{ postgame, connected: pgConnected, error: pgError }}
           />
-        ) : mode === 'bracket' ? (
+        </StudioContentFrame>
+      ) : mode === 'bracket' ? (
+        <StudioContentFrame obs={obs}>
           <BracketView matches={matches} />
-        ) : mode === 'recent' ? (
+        </StudioContentFrame>
+      ) : mode === 'recent' ? (
+        <StudioContentFrame obs={obs}>
           <RecentMatchesTable matches={matches} />
-        ) : (
-          <div className="flex flex-col gap-4 p-4">
+        </StudioContentFrame>
+      ) : (
+        <StudioContentFrame obs={obs}>
+          <div className="flex flex-col gap-4">
             <AnimatePresence mode="wait">
               {activeMatch && (
                 <motion.div
@@ -283,8 +292,8 @@ export default function StudioRender() {
               )}
             </AnimatePresence>
           </div>
-        )}
-      </div>
+        </StudioContentFrame>
+      )}
     </div>
   );
 }
