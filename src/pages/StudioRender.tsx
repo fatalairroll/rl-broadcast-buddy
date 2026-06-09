@@ -271,7 +271,7 @@ export default function StudioRender() {
           <RecentMatchesTable matches={matches} />
         </StudioContentFrame>
       ) : (
-        <StudioContentFrame obs={obs}>
+        <StudioContentFrame obs={obs} paddingBottom={24}>
           <div className="flex flex-col gap-4">
             <AnimatePresence mode="wait">
               {activeMatch && (
