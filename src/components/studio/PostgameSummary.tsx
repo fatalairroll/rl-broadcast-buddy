@@ -258,12 +258,23 @@ function RowFragment({
   return (
     <>
       <PlayerValuesRow players={bluePlayers} row={row} small={small} />
-      <PostgameTeamBarRow
-        label={row.label}
-        blueValue={row.team(data, 'blue')}
-        orangeValue={row.team(data, 'orange')}
-        format={row.format}
-      />
+      <div
+        style={{
+          width: POSTGAME_CENTER_COL_WIDTH,
+          maxWidth: POSTGAME_CENTER_COL_WIDTH,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+        }}
+      >
+        <PostgameTeamBarRow
+          label={row.label}
+          blueValue={row.team(data, 'blue')}
+          orangeValue={row.team(data, 'orange')}
+          format={row.format}
+        />
+      </div>
       <PlayerValuesRow players={orangePlayers} row={row} small={small} />
     </>
   );
