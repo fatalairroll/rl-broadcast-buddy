@@ -19,6 +19,12 @@ export const STUDIO_PADDING_BOTTOM = 32;
 /** Sidebar w podglądzie (ukryty przy ?obs=1) */
 export const STUDIO_SIDEBAR_WIDTH = 112;
 
+/** Dodatkowy offset w dół tylko dla trybu recent (kompaktowy box) */
+export const STUDIO_RECENT_OFFSET_TOP = 56;
+
+/** Szerokość kolumny pasków H2H w postgame (było ~280px → −40%) */
+export const POSTGAME_CENTER_COL_WIDTH = 168;
+
 export function studioContentStyle(obs: boolean): CSSProperties {
   return {
     marginLeft: obs ? 0 : STUDIO_SIDEBAR_WIDTH,

@@ -10,6 +10,7 @@ import {
   type PostgameRowFormat,
 } from './PostgameShared';
 import { PostgameScoreboardHeader } from './PostgameScoreboardHeader';
+import { POSTGAME_CENTER_COL_WIDTH } from '@/lib/studio-layout';
 
 interface Props {
   data: PostgamePayload | null;
@@ -199,7 +200,7 @@ export function PostgameSummary({ data, state }: Props) {
 
   const gridStyle: CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: '1fr minmax(320px, 420px) 1fr',
+    gridTemplateColumns: `minmax(0, 1fr) ${POSTGAME_CENTER_COL_WIDTH}px minmax(0, 1fr)`,
     columnGap: 16,
     rowGap: 4,
     alignItems: 'center',
