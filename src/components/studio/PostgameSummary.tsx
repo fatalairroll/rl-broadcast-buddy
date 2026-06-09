@@ -207,11 +207,13 @@ export function PostgameSummary({ data, state }: Props) {
 
   return (
     <>
-      <PostgameScoreboardHeader
-        teamNames={data.team_names}
-        blueScore={data.blue_score}
-        orangeScore={data.orange_score}
-      />
+      <div className="flex w-full justify-center">
+        <PostgameScoreboardHeader
+          teamNames={data.team_names}
+          blueScore={data.blue_score}
+          orangeScore={data.orange_score}
+        />
+      </div>
 
       <PostgameGlassPanel
         className="w-full"

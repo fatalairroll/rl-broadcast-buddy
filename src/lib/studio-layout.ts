@@ -1,5 +1,5 @@
 // Camera safe zone (operator camera on the right)
-export const STUDIO_CAMERA_SAFE_RIGHT = 325;
+export const STUDIO_CAMERA_SAFE_RIGHT = 450;
 
 // Vertical padding (measured on 1920x1080)
 export const STUDIO_PADDING_TOP = 92;
