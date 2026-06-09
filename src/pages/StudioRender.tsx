@@ -6,8 +6,7 @@ import { useStudioData } from '@/hooks/useStudioData';
 import { MatchCard } from '@/components/studio/MatchCard';
 import { BracketView } from '@/components/studio/BracketView';
 import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
-import { PostgamePlayerCompare } from '@/components/studio/PostgamePlayerCompare';
-import { PostgameTeamSummary } from '@/components/studio/PostgameTeamSummary';
+import { PostgameSummary } from '@/components/studio/PostgameSummary';
 import { usePostgameRelay } from '@/hooks/usePostgameRelay';
 import { supabase } from '@/integrations/supabase/client';
 import type { StudioMode, MatchData, PollResults } from '@/types/studio';
@@ -19,8 +18,7 @@ const MODES: { key: StudioMode; label: string }[] = [
   { key: 'next_3', label: 'Następne mecze' },
   { key: 'bracket', label: 'Drabinka' },
   { key: 'recent', label: 'Zakończone mecze' },
-  { key: 'postgame_players', label: 'Podsumowanie graczy' },
-  { key: 'postgame_summary', label: 'Podsumowanie drużyn' },
+  { key: 'postgame', label: 'Podsumowanie' },
 ];
 
 export default function StudioRender() {
