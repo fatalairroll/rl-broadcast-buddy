@@ -104,7 +104,7 @@ const ROWS: RowDef[] = [
 
 function StatusMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center p-8">
+    <div className="flex w-full items-center justify-center p-8">
       <PostgameGlassPanel className="px-12 py-8">
         <div
           className="font-esports text-xl uppercase tracking-[0.2em] text-zinc-200"

@@ -227,7 +227,7 @@ export function RecentMatchesTable({ matches }: RecentMatchesTableProps) {
 
   return (
     <div
-      className="flex flex-col gap-0.5 p-3 w-full max-w-[1100px] mx-auto"
+      className="flex flex-col gap-0.5 p-3 w-full mx-auto"
       style={{
         backdropFilter: 'blur(16px)',
       }}
