@@ -64,47 +64,6 @@ export function PostgameGlassPanel({ children, className, style }: PanelProps) {
   );
 }
 
-interface SummaryHeaderProps {
-  teamNames: { blue: string; orange: string };
-  blueScore: number;
-  orangeScore: number;
-}
-
-export function PostgameSummaryHeader({
-  teamNames,
-  blueScore,
-  orangeScore,
-}: SummaryHeaderProps) {
-  return (
-    <div
-      className="font-esports flex items-center justify-center gap-10 uppercase"
-      style={{ textShadow: TEXT_SHADOW }}
-    >
-      <div className="text-4xl text-zinc-100 tracking-wider truncate max-w-[420px] text-right">
-        {teamNames.blue}
-      </div>
-      <div
-        className="text-[64px] leading-none font-black tabular-nums"
-        style={{ color: BLUE }}
-      >
-        {blueScore}
-      </div>
-      <div className="text-3xl tracking-[0.35em] text-zinc-200 px-4">
-        PODSUMOWANIE
-      </div>
-      <div
-        className="text-[64px] leading-none font-black tabular-nums"
-        style={{ color: ORANGE }}
-      >
-        {orangeScore}
-      </div>
-      <div className="text-4xl text-zinc-100 tracking-wider truncate max-w-[420px] text-left">
-        {teamNames.orange}
-      </div>
-    </div>
-  );
-}
-
 interface BarRowProps {
   label: string;
   blueValue: number | null | undefined;
@@ -125,32 +84,32 @@ export function PostgameTeamBarRow({
   const orangePct = 100 - bluePct;
 
   return (
-    <div className="flex flex-col gap-2 px-3 py-1">
+    <div className="flex flex-col gap-[2px] px-2 py-0">
       <div
         className="font-esports grid grid-cols-3 items-center uppercase"
         style={{ textShadow: TEXT_SHADOW }}
       >
         <div
-          className="text-xl font-bold tabular-nums text-left"
+          className="text-base font-bold tabular-nums text-left"
           style={{ color: BLUE }}
         >
           {formatValue(blueValue, format)}
         </div>
         <div
-          className="text-xs tracking-[0.25em] text-center"
+          className="text-[10px] tracking-[0.2em] text-center"
           style={{ color: 'rgba(255,255,255,0.6)' }}
         >
           {label}
         </div>
         <div
-          className="text-xl font-bold tabular-nums text-right"
+          className="text-base font-bold tabular-nums text-right"
           style={{ color: ORANGE }}
         >
           {formatValue(orangeValue, format)}
         </div>
       </div>
       <div
-        className="relative flex h-[12px] w-full overflow-visible rounded-full"
+        className="relative flex h-[10px] w-full overflow-visible rounded-full"
         style={{ background: 'rgba(255,255,255,0.06)' }}
       >
         <div
@@ -167,7 +126,7 @@ export function PostgameTeamBarRow({
             left: `${bluePct}%`,
             transform: 'translate(-50%, -50%)',
             width: 3,
-            height: 22,
+            height: 18,
             background: '#fff',
             borderRadius: 2,
             boxShadow: '0 0 6px rgba(255,255,255,0.6)',

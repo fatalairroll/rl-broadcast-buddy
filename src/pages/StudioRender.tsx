@@ -177,7 +177,7 @@ export default function StudioRender() {
           <div
           className="flex flex-col"
           style={{
-              width: 180,
+              width: 112,
               background: 'rgba(20, 23, 30, 0.95)',
               borderRadius: '0 12px 12px 0',
               border: '1px solid rgba(255,255,255,0.08)',
@@ -197,10 +197,10 @@ export default function StudioRender() {
                     onClick={() => setMode(m.key)}
                     className="w-full transition-colors duration-200"
                     style={{
-                      padding: '16px 12px',
-                      fontSize: 12,
+                      padding: '10px 6px',
+                      fontSize: 10,
                       fontWeight: 700,
-                      letterSpacing: '0.08em',
+                      letterSpacing: '0.06em',
                       textTransform: 'uppercase' as const,
                       textAlign: 'center' as const,
                       cursor: 'pointer',
@@ -252,7 +252,7 @@ export default function StudioRender() {
       )}
 
       {/* Content — offset when sidebar is visible */}
-      <div style={{ marginLeft: !params.get('obs') ? 190 : 0 }}>
+      <div style={{ marginLeft: !params.get('obs') ? 118 : 0 }}>
         {isPostgame ? (
           <PostgameSummary
             data={postgame}

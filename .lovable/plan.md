@@ -1,70 +1,63 @@
-# Postgame Poprawka 3 — Jeden ekran „Podsumowanie"
+# Postgame — Poprawka 4
 
-Zastępuje dwa tryby (`postgame_players` + `postgame_summary`) jednym ekranem RLCS-style: nagłówek z bramkami, środkowe paski drużynowe z białym suwakiem na styku gradientów, wartości per gracz po bokach. **10 wierszy** statystyk (bez padów).
+Cel: zmieścić tabelę po lewej (kamera operatora po prawej ~420 px), zmniejszyć sidebar Studio, zacieśnić odstępy wierszy, zamienić tekstowy nagłówek na scoreboard‑style (skewowane kafle wyniku + „PODSUMOWANIE” w środku).
 
-## Zmiany
+## 1. Nowy plik `src/components/studio/PostgameScoreboardHeader.tsx`
 
-### 1. `src/components/studio/PostgameShared.tsx` (rozszerzenie)
-- **`PostgameSummaryHeader`** — flex w jednym rzędzie: lewo `team_names.blue` (uppercase, font-esports) + duża cyfra `blue_score` (~56px, `#2563eb`); środek **„PODSUMOWANIE"** (uppercase, white, tracking); prawo cyfra `orange_score` (`#f97316`) + `team_names.orange`. Nad panelem, na transparentnym tle.
-- **`PostgameTeamBarRow`** — props `{ label, blueValue, orangeValue, format }`. Etykieta uppercase nad paskiem (`rgba(255,255,255,0.6)`). Pasek wys. ~12px, track `rgba(255,255,255,0.06)`, gradienty blue `#1e3a8a→#2563eb→#3b82f6` i orange `#c2410c→#f97316→#fb923c`. Biały suwak: `position:absolute; left:bluePct%; transform:translateX(-50%); width:3px; height:20px; background:#fff; box-shadow:0 0 6px rgba(255,255,255,0.5)`. `bluePct = blueVal/(blueVal+orangeVal)*100`, suma 0 → 50%.
-- Zachować `PostgameGlassPanel`, `fmtNum`, `fmtFloat`, `fmtSeconds`. `PostgameProgressRow` / `PostgameMatchHeader` usunąć po refaktorze konsumentów.
+Inline scoreboard (bez `position: absolute`, bez kontekstu bounds — tylko skopiowane style z `ScoreboardV2`).
 
-### 2. `src/components/studio/PostgameSummary.tsx` (nowy)
-Props: `{ data: PostgamePayload | null; state: PostgameState }`. Stany błędów jak w Poprawce 2 (relay error → „Relay niedostępny (127.0.0.1:49300)"; brak danych → „Brak danych — zagraj mecz z relay").
+- Props: `teamNames {blue, orange}`, `blueScore`, `orangeScore`.
+- Layout: flex row, `align-items: stretch`, gap 0. Trzy kafle skewowane `-15deg`:
+  - Blue: 140×100, gradient `linear-gradient(135deg,#1e3a8a,#2563eb,#3b82f6)`, fontSize 60, font-black, white, glow `0 0 18px rgba(37,99,235,0.55)`.
+  - Środek: 260×100, `background: rgba(0,0,0,0.85)`, border-y `2px rgba(255,255,255,0.1)`, treść „PODSUMOWANIE” (font‑esports/Rajdhani, uppercase, fontSize 24, letter-spacing 0.22em, color #fff).
+  - Orange: lustro blue z gradientem `linear-gradient(135deg,#9a3412,#f97316,#fb923c)`, glow pomarańczowy.
+- Każdy tekst ma counter‑skew `skewX(15deg)` żeby pozostał prosty.
+- Pod scoreboardem wiersz nazw drużyn: flex z `justify-content: space-between`, `width = sumOfTiles`, uppercase, font‑esports, fontSize 16, color `rgba(255,255,255,0.85)`, blue po lewej, orange po prawej, margin‑top 6.
 
-Przygotowanie graczy (wszyscy widoczni naraz, 2v2/3v3):
-```ts
-const bluePlayers = [...pairs].sort((a,b)=>a.rank-b.rank).map(p=>p.blue);
-const orangePlayers = [...pairs].sort((a,b)=>a.rank-b.rank).map(p=>p.orange);
-```
+## 2. `src/components/studio/PostgameSummary.tsx`
 
-Layout: `PostgameSummaryHeader` nad `PostgameGlassPanel`. Panel = CSS grid `grid-template-columns: 1fr minmax(320px,420px) 1fr`. Wewnątrz grid wierszy `auto` (nagłówki nicków) + 10× `auto` (statystyki) — **jeden wiersz grid = jedna statystyka**, wyrównuje boki ze środkowym paskiem.
+- Usunąć użycie `PostgameSummaryHeader`, zaimportować nowy `PostgameScoreboardHeader`.
+- Kontener główny:
+  ```tsx
+  const CAMERA_SAFE_ZONE_PX = 420;
+  <div className="relative w-full min-h-screen flex flex-col items-start"
+       style={{ paddingLeft: 24, paddingRight: CAMERA_SAFE_ZONE_PX,
+                paddingTop: 16, paddingBottom: 16, boxSizing: 'border-box',
+                background: 'transparent' }}>
+  ```
+  Usunąć `items-center justify-center`, `min-h-screen … gap-8 p-8`, `max-w-[1600px]`.
+- Panel: szerokość `w-full` (wypełnia strefę bezpieczną), padding `16px 20px`, margin-top 12.
+- Grid wewnątrz panelu:
+  - `columnGap: 16`, `rowGap: 4`, `alignItems: 'center'`.
+  - Wiersz nicków: `paddingBottom: 4`, margin-bottom 4 (gap nicki → pierwsza stat = ~8 px łącznie).
+- `PlayerValuesRow`: usuwamy `text-xl`, zostawiamy `text-base` zawsze (lub `text-sm` gdy `small`), `lineHeight: 1.2`, brak padding pionowego.
+- Margines pod nagłówkiem do panelu: 12 px (`marginTop: 12` na panelu).
 
-- **Wiersz nicków:** lewa komórka — subgrid N kolumn z `player_name` uppercase blue (`#2563eb`), font-esports, `border-bottom:2px solid #2563eb` opacity 0.6. Prawa lustrzanie orange (`#f97316`). Środek pusty.
-- **Wiersze 1–10:** lewa = N kolumn z wartością gracza (white, tabular-nums); środek = `PostgameTeamBarRow`; prawa = lustrzanie orange.
-- 3v3: redukcja fontu do `text-sm` (środek stałej szerokości).
+## 3. `src/components/studio/PostgameShared.tsx`
 
-10 wierszy (PL etykiety, bez padów):
+- **Usunąć** `PostgameSummaryHeader` (nieużywany po zmianie).
+- `PostgameTeamBarRow`:
+  - Wrapper: `flex flex-col gap-[2px] px-2 py-0` (zamiast `gap-2 px-3 py-1`).
+  - Pasek wysokość `10px` (z 12).
+  - Etykieta `text-[10px]` (z `text-xs`), tracking `0.2em`.
+  - Wartości po bokach `text-base` (z `text-xl`).
 
-| # | Label | Player field | Team-bar value | Format |
-|---|---|---|---|---|
-| 1 | PUNKTY | `score` | Σ player.score | num |
-| 2 | GOLE | `goals` | Σ player.goals | num |
-| 3 | KICKOFF GOALS | — (gracze `—`) | `team[side].kickoff_goals_10s` | num |
-| 4 | ASYSTY | `assists` | Σ player.assists | num |
-| 5 | STRZAŁY | `shots` | Σ player.shots | num |
-| 6 | OBRONY | `saves` | `team[side].saves` | num |
-| 7 | DEMOS | `demos` | `team[side].demos` | num |
-| 8 | CZAS NA SUPERSONIC | `supersonic_seconds` | Σ (null→0) | MM:SS / — |
-| 9 | ŚREDNI BOOST | `avg_boost` | `team[side].avg_boost` | float / — |
-| 10 | CZAS NA 100 BOOSTA | `time_at_100_seconds` | Σ (null→0) | MM:SS / — |
+## 4. `src/pages/StudioRender.tsx` — mniejszy sidebar
 
-`pad_pickups` z JSON ignorowane w UI.
+- Sidebar `width: 112`.
+- Content `marginLeft: !obs ? 118 : 0`.
+- Każdy przycisk: `padding: '10px 6px'`, `fontSize: 10`, `letterSpacing: '0.06em'`.
+- Reszta logiki (poll, hover, `?obs=1` ukrywanie) bez zmian.
 
-### 3. `src/types/studio.ts`
-Do `StudioMode` dodać `'postgame'`. Pozostawić `'postgame_players' | 'postgame_summary'` dla aliasów.
+## 5. Bez zmian
 
-### 4. `src/pages/Studio.tsx`
-W `Select` jedna opcja postgame: `<SelectItem value="postgame">Podsumowanie</SelectItem>` (usuń poprzednie dwie). Komunikat „Wymaga relay…" gdy `mode === 'postgame'`.
+- `Relay.tsx`, `usePostgameRelay.ts`, `/v2/overlay`, `ScoreboardV2.tsx`, Supabase.
+- Tryby URL, aliasy, 10 wierszy PL, brak padów, liquid glass, biały suwak.
 
-### 5. `src/pages/StudioRender.tsx`
-- `MODES`: jeden wpis `{ key:'postgame', label:'Podsumowanie' }`.
-- `const isPostgame = mode==='postgame' || mode==='postgame_players' || mode==='postgame_summary';`
-- `useStudioData({ enabled: authorized && !!tournamentId && !isPostgame })`.
-- Render: gdy `isPostgame` → `<PostgameSummary data={postgame} state={{connected:pgConnected,error:pgError}} />`.
-- Wyłącz rotację `queue` i Twitch poll gdy `isPostgame` (poll button już ograniczony do `next_3`; dodać guard `!isPostgame` w efektach rotacji).
-- Tło transparent (bez zmian).
+## 6. Definition of Done
 
-### 6. Usunięcie
-- `rm src/components/studio/PostgamePlayerCompare.tsx`
-- `rm src/components/studio/PostgameTeamSummary.tsx`
-
-## Niezmienione
-`Relay.tsx`, `usePostgameRelay.ts`, `/v2/overlay`, Supabase, `types/postgame.ts`.
-
-## Definition of Done
-- Jeden tryb „Podsumowanie" (`mode=postgame`); stare URL-e renderują ten sam ekran.
-- Nagłówek z bramkami meczu i „PODSUMOWANIE" na środku.
-- **10** pasków drużynowych z PL etykietami, KICKOFF GOALS zaraz po GOLE, biały suwak na styku.
-- Wszyscy gracze widoczni naraz, wartości wyrównane do wierszy pasków.
-- Brak wiersza padów. Liquid glass + transparent OBS. Brak regresji relay/hook.
+- 3v3: orange w pełni widoczny, prawe ~420 px puste.
+- Sidebar ~112 px w podglądzie; `?obs=1` w pełni ukrywa.
+- Wiersze wyraźnie ciaśniejsze (rowGap 4 px, brak py).
+- Nagłówek: blue tile [wynik] | „PODSUMOWANIE” | orange tile [wynik], skew −15°, pod spodem nazwy drużyn.
+- OBS transparent, brak regresji danych.

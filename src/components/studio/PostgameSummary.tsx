@@ -4,12 +4,12 @@ import {
   BLUE,
   ORANGE,
   PostgameGlassPanel,
-  PostgameSummaryHeader,
   PostgameTeamBarRow,
   TEXT_SHADOW,
   formatValue,
   type PostgameRowFormat,
 } from './PostgameShared';
+import { PostgameScoreboardHeader } from './PostgameScoreboardHeader';
 
 interface Props {
   data: PostgamePayload | null;
@@ -134,13 +134,14 @@ function PlayerNamesRow({
         gridTemplateColumns: `repeat(${players.length}, minmax(0, 1fr))`,
         borderBottom: `2px solid ${color}`,
         opacity: 1,
-        paddingBottom: 8,
+      paddingBottom: 4,
+      marginBottom: 4,
       }}
     >
       {players.map((p, i) => (
         <div
           key={`${p.player_name}-${i}`}
-          className={`truncate text-center font-bold tracking-wider ${small ? 'text-base' : 'text-xl'}`}
+        className={`truncate text-center font-bold tracking-wider ${small ? 'text-sm' : 'text-base'}`}
           style={{ color, textShadow: TEXT_SHADOW }}
         >
           {p.player_name}
@@ -172,8 +173,8 @@ function PlayerValuesRow({
         return (
           <div
             key={`${p.player_name}-${row.label}-${i}`}
-            className={`text-center font-bold tabular-nums text-white ${small ? 'text-base' : 'text-xl'}`}
-            style={{ textShadow: TEXT_SHADOW }}
+            className={`text-center font-bold tabular-nums text-white ${small ? 'text-sm' : 'text-base'}`}
+            style={{ textShadow: TEXT_SHADOW, lineHeight: 1.2 }}
           >
             {text}
           </div>
@@ -199,24 +200,34 @@ export function PostgameSummary({ data, state }: Props) {
   const gridStyle: CSSProperties = {
     display: 'grid',
     gridTemplateColumns: '1fr minmax(320px, 420px) 1fr',
-    columnGap: 24,
-    rowGap: 18,
+    columnGap: 16,
+    rowGap: 4,
     alignItems: 'center',
   };
 
+  const CAMERA_SAFE_ZONE_PX = 420;
+
   return (
     <div
-      className="min-h-screen w-full flex flex-col items-center justify-center gap-8 p-8"
-      style={{ background: 'transparent' }}
+      className="relative w-full min-h-screen flex flex-col items-start"
+      style={{
+        background: 'transparent',
+        paddingLeft: 24,
+        paddingRight: CAMERA_SAFE_ZONE_PX,
+        paddingTop: 16,
+        paddingBottom: 16,
+        boxSizing: 'border-box',
+      }}
     >
-      <PostgameSummaryHeader
+      <PostgameScoreboardHeader
         teamNames={data.team_names}
         blueScore={data.blue_score}
         orangeScore={data.orange_score}
       />
 
       <PostgameGlassPanel
-        className="w-full max-w-[1600px] px-10 py-8"
+        className="w-full"
+        style={{ padding: '16px 20px', marginTop: 12 }}
       >
         <div style={gridStyle}>
           {/* Header row — player nicks */}
