@@ -134,13 +134,14 @@ function PlayerNamesRow({
         gridTemplateColumns: `repeat(${players.length}, minmax(0, 1fr))`,
         borderBottom: `2px solid ${color}`,
         opacity: 1,
-        paddingBottom: 8,
+      paddingBottom: 4,
+      marginBottom: 4,
       }}
     >
       {players.map((p, i) => (
         <div
           key={`${p.player_name}-${i}`}
-          className={`truncate text-center font-bold tracking-wider ${small ? 'text-base' : 'text-xl'}`}
+        className={`truncate text-center font-bold tracking-wider ${small ? 'text-sm' : 'text-base'}`}
           style={{ color, textShadow: TEXT_SHADOW }}
         >
           {p.player_name}
