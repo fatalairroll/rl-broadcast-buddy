@@ -96,8 +96,8 @@ export function PostgameTeamBarRow({
           {formatValue(blueValue, format)}
         </div>
         <div
-          className="text-[10px] tracking-[0.2em] text-center"
-          style={{ color: 'rgba(255,255,255,0.6)' }}
+          className="text-[9px] tracking-[0.05em] text-center"
+          style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.1 }}
         >
           {label}
         </div>
