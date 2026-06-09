@@ -7,10 +7,10 @@ interface Props {
 }
 
 const SKEW = -15;
-const BLUE_W = 140;
-const ORANGE_W = 140;
-const MID_W = 260;
-const TILE_H = 100;
+const BLUE_W = 85;
+const ORANGE_W = 85;
+const MID_W = 190;
+const TILE_H = 50;
 const TOTAL_W = BLUE_W + MID_W + ORANGE_W;
 
 const BLUE_GRADIENT = 'linear-gradient(135deg,#1e3a8a,#2563eb,#3b82f6)';
@@ -44,7 +44,7 @@ export function PostgameScoreboardHeader({
             className="font-esports tabular-nums tracking-tight"
             style={{
               transform: `skewX(${-SKEW}deg)`,
-              fontSize: 60,
+              fontSize: 34,
               fontWeight: 900,
               color: '#fff',
               textShadow: TEXT_SHADOW,
@@ -71,9 +71,9 @@ export function PostgameScoreboardHeader({
             className="font-esports uppercase"
             style={{
               transform: `skewX(${-SKEW}deg)`,
-              fontSize: 24,
+              fontSize: 15,
               fontWeight: 900,
-              letterSpacing: '0.22em',
+              letterSpacing: '0.18em',
               color: '#fff',
               textShadow: TEXT_SHADOW,
               lineHeight: 1,
@@ -98,7 +98,7 @@ export function PostgameScoreboardHeader({
             className="font-esports tabular-nums tracking-tight"
             style={{
               transform: `skewX(${-SKEW}deg)`,
-              fontSize: 60,
+              fontSize: 34,
               fontWeight: 900,
               color: '#fff',
               textShadow: TEXT_SHADOW,
@@ -108,29 +108,6 @@ export function PostgameScoreboardHeader({
             {orangeScore}
           </span>
         </div>
-      </div>
-
-      {/* Team names row */}
-      <div
-        className="flex items-center justify-between font-esports uppercase"
-        style={{
-          width: TOTAL_W,
-          marginTop: 6,
-          fontSize: 16,
-          letterSpacing: '0.1em',
-          color: 'rgba(255,255,255,0.85)',
-          textShadow: TEXT_SHADOW,
-        }}
-      >
-        <span className="truncate" style={{ maxWidth: TOTAL_W / 2 - 20 }}>
-          {teamNames.blue}
-        </span>
-        <span
-          className="truncate text-right"
-          style={{ maxWidth: TOTAL_W / 2 - 20 }}
-        >
-          {teamNames.orange}
-        </span>
       </div>
     </div>
   );

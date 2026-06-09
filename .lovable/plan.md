@@ -1,63 +1,83 @@
-# Studio — Layout Tweaks (post Unified Layout)
+# Studio — kompletna naprawa layoutu
 
-Scope: 3 narrow fixes. No changes to Relay, live overlay (`/v2/overlay`, `ScoreboardV2`), Supabase, or postgame data logic.
+Implementacja wyłącznie wg dokumentu użytkownika. Bez zmian w Relay, live `/v2/overlay`, Supabase.
 
----
+## 1. `src/lib/studio-layout.ts` — przepisanie
 
-## 1. Camera safe zone: 325 → 450
+Nowe stałe (usuwam wszystkie poprzednie):
+- `STUDIO_STAGE_WIDTH = 1920`, `STUDIO_STAGE_HEIGHT = 1080`
+- `STUDIO_CONTENT_MAX_WIDTH = 956` (jedna szerokość dla wszystkich trybów)
+- `STUDIO_CAMERA_SAFE_RIGHT = 450`
+- `STUDIO_AVAILABLE_WIDTH = 1470`
+- `STUDIO_PADDING_TOP = 24`
+- `STUDIO_PADDING_BOTTOM = 32`
+- `STUDIO_SIDEBAR_WIDTH = 112`
+- Helper `studioContentStyle(obs)` zwracający pełny CSS frame.
 
-**File:** `src/lib/studio-layout.ts`
+Usuwam: `STUDIO_MAX_WIDTH_DEFAULT`, `STUDIO_MAX_WIDTH_POSTGAME`.
 
-```ts
-export const STUDIO_CAMERA_SAFE_RIGHT = 450; // was 325
-```
+## 2. `src/components/studio/StudioContentFrame.tsx` — uproszczenie
 
-Applies automatically everywhere via `StudioContentFrame`. Usable UI strip becomes `1920 − 112 (sidebar) − 450 = 1358 px` in preview, `1920 − 450 = 1470 px` in OBS.
+- Usunąć propy `maxWidth`, `paddingBottom`.
+- Tylko propy `children`, `obs`.
+- Outer `div` używa `studioContentStyle(obs)`.
+- Inner `div`: `width:100%, maxWidth:956, margin:'0 auto'`.
 
----
+## 3. `src/pages/StudioRender.tsx`
 
-## 2. `next_3`: queue fully visible on 1080p
+- Import nowych stałych (usunąć `STUDIO_MAX_WIDTH_POSTGAME`).
+- Sidebar bez zmian (już flush left, 112px, borderRadius `0 12px 12px 0`, borderLeft none).
+- Wszystkie 4 tryby renderują się w `<StudioContentFrame obs={obs}>` bez dodatkowych propów.
+- Usunąć `paddingBottom={24}` z next_3 (frame ma stały 32 bottom).
 
-Currently `StudioContentFrame` forces `alignItems: 'center'` (vertical centering not needed because `min-h-screen` + `flex-col`; horizontal stays centered via inner `margin: 0 auto`). The 95 px bottom padding pushes the rotating queue out of view in some states.
+## 4. `src/components/studio/RecentMatchesTable.tsx`
 
-**File:** `src/components/studio/StudioContentFrame.tsx`
+- Usunąć `max-w-[1100px]` (już zrobione w poprzedniej iteracji — zweryfikować).
 
-- Add optional props `paddingBottom?: number` and `justify?: 'start' | 'center'` (default `start` — current behavior already starts from top).
-- Keep horizontal centering via inner wrapper `margin: 0 auto`; remove reliance on outer `alignItems: 'center'` (it has no effect on column flex children that are already full width). No visible change for other modes.
+## 5. `src/components/studio/BracketView.tsx`
 
-**File:** `src/pages/StudioRender.tsx`
+- Usunąć ewentualne lokalne safe-area / paddingRight (kamera daje frame).
 
-For the `next_3` branch:
-```tsx
-<StudioContentFrame obs={obs} paddingBottom={24}>
-```
-Other modes keep the default 95 px bottom padding.
+## 6. `src/components/studio/PostgameSummary.tsx`
 
-Result: the active `MatchCard` plus rotating `upcomingMatches` list fits within `1080 − 92 − 24 = 964 px` of vertical space.
+- Owijka root: `<div className="w-full flex flex-col items-center">`.
+- Header w `<div className="flex w-full justify-center">` (jest).
+- `PostgameGlassPanel` `marginTop: 8` (było 12).
+- Zachować `rowGap: 4` w grid, padding `16px 20px`.
+- Bez własnych paddingów / `min-h-screen` / `items-start`.
 
----
+## 7. `src/components/studio/PostgameScoreboardHeader.tsx` — kompakt ~50%
 
-## 3. `PostgameScoreboardHeader` centered relative to glass-panel width
+| Element | Było | Będzie |
+|---|---|---|
+| `TILE_H` | 100 | **50** |
+| `BLUE_W` / `ORANGE_W` | 140 | **85** |
+| `MID_W` | 260 | **190** |
+| fontSize wyniku | 60 | **34** |
+| fontSize "PODSUMOWANIE" | 24 | **15**, letterSpacing 0.18em |
 
-The header is fixed at `TOTAL_W = 540 px` and currently renders left-aligned at the top of the postgame frame. The glass panel below is full inner width (up to `STUDIO_MAX_WIDTH_POSTGAME = 1020`), so the header looks offset to the left.
+- **Usunąć** wiersz `Team names row` (BLUE/ORANGE pod kafelkami) — cały drugi `<div>`.
+- Szerokość TOTAL_W = 360.
 
-**File:** `src/components/studio/PostgameSummary.tsx`
+## 8. `src/components/studio/MatchCard.tsx` (opcjonalnie)
 
-Wrap `<PostgameScoreboardHeader … />` in a centered container:
+Jeśli kolejka next_3 nadal ucięta po zmniejszeniu top padding:
+- Root wrapper `p-6` → `p-4`.
+- HeaderPanel `mb-8` → `mb-4`.
 
-```tsx
-<div className="flex w-full justify-center">
-  <PostgameScoreboardHeader … />
-</div>
-```
+Najpierw zweryfikować wizualnie po pkt. 1-7; zmienić tylko jeśli kolejka nie mieści się w 1080p.
 
-No changes to `PostgameScoreboardHeader` internals or to the glass panel.
+## Pliki edytowane
 
----
+- `src/lib/studio-layout.ts` (rewrite)
+- `src/components/studio/StudioContentFrame.tsx` (rewrite)
+- `src/pages/StudioRender.tsx` (usunąć propy z frame)
+- `src/components/studio/PostgameSummary.tsx` (drobne)
+- `src/components/studio/PostgameScoreboardHeader.tsx` (kompakt + usunąć BLUE/ORANGE)
+- `src/components/studio/BracketView.tsx` (sprawdzić/usunąć duplikat paddingRight)
+- `src/components/studio/RecentMatchesTable.tsx` (sprawdzić — `max-w-[1100px]` już usunięty)
+- `src/components/studio/MatchCard.tsx` (warunkowo, po weryfikacji)
 
-## Out of scope (do not touch)
+## Nie edytuję
 
-- `Relay.tsx`, `usePostgameRelay.ts`, `/v2/overlay`, `ScoreboardV2.tsx`
-- Supabase schema / RLS / edge functions
-- Sidebar width (112), `?obs=1` logic, poll button, OBS transparency
-- Postgame data rows, MatchCard, BracketView, RecentMatchesTable internals
+`Relay.tsx`, `ScoreboardV2.tsx`, `/v2/overlay`, Supabase, sidebar layout, hooks, twitch-poll.

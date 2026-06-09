@@ -206,7 +206,7 @@ export function PostgameSummary({ data, state }: Props) {
   };
 
   return (
-    <>
+    <div className="w-full flex flex-col items-center">
       <div className="flex w-full justify-center">
         <PostgameScoreboardHeader
           teamNames={data.team_names}
@@ -217,7 +217,7 @@ export function PostgameSummary({ data, state }: Props) {
 
       <PostgameGlassPanel
         className="w-full"
-        style={{ padding: '16px 20px', marginTop: 12 }}
+        style={{ padding: '16px 20px', marginTop: 8 }}
       >
         <div style={gridStyle}>
           {/* Header row — player nicks */}
@@ -237,7 +237,7 @@ export function PostgameSummary({ data, state }: Props) {
           ))}
         </div>
       </PostgameGlassPanel>
-    </>
+    </div>
   );
 }
 
