@@ -64,6 +64,7 @@ export type StudioMode =
   | 'next_3'
   | 'bracket'
   | 'recent'
+  | 'postgame'
   | 'postgame_players'
   | 'postgame_summary';
 

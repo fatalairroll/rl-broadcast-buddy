@@ -36,7 +36,10 @@ export function fmtSeconds(n: number | null | undefined): string {
 
 export type PostgameRowFormat = 'number' | 'seconds' | 'float';
 
-function formatValue(v: number | null | undefined, fmt: PostgameRowFormat): string {
+export function formatValue(
+  v: number | null | undefined,
+  fmt: PostgameRowFormat,
+): string {
   switch (fmt) {
     case 'seconds':
       return fmtSeconds(v);
@@ -61,48 +64,60 @@ export function PostgameGlassPanel({ children, className, style }: PanelProps) {
   );
 }
 
-interface HeaderProps {
+interface SummaryHeaderProps {
   teamNames: { blue: string; orange: string };
   blueScore: number;
   orangeScore: number;
 }
 
-export function PostgameMatchHeader({ teamNames, blueScore, orangeScore }: HeaderProps) {
+export function PostgameSummaryHeader({
+  teamNames,
+  blueScore,
+  orangeScore,
+}: SummaryHeaderProps) {
   return (
     <div
-      className="font-esports flex items-center justify-center gap-8 uppercase"
+      className="font-esports flex items-center justify-center gap-10 uppercase"
       style={{ textShadow: TEXT_SHADOW }}
     >
-      <div className="text-3xl text-zinc-200 tracking-wider truncate max-w-[420px] text-right">
+      <div className="text-4xl text-zinc-100 tracking-wider truncate max-w-[420px] text-right">
         {teamNames.blue}
       </div>
-      <div className="text-6xl font-black tabular-nums" style={{ color: BLUE }}>
+      <div
+        className="text-[64px] leading-none font-black tabular-nums"
+        style={{ color: BLUE }}
+      >
         {blueScore}
       </div>
-      <div className="text-2xl text-zinc-500">vs</div>
-      <div className="text-6xl font-black tabular-nums" style={{ color: ORANGE }}>
+      <div className="text-3xl tracking-[0.35em] text-zinc-200 px-4">
+        PODSUMOWANIE
+      </div>
+      <div
+        className="text-[64px] leading-none font-black tabular-nums"
+        style={{ color: ORANGE }}
+      >
         {orangeScore}
       </div>
-      <div className="text-3xl text-zinc-200 tracking-wider truncate max-w-[420px] text-left">
+      <div className="text-4xl text-zinc-100 tracking-wider truncate max-w-[420px] text-left">
         {teamNames.orange}
       </div>
     </div>
   );
 }
 
-interface RowProps {
+interface BarRowProps {
   label: string;
   blueValue: number | null | undefined;
   orangeValue: number | null | undefined;
   format?: PostgameRowFormat;
 }
 
-export function PostgameProgressRow({
+export function PostgameTeamBarRow({
   label,
   blueValue,
   orangeValue,
   format = 'number',
-}: RowProps) {
+}: BarRowProps) {
   const blueRaw = blueValue ?? 0;
   const orangeRaw = orangeValue ?? 0;
   const total = blueRaw + orangeRaw;
@@ -110,13 +125,13 @@ export function PostgameProgressRow({
   const orangePct = 100 - bluePct;
 
   return (
-    <div className="flex flex-col gap-2 px-2">
+    <div className="flex flex-col gap-2 px-3 py-1">
       <div
         className="font-esports grid grid-cols-3 items-center uppercase"
         style={{ textShadow: TEXT_SHADOW }}
       >
         <div
-          className="text-2xl font-bold tabular-nums text-left"
+          className="text-xl font-bold tabular-nums text-left"
           style={{ color: BLUE }}
         >
           {formatValue(blueValue, format)}
@@ -128,23 +143,35 @@ export function PostgameProgressRow({
           {label}
         </div>
         <div
-          className="text-2xl font-bold tabular-nums text-right"
+          className="text-xl font-bold tabular-nums text-right"
           style={{ color: ORANGE }}
         >
           {formatValue(orangeValue, format)}
         </div>
       </div>
       <div
-        className="flex h-[10px] w-full overflow-hidden rounded-full"
+        className="relative flex h-[12px] w-full overflow-visible rounded-full"
         style={{ background: 'rgba(255,255,255,0.06)' }}
       >
         <div
-          className="h-full transition-all duration-300"
+          className="h-full rounded-l-full transition-all duration-300"
           style={{ width: `${bluePct}%`, background: BLUE_GRADIENT }}
         />
         <div
-          className="h-full transition-all duration-300"
+          className="h-full rounded-r-full transition-all duration-300"
           style={{ width: `${orangePct}%`, background: ORANGE_GRADIENT }}
+        />
+        <div
+          className="pointer-events-none absolute top-1/2"
+          style={{
+            left: `${bluePct}%`,
+            transform: 'translate(-50%, -50%)',
+            width: 3,
+            height: 22,
+            background: '#fff',
+            borderRadius: 2,
+            boxShadow: '0 0 6px rgba(255,255,255,0.6)',
+          }}
         />
       </div>
     </div>
