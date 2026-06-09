@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchMatches, fetchTournaments } from '@/lib/mmrivals-api';
+import { filterNext3VisibleMatches } from '@/lib/studio-match-utils';
 import type { Tournament, MatchData, MatchResponse, StudioMode } from '@/types/studio';
 
 function extractMatchNumber(matchId: string): number {
@@ -98,8 +99,8 @@ export function useStudioData({
             if (aHasCheckIn !== bHasCheckIn) return aHasCheckIn ? -1 : 1;
             if (a.round_index !== b.round_index) return a.round_index - b.round_index;
             return extractMatchNumber(a.match_id) - extractMatchNumber(b.match_id);
-          })
-          .slice(0, count);
+          });
+        resultMatches = filterNext3VisibleMatches(resultMatches).slice(0, count);
       }
 
       setMatches(resultMatches);

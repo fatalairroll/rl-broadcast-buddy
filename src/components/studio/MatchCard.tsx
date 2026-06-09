@@ -3,6 +3,7 @@ import { BarChart3, Check, Clock } from 'lucide-react';
 import type { MatchData, PlayerData, PollResults, TeamData } from '@/types/studio';
 import { RankIcon } from './RankIcon';
 import { getRankFromMmr, normalizeRankName, isValidRank } from '@/lib/rank-utils';
+import { isFullyTbdMatch } from '@/lib/studio-match-utils';
 
 function formatCheckInTime(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -393,12 +394,13 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
 }
 
 function UpcomingQueue({ matches, pollResults }: { matches: MatchData[]; pollResults?: PollResults }) {
-  if (matches.length === 0) return null;
+  const visible = matches.filter((m) => !isFullyTbdMatch(m));
+  if (visible.length === 0) return null;
 
   return (
     <div className="flex flex-col items-center gap-[2px] mt-1" style={{ marginLeft: '3px' }}>
       <AnimatePresence mode="popLayout">
-        {matches.map((m, i) => {
+        {visible.map((m) => {
           const pollKey = `Runda ${m.round_index} Mecz ${m.match_index ?? '?'}`;
           return (
             <motion.div

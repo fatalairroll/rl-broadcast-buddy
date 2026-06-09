@@ -22,8 +22,16 @@ export const STUDIO_SIDEBAR_WIDTH = 112;
 /** Dodatkowy offset w dół tylko dla trybu recent (kompaktowy box) */
 export const STUDIO_RECENT_OFFSET_TOP = 56;
 
-/** Szerokość kolumny pasków H2H w postgame (było ~280px → −40%) */
-export const POSTGAME_CENTER_COL_WIDTH = 168;
+/**
+ * Szerokość kolumny pasków H2H w postgame.
+ * 208px mieści 1-liniowe etykiety przy jednolitym foncie 10px
+ * (najdłuższe: „CZAS NA SUPERSONIC", „CZAS NA 100 BOOSTA").
+ */
+export const POSTGAME_CENTER_COL_WIDTH = 208;
+
+/** Jednolity rozmiar etykiet nad paskami — wszystkie 10 wierszy */
+export const POSTGAME_BAR_LABEL_FONT_SIZE = 10; // px
+export const POSTGAME_BAR_LABEL_LETTER_SPACING = '0.05em';
 
 export function studioContentStyle(obs: boolean): CSSProperties {
   return {

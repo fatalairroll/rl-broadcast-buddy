@@ -1,4 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react';
+import {
+  POSTGAME_BAR_LABEL_FONT_SIZE,
+  POSTGAME_BAR_LABEL_LETTER_SPACING,
+} from '@/lib/studio-layout';
 
 export const BLUE = '#2563eb';
 export const ORANGE = '#f97316';
@@ -96,8 +100,14 @@ export function PostgameTeamBarRow({
           {formatValue(blueValue, format)}
         </div>
         <div
-          className="text-[9px] tracking-[0.05em] text-center"
-          style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.1 }}
+          className="font-esports text-center"
+          style={{
+            fontSize: POSTGAME_BAR_LABEL_FONT_SIZE,
+            letterSpacing: POSTGAME_BAR_LABEL_LETTER_SPACING,
+            lineHeight: 1,
+            whiteSpace: 'nowrap',
+            color: 'rgba(255,255,255,0.6)',
+          }}
         >
           {label}
         </div>
