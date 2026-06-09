@@ -8,7 +8,6 @@ import { BracketView } from '@/components/studio/BracketView';
 import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
 import { PostgameSummary } from '@/components/studio/PostgameSummary';
 import { StudioContentFrame } from '@/components/studio/StudioContentFrame';
-import { STUDIO_MAX_WIDTH_POSTGAME } from '@/lib/studio-layout';
 import { usePostgameRelay } from '@/hooks/usePostgameRelay';
 import { supabase } from '@/integrations/supabase/client';
 import type { StudioMode, MatchData, PollResults } from '@/types/studio';
@@ -256,7 +255,7 @@ export default function StudioRender() {
 
       {/* Content — unified frame for all modes */}
       {isPostgame ? (
-        <StudioContentFrame obs={obs} maxWidth={STUDIO_MAX_WIDTH_POSTGAME}>
+        <StudioContentFrame obs={obs}>
           <PostgameSummary
             data={postgame}
             state={{ postgame, connected: pgConnected, error: pgError }}
@@ -271,7 +270,7 @@ export default function StudioRender() {
           <RecentMatchesTable matches={matches} />
         </StudioContentFrame>
       ) : (
-        <StudioContentFrame obs={obs} paddingBottom={24}>
+        <StudioContentFrame obs={obs}>
           <div className="flex flex-col gap-4">
             <AnimatePresence mode="wait">
               {activeMatch && (
