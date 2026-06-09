@@ -32,11 +32,16 @@ export default function StudioRender() {
 
   const [mode, setMode] = useState<StudioMode>(initialMode);
 
+  const isPostgame =
+    mode === 'postgame' ||
+    mode === 'postgame_players' ||
+    mode === 'postgame_summary';
+
   const { tournament, matches, isLoading, error } = useStudioData({
     tournamentId,
     mode,
     count,
-    enabled: authorized && !!tournamentId && mode !== 'postgame_players' && mode !== 'postgame_summary',
+    enabled: authorized && !!tournamentId && !isPostgame,
     pollInterval: 5000,
   });
 
@@ -56,12 +61,12 @@ export default function StudioRender() {
 
   // Rotate queue every 6s
   useEffect(() => {
-    if (queue.length <= 1 || mode !== 'next_3') return;
+    if (queue.length <= 1 || mode !== 'next_3' || isPostgame) return;
     const timer = setInterval(() => {
       setQueue(prev => [...prev.slice(1), prev[0]]);
     }, ROTATE_INTERVAL);
     return () => clearInterval(timer);
-  }, [queue.length, mode]);
+  }, [queue.length, mode, isPostgame]);
 
   // Force transparent background for OBS
   useEffect(() => {
@@ -150,7 +155,7 @@ export default function StudioRender() {
   }, [activePollId]);
 
   if (!authorized) return null;
-  if (isLoading && mode !== 'postgame_players' && mode !== 'postgame_summary') return null;
+  if (isLoading && !isPostgame) return null;
 
   if (error) {
     return (
@@ -248,20 +253,15 @@ export default function StudioRender() {
 
       {/* Content — offset when sidebar is visible */}
       <div style={{ marginLeft: !params.get('obs') ? 190 : 0 }}>
-        {mode === 'bracket' ? (
+        {isPostgame ? (
+          <PostgameSummary
+            data={postgame}
+            state={{ postgame, connected: pgConnected, error: pgError }}
+          />
+        ) : mode === 'bracket' ? (
           <BracketView matches={matches} />
         ) : mode === 'recent' ? (
           <RecentMatchesTable matches={matches} />
-        ) : mode === 'postgame_players' ? (
-          <PostgamePlayerCompare
-            data={postgame}
-            state={{ connected: pgConnected, error: pgError }}
-          />
-        ) : mode === 'postgame_summary' ? (
-          <PostgameTeamSummary
-            data={postgame}
-            state={{ connected: pgConnected, error: pgError }}
-          />
         ) : (
           <div className="flex flex-col gap-4 p-4">
             <AnimatePresence mode="wait">
