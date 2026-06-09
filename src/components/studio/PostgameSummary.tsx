@@ -172,8 +172,8 @@ function PlayerValuesRow({
         return (
           <div
             key={`${p.player_name}-${row.label}-${i}`}
-            className={`text-center font-bold tabular-nums text-white ${small ? 'text-base' : 'text-xl'}`}
-            style={{ textShadow: TEXT_SHADOW }}
+            className={`text-center font-bold tabular-nums text-white ${small ? 'text-sm' : 'text-base'}`}
+            style={{ textShadow: TEXT_SHADOW, lineHeight: 1.2 }}
           >
             {text}
           </div>
