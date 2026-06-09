@@ -142,8 +142,8 @@ function PlayerNamesRow({
       {players.map((p, i) => (
         <div
           key={`${p.player_name}-${i}`}
-        className={`truncate text-center font-bold tracking-wider ${small ? 'text-sm' : 'text-base'}`}
-          style={{ color, textShadow: TEXT_SHADOW }}
+          className={`text-center font-bold tracking-wider ${small ? 'text-xs' : 'text-sm'}`}
+          style={{ color, textShadow: TEXT_SHADOW, whiteSpace: 'nowrap', overflow: 'visible' }}
         >
           {p.player_name}
         </div>
