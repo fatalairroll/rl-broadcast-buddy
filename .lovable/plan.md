@@ -1,66 +1,57 @@
-## Część A — next_3: ukryj mecze TBD vs TBD
+## Cel
 
-### 1. Nowy plik `src/lib/studio-match-utils.ts`
-- `isTeamTbd(team)` — true gdy `name` puste lub `"TBD"` (case-insensitive, po trim).
-- `isFullyTbdMatch(match)` — oba sloty TBD.
-- `filterNext3VisibleMatches(matches)` — odsiewa fully-TBD.
+Wyśrodkować etykiety nad paskami H2H w `PostgameTeamBarRow` tak, by oś etykiety = oś paska, niezależnie od długości tekstu (np. „CZAS NA 100 BOOSTA").
 
-### 2. `src/hooks/useStudioData.ts`
-W gałęzi `mode === 'next_3'`, po istniejącym filter+sort, **przed** `.slice(0, count)`:
-```ts
-resultMatches = filterNext3VisibleMatches(resultMatches).slice(0, count);
+## Przyczyna
+
+Aktualnie wiersz używa `grid grid-cols-3` (wartość blue / label / wartość orange). Komórka środkowa ma ~⅓ szerokości kolumny 208px (~69px). Etykieta z `whiteSpace: nowrap` przekracza tę komórkę, a `text-align: center` na zawartości szerszej niż kontener daje efekt „od środka w prawo" (lewa część poza widoczną kolumną przez clipping panelu).
+
+## Rozwiązanie strukturalne
+
+Zmienić `PostgameTeamBarRow` na układ pionowy o pełnej szerokości kolumny środkowej (208px):
+
 ```
-Pozostałe tryby bez zmian (bracket, recent — TBD może występować).
-
-### 3. `src/pages/StudioRender.tsx`
-W gałęzi `next_3` opakować render w guard `queue.length > 0` — gdy 0 meczów, nie renderuj `MatchCard` (`null`/transparent). Rotacja i poll bez zmian.
-
-### 4. `src/components/studio/MatchCard.tsx`
-W `UpcomingQueue` (lub odpowiedniku) na początku:
-```ts
-const visible = matches.filter((m) => !isFullyTbdMatch(m));
-if (visible.length === 0) return null;
+┌────────── 208px ──────────┐
+│ [blue#]  [orange#]        │  ← wartości flankują pasek w jednym wierszu
+│  ╔═══════ label ═══════╗  │  ← etykieta: width:100%, text-align:center
+│  ╚═══════ bar ═══════ ╝   │  ← pasek: width:100% (ta sama oś co label)
+└───────────────────────────┘
 ```
-Pojedyncze TBD (Team vs TBD) — bez zmian wyświetlania.
 
----
+Konkretnie:
 
-## Część B — Postgame: jednolite etykiety pasków, 1 linia
+- Root `<div>`: `width: 100%`, `display: flex`, `flexDirection: 'column'`, `alignItems: 'stretch'` (usunąć `grid-cols-3` z głównego layoutu wartości+label).
+- **Wiersz wartości** (osobny, nad etykietą): `display: flex`, `justifyContent: 'space-between'` — blue value po lewej, orange po prawej (bez label w środku).
+- **Etykieta**: wrapper `width: 100%`, `<span>` z `display: block`, `width: 100%`, `textAlign: 'center'`, `whiteSpace: 'nowrap'`, font 10px / letter-spacing 0.05em (z `studio-layout`).
+- **Pasek**: `width: 100%`, `height: 10px` — bez zmian wizualnych gradientów/suwaka.
 
-### 5. `src/lib/studio-layout.ts`
-- `POSTGAME_CENTER_COL_WIDTH` z `168` → **`208`**.
-- Dodać:
-  - `POSTGAME_BAR_LABEL_FONT_SIZE = 10` (px)
-  - `POSTGAME_BAR_LABEL_LETTER_SPACING = '0.05em'`
+Brak `items-center` na root, brak `transform: translateX(-50%)` na etykiecie, brak `overflow: hidden` na wrapperze etykiety (etykieta i kolumna mają tę samą szerokość — nic nie przycina).
 
-### 6. `src/components/studio/PostgameShared.tsx` — `PostgameTeamBarRow`
-Etykieta środkowa: jednolity styl dla wszystkich 10 wierszy.
-- `fontSize: POSTGAME_BAR_LABEL_FONT_SIZE`
-- `letterSpacing: POSTGAME_BAR_LABEL_LETTER_SPACING`
-- `lineHeight: 1`
-- `whiteSpace: 'nowrap'`
-- `textTransform: 'uppercase'`, `textAlign: 'center'`, `color: rgba(255,255,255,0.6)`
-- Klasa `font-esports` (zachować).
-- Usunąć obecne `text-[9px]` / `lineHeight: 1.1`.
-- Pasek (10px) i suwak — bez zmian.
+## Zmiana w `PostgameSummary.tsx`
 
-### 7. `src/components/studio/PostgameSummary.tsx`
-- Importowany `POSTGAME_CENTER_COL_WIDTH` automatycznie podbije kolumnę do 208px (grid już używa stałej).
-- Nicki: bez zmian (`nowrap`, bez `truncate`). Jeśli 3v3 będzie ciasno — opcjonalnie wartości graczy do `text-sm`, etykiet pasków NIE ruszać.
+Komórka środkowa gridu wierszy statystyk już używa `POSTGAME_CENTER_COL_WIDTH` w `gridTemplateColumns`. Dodać do każdej instancji `PostgameTeamBarRow` (lub do owijającego div) explicit:
 
----
+```
+style={{ width: POSTGAME_CENTER_COL_WIDTH, maxWidth: POSTGAME_CENTER_COL_WIDTH, minWidth: 0 }}
+```
+
+aby grid nie zwężał kolumny przy nadmiarze treści.
 
 ## Pliki
 
-| Plik | Akcja |
-|---|---|
-| `src/lib/studio-match-utils.ts` | nowy |
-| `src/lib/studio-layout.ts` | edit — 208 + stałe fontu |
-| `src/hooks/useStudioData.ts` | edit — filtr TBD w next_3 |
-| `src/pages/StudioRender.tsx` | edit — guard pustej kolejki |
-| `src/components/studio/MatchCard.tsx` | edit — filtr w UpcomingQueue |
-| `src/components/studio/PostgameShared.tsx` | edit — jednolite etykiety |
-| `src/components/studio/PostgameSummary.tsx` | weryfikacja importu (bez zmian logiki) |
+| Plik | Zmiana |
+|------|--------|
+| `src/components/studio/PostgameShared.tsx` | Przebudowa `PostgameTeamBarRow`: wartości w osobnym flex-row na górze, label full-width centered, bar full-width — oba na osi 208px |
+| `src/components/studio/PostgameSummary.tsx` | Wrap środkowej komórki w div o stałej szerokości `POSTGAME_CENTER_COL_WIDTH` z `minWidth: 0` |
 
 ## Bez zmian
-`Relay.tsx`, `/v2/overlay`, Supabase, `StudioContentFrame`, bracket/recent layout.
+
+- `studio-layout.ts` (208 / font 10 zostają — fallback do 216/220 dopiero po teście wizualnym, jeśli najdłuższa etykieta nadal nie mieści się w 208px)
+- `useStudioData`, filtr TBD (część A), Relay, `StudioContentFrame`, scoreboard header, wiersze nicków graczy
+
+## Definition of Done
+
+- 10/10 etykiet wyśrodkowanych względem osi paska
+- „CZAS NA SUPERSONIC" / „ŚREDNI BOOST" / „CZAS NA 100 BOOSTA" bez pustego lewego marginesu
+- Wartości blue/orange nadal widoczne i czytelne (kolory BLUE/ORANGE, tabular-nums)
+- Brak regresji w wierszach nicków graczy i scoreboard header

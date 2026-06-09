@@ -88,36 +88,62 @@ export function PostgameTeamBarRow({
   const orangePct = 100 - bluePct;
 
   return (
-    <div className="flex flex-col gap-[2px] px-2 py-0">
+    <div
+      style={{
+        width: '100%',
+        maxWidth: '100%',
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        padding: '0 8px',
+      }}
+    >
+      {/* Values row — blue left / orange right, label NOT here */}
       <div
-        className="font-esports grid grid-cols-3 items-center uppercase"
-        style={{ textShadow: TEXT_SHADOW }}
+        className="font-esports uppercase"
+        style={{
+          display: 'flex',
+          width: '100%',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          textShadow: TEXT_SHADOW,
+        }}
       >
-        <div
-          className="text-base font-bold tabular-nums text-left"
+        <span
+          className="text-base font-bold tabular-nums"
           style={{ color: BLUE }}
         >
           {formatValue(blueValue, format)}
-        </div>
-        <div
-          className="font-esports text-center"
+        </span>
+        <span
+          className="text-base font-bold tabular-nums"
+          style={{ color: ORANGE }}
+        >
+          {formatValue(orangeValue, format)}
+        </span>
+      </div>
+
+      {/* Label — full width, centered on the bar's axis */}
+      <div style={{ width: '100%', marginBottom: 2 }}>
+        <span
+          className="font-esports"
           style={{
+            display: 'block',
+            width: '100%',
             fontSize: POSTGAME_BAR_LABEL_FONT_SIZE,
             letterSpacing: POSTGAME_BAR_LABEL_LETTER_SPACING,
             lineHeight: 1,
             whiteSpace: 'nowrap',
+            textAlign: 'center',
+            textTransform: 'uppercase',
             color: 'rgba(255,255,255,0.6)',
           }}
         >
           {label}
-        </div>
-        <div
-          className="text-base font-bold tabular-nums text-right"
-          style={{ color: ORANGE }}
-        >
-          {formatValue(orangeValue, format)}
-        </div>
+        </span>
       </div>
+
       <div
         className="relative flex h-[10px] w-full overflow-visible rounded-full"
         style={{ background: 'rgba(255,255,255,0.06)' }}
