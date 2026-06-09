@@ -1,63 +1,123 @@
-# Postgame — Poprawka 4
+# Studio — Unified Layout (Camera Safe Right 325, centered content)
 
-Cel: zmieścić tabelę po lewej (kamera operatora po prawej ~420 px), zmniejszyć sidebar Studio, zacieśnić odstępy wierszy, zamienić tekstowy nagłówek na scoreboard‑style (skewowane kafle wyniku + „PODSUMOWANIE” w środku).
+Cel: ujednolicić layout wszystkich trybów Studio (`next_3`, `bracket`, `recent`, `postgame`) w jednym kontenerze `StudioContentFrame`, z centralizacją w pasie UI (lewa krawędź → 1920−325 = 1595 px szerokości użytkowej), z poprawnym offsetem sidebaru w podglądzie, oraz centralnymi stałymi w `studio-layout.ts`.
 
-## 1. Nowy plik `src/components/studio/PostgameScoreboardHeader.tsx`
+## 1. Nowy plik `src/lib/studio-layout.ts`
 
-Inline scoreboard (bez `position: absolute`, bez kontekstu bounds — tylko skopiowane style z `ScoreboardV2`).
+Jedno źródło prawdy dla wszystkich pomiarów (1920×1080, pomiary operatora):
 
-- Props: `teamNames {blue, orange}`, `blueScore`, `orangeScore`.
-- Layout: flex row, `align-items: stretch`, gap 0. Trzy kafle skewowane `-15deg`:
-  - Blue: 140×100, gradient `linear-gradient(135deg,#1e3a8a,#2563eb,#3b82f6)`, fontSize 60, font-black, white, glow `0 0 18px rgba(37,99,235,0.55)`.
-  - Środek: 260×100, `background: rgba(0,0,0,0.85)`, border-y `2px rgba(255,255,255,0.1)`, treść „PODSUMOWANIE” (font‑esports/Rajdhani, uppercase, fontSize 24, letter-spacing 0.22em, color #fff).
-  - Orange: lustro blue z gradientem `linear-gradient(135deg,#9a3412,#f97316,#fb923c)`, glow pomarańczowy.
-- Każdy tekst ma counter‑skew `skewX(15deg)` żeby pozostał prosty.
-- Pod scoreboardem wiersz nazw drużyn: flex z `justify-content: space-between`, `width = sumOfTiles`, uppercase, font‑esports, fontSize 16, color `rgba(255,255,255,0.85)`, blue po lewej, orange po prawej, margin‑top 6.
+```ts
+// Camera safe zone (operator camera on the right)
+export const STUDIO_CAMERA_SAFE_RIGHT = 325;
 
-## 2. `src/components/studio/PostgameSummary.tsx`
+// Vertical padding (measured on 1920x1080)
+export const STUDIO_PADDING_TOP = 92;
+export const STUDIO_PADDING_BOTTOM = 95;
 
-- Usunąć użycie `PostgameSummaryHeader`, zaimportować nowy `PostgameScoreboardHeader`.
-- Kontener główny:
-  ```tsx
-  const CAMERA_SAFE_ZONE_PX = 420;
-  <div className="relative w-full min-h-screen flex flex-col items-start"
-       style={{ paddingLeft: 24, paddingRight: CAMERA_SAFE_ZONE_PX,
-                paddingTop: 16, paddingBottom: 16, boxSizing: 'border-box',
-                background: 'transparent' }}>
-  ```
-  Usunąć `items-center justify-center`, `min-h-screen … gap-8 p-8`, `max-w-[1600px]`.
-- Panel: szerokość `w-full` (wypełnia strefę bezpieczną), padding `16px 20px`, margin-top 12.
-- Grid wewnątrz panelu:
-  - `columnGap: 16`, `rowGap: 4`, `alignItems: 'center'`.
-  - Wiersz nicków: `paddingBottom: 4`, margin-bottom 4 (gap nicki → pierwsza stat = ~8 px łącznie).
-- `PlayerValuesRow`: usuwamy `text-xl`, zostawiamy `text-base` zawsze (lub `text-sm` gdy `small`), `lineHeight: 1.2`, brak padding pionowego.
-- Margines pod nagłówkiem do panelu: 12 px (`marginTop: 12` na panelu).
+// Sidebar (visible only without ?obs=1)
+export const STUDIO_SIDEBAR_WIDTH = 112;
 
-## 3. `src/components/studio/PostgameShared.tsx`
+// Inner content max widths per mode
+export const STUDIO_MAX_WIDTH_DEFAULT = 956;   // next_3, recent, bracket
+export const STUDIO_MAX_WIDTH_POSTGAME = 1020; // postgame
+```
 
-- **Usunąć** `PostgameSummaryHeader` (nieużywany po zmianie).
-- `PostgameTeamBarRow`:
-  - Wrapper: `flex flex-col gap-[2px] px-2 py-0` (zamiast `gap-2 px-3 py-1`).
-  - Pasek wysokość `10px` (z 12).
-  - Etykieta `text-[10px]` (z `text-xs`), tracking `0.2em`.
-  - Wartości po bokach `text-base` (z `text-xl`).
+## 2. Nowy plik `src/components/studio/StudioContentFrame.tsx`
 
-## 4. `src/pages/StudioRender.tsx` — mniejszy sidebar
+Wspólny wrapper dla wszystkich trybów Studio. Wyśrodkowuje content w pasie UI (lewa krawędź → safe right), zachowuje pionowe paddings i offset sidebaru.
 
-- Sidebar `width: 112`.
-- Content `marginLeft: !obs ? 118 : 0`.
-- Każdy przycisk: `padding: '10px 6px'`, `fontSize: 10`, `letterSpacing: '0.06em'`.
-- Reszta logiki (poll, hover, `?obs=1` ukrywanie) bez zmian.
+```tsx
+import type { CSSProperties, ReactNode } from 'react';
+import {
+  STUDIO_CAMERA_SAFE_RIGHT,
+  STUDIO_PADDING_TOP,
+  STUDIO_PADDING_BOTTOM,
+  STUDIO_SIDEBAR_WIDTH,
+  STUDIO_MAX_WIDTH_DEFAULT,
+} from '@/lib/studio-layout';
 
-## 5. Bez zmian
+interface Props {
+  children: ReactNode;
+  obs: boolean;
+  maxWidth?: number;
+  style?: CSSProperties;
+}
 
-- `Relay.tsx`, `usePostgameRelay.ts`, `/v2/overlay`, `ScoreboardV2.tsx`, Supabase.
-- Tryby URL, aliasy, 10 wierszy PL, brak padów, liquid glass, biały suwak.
+export function StudioContentFrame({
+  children,
+  obs,
+  maxWidth = STUDIO_MAX_WIDTH_DEFAULT,
+  style,
+}: Props) {
+  return (
+    <div
+      className="relative w-full min-h-screen flex flex-col"
+      style={{
+        background: 'transparent',
+        paddingLeft: 0,
+        paddingRight: STUDIO_CAMERA_SAFE_RIGHT,
+        paddingTop: STUDIO_PADDING_TOP,
+        paddingBottom: STUDIO_PADDING_BOTTOM,
+        marginLeft: obs ? 0 : STUDIO_SIDEBAR_WIDTH,
+        alignItems: 'center',
+        boxSizing: 'border-box',
+        ...style,
+      }}
+    >
+      <div style={{ width: '100%', maxWidth, margin: '0 auto' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+```
 
-## 6. Definition of Done
+Notatka: `marginLeft = STUDIO_SIDEBAR_WIDTH` w podglądzie (bez `?obs=1`) sprawia, że sidebar (112 px) nie nachodzi na content. W OBS (`?obs=1`) sidebar jest ukryty → `marginLeft: 0`. Strefa kamery (325 px po prawej) jest zachowana w obu trybach.
 
-- 3v3: orange w pełni widoczny, prawe ~420 px puste.
-- Sidebar ~112 px w podglądzie; `?obs=1` w pełni ukrywa.
-- Wiersze wyraźnie ciaśniejsze (rowGap 4 px, brak py).
-- Nagłówek: blue tile [wynik] | „PODSUMOWANIE” | orange tile [wynik], skew −15°, pod spodem nazwy drużyn.
-- OBS transparent, brak regresji danych.
+## 3. `src/pages/StudioRender.tsx`
+
+- Importuj `StudioContentFrame` oraz `STUDIO_MAX_WIDTH_POSTGAME`.
+- `const obs = !!params.get('obs')`.
+- Opakuj wszystkie tryby jednolicie:
+  - `postgame` → `<StudioContentFrame obs={obs} maxWidth={STUDIO_MAX_WIDTH_POSTGAME}><PostgameSummary … /></StudioContentFrame>`
+  - `bracket` → `<StudioContentFrame obs={obs}><BracketView … /></StudioContentFrame>`
+  - `recent` → `<StudioContentFrame obs={obs}><RecentMatchesTable … /></StudioContentFrame>`
+  - `next_3` → `<StudioContentFrame obs={obs}>` zawiera obecny `<div className="flex flex-col gap-4">` z `AnimatePresence`/`MatchCard` (usunąć lokalny `p-4`).
+- Usunąć zewnętrzny `<div style={{ marginLeft: !params.get('obs') ? 118 : 0 }}>` — offset sidebaru obsługuje teraz `StudioContentFrame`.
+- Sidebar (`fixed top-1/2 left-0`, width 112) bez zmian.
+
+## 4. `src/components/studio/PostgameSummary.tsx`
+
+- Usunąć własny outer `<div className="relative w-full min-h-screen flex flex-col items-start" style={{ paddingLeft: 24, paddingRight: 420, paddingTop: 16, paddingBottom: 16, … }}>`.
+- Usunąć lokalną `CAMERA_SAFE_ZONE_PX = 420`.
+- Komponent zwraca tylko zawartość: `<PostgameScoreboardHeader … />` + `<PostgameGlassPanel … >grid 10 wierszy</PostgameGlassPanel>`.
+- `<StatusMessage>` analogicznie — bez własnego `min-h-screen`; zostaw centrowanie wewnątrz frame.
+- Reszta (grid, 10 wierszy PL, liquid glass, biały suwak, sortowanie pairs) bez zmian.
+
+## 5. Inne tryby — sanity check
+
+- `BracketView`, `RecentMatchesTable`, `MatchCard` nie ustawiają własnego `paddingRight`/`marginLeft`/safe zone. Wewnętrzne `p-4`/`p-8` zostają (to wewnętrzny rytm zawartości).
+- Jeśli `RecentMatchesTable` ma własny `max-w-[1100px]` lub szerszy — usunąć/zmniejszyć: frame i tak ogranicza do 956 px (`maxWidth` prop).
+
+## 6. Bez zmian
+
+- `Relay.tsx`, `usePostgameRelay.ts`, `/v2/overlay`, `ScoreboardV2.tsx`, Supabase, kontrakt JSON.
+- Sidebar width (112 px), poll button hover, `?obs=1` hide logic.
+- Logika danych, sortowanie, 10 wierszy PL, liquid glass, biały suwak.
+
+## 7. Definition of Done
+
+- Wszystkie tryby używają `StudioContentFrame` — jedno źródło layoutu.
+- Pasek UI: lewa krawędź → 1595 px (1920 − 325). Prawe 325 px puste (kamera operatora) w każdym trybie.
+- Content wyśrodkowany w pasie UI (`margin: 0 auto`, max‑width 956 px dla next/recent/bracket, 1020 px dla postgame).
+- Pionowy padding: 92 px top, 95 px bottom.
+- Podgląd bez `?obs=1`: content przesunięty o 112 px (sidebar nie nachodzi).
+- `?obs=1`: sidebar ukryty, `marginLeft: 0`, OBS transparent.
+- Stałe wyłącznie w `src/lib/studio-layout.ts`.
+
+## 8. Jawny zakaz
+
+- Brak zmian live overlay `/v2/overlay` i `ScoreboardV2`.
+- Brak zmian relay / Supabase / kontraktu JSON.
+- Brak powrotu do dwóch ekranów postgame.
+- Brak rozproszonych stałych layoutu (wszystko z `studio-layout.ts`).

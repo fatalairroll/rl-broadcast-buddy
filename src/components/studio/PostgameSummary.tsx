@@ -104,7 +104,7 @@ const ROWS: RowDef[] = [
 
 function StatusMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center p-8">
+    <div className="flex w-full items-center justify-center p-8">
       <PostgameGlassPanel className="px-12 py-8">
         <div
           className="font-esports text-xl uppercase tracking-[0.2em] text-zinc-200"
@@ -205,20 +205,8 @@ export function PostgameSummary({ data, state }: Props) {
     alignItems: 'center',
   };
 
-  const CAMERA_SAFE_ZONE_PX = 420;
-
   return (
-    <div
-      className="relative w-full min-h-screen flex flex-col items-start"
-      style={{
-        background: 'transparent',
-        paddingLeft: 24,
-        paddingRight: CAMERA_SAFE_ZONE_PX,
-        paddingTop: 16,
-        paddingBottom: 16,
-        boxSizing: 'border-box',
-      }}
-    >
+    <>
       <PostgameScoreboardHeader
         teamNames={data.team_names}
         blueScore={data.blue_score}
@@ -247,7 +235,7 @@ export function PostgameSummary({ data, state }: Props) {
           ))}
         </div>
       </PostgameGlassPanel>
-    </div>
+    </>
   );
 }
 
