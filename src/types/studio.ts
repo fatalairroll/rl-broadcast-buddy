@@ -45,6 +45,7 @@ export interface MatchData {
   team_b: TeamData | null;
   started_at?: string | null;
   both_teams_checked_in?: boolean;
+  pool_id?: string | null;
 }
 
 export interface TournamentResponse {
@@ -58,6 +59,15 @@ export interface MatchResponse {
     status: string;
   };
   matches: MatchData[];
+  pools?: PoolData[];
+  use_pools?: boolean;
+}
+
+export interface PoolData {
+  pool_id: string;
+  index: number;
+  size: number;
+  winners_pool_id?: string | null;
 }
 
 export type StudioMode =
