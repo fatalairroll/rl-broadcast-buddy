@@ -202,6 +202,8 @@ export function BracketView({
     const outer = outerRef.current;
     if (!outer) return;
 
+    // (auto-scroll cycle below)
+
     let rafId = 0;
     let running = true;
     let phase: 'pause-top' | 'scrolling-down' | 'pause-bottom' | 'scrolling-up' = 'pause-top';
@@ -265,6 +267,10 @@ export function BracketView({
       cancelAnimationFrame(rafId);
     };
   }, [enableAutoScroll]);
+
+  useEffect(() => {
+    if (outerRef.current) outerRef.current.scrollTop = 0;
+  }, [startIdx, selectedPoolId]);
 
   const setMatchRef = useCallback((matchId: string, el: HTMLDivElement | null) => {
     if (el) {
@@ -411,7 +417,7 @@ export function BracketView({
             const containerHeight = getContainerHeight(roundOffset);
 
             return (
-              <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ minWidth: CARD_WIDTH }}>
+              <div key={roundIdx} className="flex flex-col items-center shrink-0 self-start" style={{ minWidth: CARD_WIDTH }}>
                 {roundMatches.map((match, matchIndex) => (
                   <div
                     key={match.match_id}
@@ -419,7 +425,7 @@ export function BracketView({
                       height: containerHeight,
                       marginTop: matchIndex > 0 ? BASE_GAP : 0,
                       display: 'flex',
-                      alignItems: 'center',
+                      alignItems: roundOffset === 0 ? 'flex-start' : 'center',
                     }}
                   >
                     <BracketMatchCard match={match} refCallback={(el) => setMatchRef(match.match_id, el)} />
