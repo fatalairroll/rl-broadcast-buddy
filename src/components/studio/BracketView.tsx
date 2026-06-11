@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import type { MatchData, TeamData } from '@/types/studio';
+import type { MatchData, PoolData, TeamData } from '@/types/studio';
+import { poolIdFromMatchId, selectablePools, poolTabLabel } from '@/lib/pool-utils';
 
 function CheckInDot({ team }: { team: TeamData | null }) {
   if (!team) return null;
@@ -22,6 +23,11 @@ function CheckInDot({ team }: { team: TeamData | null }) {
 
 interface BracketViewProps {
   matches: MatchData[];
+  pools?: PoolData[];
+  usePools?: boolean;
+  selectedPoolId?: string | null;
+  onPoolChange?: (poolId: string) => void;
+  obs?: boolean;
 }
 
 const MATCH_HEIGHT = 72;
@@ -34,8 +40,9 @@ const LINE_WIDTH = 1.5;
 const SKEW = -7;
 const UNSKEW = 7;
 const CARD_WIDTH = 200;
-const SAFE_AREA_X = 40;
 const PREVIOUS_ROUNDS_WIDTH = 28;
+const ROUND_WINDOW = 3;
+const SCROLL_THRESHOLD_MATCHES = 12;
 
 const TEAM_ROW_H = 28;
 const SCORE_ROW_H = 16;
@@ -50,16 +57,30 @@ function getContainerHeight(absoluteRoundIndex: number): number {
   return 2 * getContainerHeight(absoluteRoundIndex - 1) + BASE_GAP;
 }
 
-export function BracketView({ matches }: BracketViewProps) {
+export function BracketView({
+  matches,
+  pools,
+  usePools = false,
+  selectedPoolId,
+  onPoolChange,
+  obs = false,
+}: BracketViewProps) {
   const outerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const maxScrollRef = useRef(0);
   const [lines, setLines] = useState<LineData[]>([]);
 
+  const poolMatches = useMemo(() => {
+    if (!usePools || !selectedPoolId) return matches;
+    return matches.filter(
+      (m) => (m.pool_id ?? poolIdFromMatchId(m.match_id)) === selectedPoolId,
+    );
+  }, [matches, usePools, selectedPoolId]);
+
   const sortedRounds = useMemo(() => {
     const rounds = new Map<number, MatchData[]>();
-    matches.forEach((match) => {
+    poolMatches.forEach((match) => {
       const roundMatches = rounds.get(match.round_index) ?? [];
       roundMatches.push(match);
       rounds.set(match.round_index, roundMatches);
@@ -71,18 +92,37 @@ export function BracketView({ matches }: BracketViewProps) {
     });
 
     return sorted;
-  }, [matches]);
+  }, [poolMatches]);
 
-  const startIdx = useMemo(() => {
-    const idx = sortedRounds.findIndex(([, roundMatches]) =>
-      roundMatches.some((match) => match.state !== 'finished' && match.state !== 'done')
+  const { startIdx, visibleRounds } = useMemo(() => {
+    if (sortedRounds.length <= ROUND_WINDOW) {
+      return { startIdx: 0, visibleRounds: sortedRounds };
+    }
+    let anchorIdx = sortedRounds.findIndex(([, ms]) =>
+      ms.some(
+        (m) => m.state === 'scheduled' || m.state === 'live' || m.state === 'in_progress',
+      ),
     );
-
-    return idx === -1 ? Math.max(0, sortedRounds.length - 1) : idx;
+    if (anchorIdx === -1) anchorIdx = sortedRounds.length - 1;
+    let start = Math.max(0, anchorIdx - 1);
+    if (start + ROUND_WINDOW > sortedRounds.length) {
+      start = sortedRounds.length - ROUND_WINDOW;
+    }
+    return {
+      startIdx: start,
+      visibleRounds: sortedRounds.slice(start, start + ROUND_WINDOW),
+    };
   }, [sortedRounds]);
 
-  const visibleRounds = useMemo(() => sortedRounds.slice(startIdx), [sortedRounds, startIdx]);
   const hasPreviousRounds = startIdx > 0;
+  const tallestColumnSize = useMemo(
+    () => visibleRounds.reduce((max, [, ms]) => Math.max(max, ms.length), 0),
+    [visibleRounds],
+  );
+  const enableAutoScroll = tallestColumnSize > SCROLL_THRESHOLD_MATCHES;
+
+  const poolTabs = useMemo(() => selectablePools(pools), [pools]);
+  const showPoolSelector = usePools && poolTabs.length > 1 && !obs;
 
   const calcLines = useCallback(() => {
     if (!containerRef.current) return;
@@ -158,6 +198,7 @@ export function BracketView({ matches }: BracketViewProps) {
   }, [measureOverflow]);
 
   useEffect(() => {
+    if (!enableAutoScroll) return;
     const outer = outerRef.current;
     if (!outer) return;
 
@@ -223,7 +264,7 @@ export function BracketView({ matches }: BracketViewProps) {
       running = false;
       cancelAnimationFrame(rafId);
     };
-  }, []);
+  }, [enableAutoScroll]);
 
   const setMatchRef = useCallback((matchId: string, el: HTMLDivElement | null) => {
     if (el) {
@@ -237,15 +278,46 @@ export function BracketView({ matches }: BracketViewProps) {
   return (
     <div
       style={{
-        height: '100vh',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
+      {showPoolSelector && (
+        <div
+          className="flex items-center gap-2 mb-3"
+          style={{ flexWrap: 'wrap' }}
+        >
+          {poolTabs.map((p) => {
+            const active = selectedPoolId === p.pool_id;
+            return (
+              <button
+                key={p.pool_id}
+                onClick={() => onPoolChange?.(p.pool_id)}
+                className="font-esports uppercase transition-colors"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.15em',
+                  padding: '6px 14px',
+                  background: active ? '#00A3FF' : 'rgba(255,255,255,0.08)',
+                  color: active ? '#ffffff' : 'rgba(255,255,255,0.7)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                {poolTabLabel(p)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div
         className="relative flex items-start shrink-0"
         style={{
-          padding: `24px ${SAFE_AREA_X}px 12px`,
+          padding: '0 0 12px',
           gap: H_GAP,
         }}
       >
@@ -299,7 +371,8 @@ export function BracketView({ matches }: BracketViewProps) {
       <div
         ref={outerRef}
         style={{
-          flex: 1,
+          width: '100%',
+          maxHeight: enableAutoScroll ? 960 : undefined,
           overflowY: 'hidden',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -310,7 +383,7 @@ export function BracketView({ matches }: BracketViewProps) {
           ref={containerRef}
           className="relative flex items-start"
           style={{
-            padding: `0 ${SAFE_AREA_X}px 24px`,
+            padding: '0 0 24px',
             gap: H_GAP,
           }}
         >

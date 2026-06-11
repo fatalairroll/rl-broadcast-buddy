@@ -1,57 +1,97 @@
 ## Cel
 
-Wyśrodkować etykiety nad paskami H2H w `PostgameTeamBarRow` tak, by oś etykiety = oś paska, niezależnie od długości tekstu (np. „CZAS NA 100 BOOSTA").
+Wsparcie turniejów pool-based w Studio:
+- `next_3` / `recent` — bez podziału na poole (jedna kolejka).
+- `bracket` — selektor pooli (POOL 1..N + FINAŁ) gdy `use_pools`; max 3 kolumny rund w oknie 956px; bez mieszania pooli w kolumnie.
 
-## Przyczyna
+API `overlay-data` jest wdrożone w osobnym projekcie RankClash — w tym repo **nie** ruszamy edge functions.
 
-Aktualnie wiersz używa `grid grid-cols-3` (wartość blue / label / wartość orange). Komórka środkowa ma ~⅓ szerokości kolumny 208px (~69px). Etykieta z `whiteSpace: nowrap` przekracza tę komórkę, a `text-align: center` na zawartości szerszej niż kontener daje efekt „od środka w prawo" (lewa część poza widoczną kolumną przez clipping panelu).
+## Zmiany
 
-## Rozwiązanie strukturalne
+### 1. `src/types/studio.ts`
+- Dodać `PoolData { pool_id; index; size; winners_pool_id? }`.
+- Dodać `pool_id?: string | null` do `MatchData`.
+- Rozszerzyć `MatchResponse` o `pools?: PoolData[]` i `use_pools?: boolean`.
 
-Zmienić `PostgameTeamBarRow` na układ pionowy o pełnej szerokości kolumny środkowej (208px):
+### 2. `src/lib/pool-utils.ts` (nowy)
+- `poolIdFromMatchId(matchId)` — regex `^(.+-POOL-\d+|.+-WINNERS)-R\d+-M\d+`.
+- `isPoolTournament(pools)` — `true` gdy istnieje pool o `index > 0`.
+- `selectablePools(pools)` — fazowe `index>0` sortowane + WINNERS (`index===0`) na końcu.
+- `poolTabLabel(pool)` — `FINAŁ` dla WINNERS, inaczej `POOL N`.
+- `poolBadge(poolId)` — `P{n}` lub `F`.
 
-```
-┌────────── 208px ──────────┐
-│ [blue#]  [orange#]        │  ← wartości flankują pasek w jednym wierszu
-│  ╔═══════ label ═══════╗  │  ← etykieta: width:100%, text-align:center
-│  ╚═══════ bar ═══════ ╝   │  ← pasek: width:100% (ta sama oś co label)
-└───────────────────────────┘
-```
+### 3. `src/lib/mmrivals-api.ts`
+- `fetchMatches(tournamentId, mode, options?: { poolId?: string })` — dokleja `pool_id` do query gdy podany.
 
-Konkretnie:
+### 4. `src/hooks/useStudioData.ts`
+- Nowe opcje: `bracketPoolId?: string`.
+- Zwracać też `pools: PoolData[]` i `usePools: boolean`.
+- **Refetch przy zmianie poola**: `bracketPoolId` w deps `fetchData` useCallback **i** w deps useEffect uruchamiającym fetch + interval; zmiana poola → natychmiastowy fetch z nowym `pool_id` w query (nie tylko client-side filtr).
+- Po fetch: `setPools(res.pools ?? [])`, `setUsePools(res.use_pools ?? isPoolTournament(res.pools))`.
+- Mapować mecze: `pool_id ?? poolIdFromMatchId(match_id)`.
+- `next_3` — bez `poolId`, bez filtra per pool. **Zachować** istniejący `filterNext3VisibleMatches` (TBD-filter z poprzedniego zadania) bez zmian.
+- `recent` — bez `poolId`, bez filtra per pool.
+- `bracket` — przekazać `bracketPoolId` do `fetchMatches` (gdy ustawiony).
 
-- Root `<div>`: `width: 100%`, `display: flex`, `flexDirection: 'column'`, `alignItems: 'stretch'` (usunąć `grid-cols-3` z głównego layoutu wartości+label).
-- **Wiersz wartości** (osobny, nad etykietą): `display: flex`, `justifyContent: 'space-between'` — blue value po lewej, orange po prawej (bez label w środku).
-- **Etykieta**: wrapper `width: 100%`, `<span>` z `display: block`, `width: 100%`, `textAlign: 'center'`, `whiteSpace: 'nowrap'`, font 10px / letter-spacing 0.05em (z `studio-layout`).
-- **Pasek**: `width: 100%`, `height: 10px` — bez zmian wizualnych gradientów/suwaka.
+### 5. `src/pages/StudioRender.tsx`
+- Czytać `pool_id` z URL: `const urlPool = params.get('pool_id') ?? ''` — pusty string traktować jak brak.
+- Lokalny stan `bracketPoolId` (init z `urlPool`).
+- Przekazać do `useStudioData` tylko w trybie `bracket` (`bracketPoolId || undefined`).
+- Effect domyślnego poola: gdy `mode==='bracket' && usePools && !bracketPoolId && pools.length` → ustaw `selectablePools(pools)[0].pool_id` (czyli POOL 1).
+- **Renderować `<BracketView ... />` wewnątrz `<StudioContentFrame obs={obs}>`** (jak inne tryby — explicit, żeby nie wypadała poza ramkę 956px).
+- Props: `<BracketView matches={...} pools={pools} usePools={usePools} selectedPoolId={bracketPoolId} onPoolChange={setBracketPoolId} obs={obs} />`.
 
-Brak `items-center` na root, brak `transform: translateX(-50%)` na etykiecie, brak `overflow: hidden` na wrapperze etykiety (etykieta i kolumna mają tę samą szerokość — nic nie przycina).
+### 6. `src/pages/Studio.tsx`
+- W builderze URL: gdy wybrany turniej ma `use_pools`, pokazać `<select>` poola obok pól mode/count.
+- Lista pooli pochodzi z hooka `useStudioData({ tournamentId, mode: 'bracket', enabled: !!tournamentId, pollInterval: 0 })` (lub jednorazowy `fetchMatches(tid, 'bracket')` po wyborze turnieju) — bez `pool_id`, żeby dostać pełną listę.
+- Wybór poola → dokleja `&pool_id=...` do linku OBS.
 
-## Zmiana w `PostgameSummary.tsx`
+### 7. `src/components/studio/BracketView.tsx` — przebudowa
+- Props: `matches, pools?, usePools?, selectedPoolId?, onPoolChange?, obs?`.
+- **Usuwane:** `height: 100vh`, `SAFE_AREA_X` poziomy padding (poleganie na `StudioContentFrame`).
+- Root: `width: 100%`, `display: flex column`, brak narzuconej wysokości.
+- Stałe pozostają: `CARD_WIDTH=200, H_GAP=60, MATCH_HEIGHT=72, BASE_GAP=12`. Dodać `ROUND_WINDOW=3`.
+- **Selektor pooli** (gdy `usePools && selectablePools(pools).length > 1 && !obs`): pasek pigułek `POOL 1..N | FINAŁ`, aktywny `#00A3FF`. W OBS ukryty.
+- **Filtr meczów** (belt & suspenders, gdyby API mimo `pool_id=` zwróciło więcej):
+  `poolMatches = usePools && selectedPoolId ? matches.filter(m => (m.pool_id ?? poolIdFromMatchId(m.match_id)) === selectedPoolId) : matches`.
+  Grupowanie rund liczone z `poolMatches`.
+- **Okno 3 rund — uniwersalne, nie tylko przy poolach**: `computeRoundWindow(sortedRounds)`:
+  - jeśli `sortedRounds.length <= 3` → wszystkie;
+  - inaczej anchor = pierwsza runda z `scheduled|live|in_progress`, fallback ostatnia `done`;
+  - `startIdx = clamp(anchor-1, 0, len-3)`;
+  - `visible = slice(startIdx, startIdx+3)`.
+  Stosowane zawsze (turnieje 5-rundowe ≤32 też dostają okno).
+- `hasPreviousRounds = startIdx > 0` (pionowy label „Poprzednie rundy" jak teraz).
+- **Auto-scroll pionowy**: zachować, ale uruchamiać tylko gdy najwyższa kolumna w oknie ma >12 meczów (~960px).
+- Linie SVG łączą tylko `visibleRounds`.
 
-Komórka środkowa gridu wierszy statystyk już używa `POSTGAME_CENTER_COL_WIDTH` w `gridTemplateColumns`. Dodać do każdej instancji `PostgameTeamBarRow` (lub do owijającego div) explicit:
-
-```
-style={{ width: POSTGAME_CENTER_COL_WIDTH, maxWidth: POSTGAME_CENTER_COL_WIDTH, minWidth: 0 }}
-```
-
-aby grid nie zwężał kolumny przy nadmiarze treści.
+### 8. `MatchCard.tsx` (opcjonalnie, low risk)
+- W `UpcomingQueueRow` mały tag `poolBadge(match.pool_id)` obok numeru rundy.
 
 ## Pliki
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/studio/PostgameShared.tsx` | Przebudowa `PostgameTeamBarRow`: wartości w osobnym flex-row na górze, label full-width centered, bar full-width — oba na osi 208px |
-| `src/components/studio/PostgameSummary.tsx` | Wrap środkowej komórki w div o stałej szerokości `POSTGAME_CENTER_COL_WIDTH` z `minWidth: 0` |
+| Plik | Akcja |
+|------|-------|
+| `src/types/studio.ts` | edycja |
+| `src/lib/pool-utils.ts` | nowy |
+| `src/lib/mmrivals-api.ts` | edycja `fetchMatches` |
+| `src/hooks/useStudioData.ts` | edycja (deps + zwracane pola) |
+| `src/pages/StudioRender.tsx` | edycja (URL, stan, ramka) |
+| `src/pages/Studio.tsx` | edycja URL buildera + select poola |
+| `src/components/studio/BracketView.tsx` | przebudowa |
+| `src/components/studio/MatchCard.tsx` | opcjonalny badge poola |
 
 ## Bez zmian
 
-- `studio-layout.ts` (208 / font 10 zostają — fallback do 216/220 dopiero po teście wizualnym, jeśli najdłuższa etykieta nadal nie mieści się w 208px)
-- `useStudioData`, filtr TBD (część A), Relay, `StudioContentFrame`, scoreboard header, wiersze nicków graczy
+`supabase/functions/overlay-data` (inny projekt), `Relay.tsx`, postgame, live `/v2/overlay`, `StudioContentFrame`, layout next_3/recent (poza opcjonalnym badge), `filterNext3VisibleMatches` (TBD-filter zachowany).
 
 ## Definition of Done
 
-- 10/10 etykiet wyśrodkowanych względem osi paska
-- „CZAS NA SUPERSONIC" / „ŚREDNI BOOST" / „CZAS NA 100 BOOSTA" bez pustego lewego marginesu
-- Wartości blue/orange nadal widoczne i czytelne (kolory BLUE/ORANGE, tabular-nums)
-- Brak regresji w wierszach nicków graczy i scoreboard header
+- next_3 — wszystkie poole w jednej kolejce, TBD-filter dalej aktywny.
+- recent — 10 ostatnich `done` ze wszystkich pooli.
+- bracket — selektor `POOL 1..N + FINAŁ` gdy `use_pools`; zmiana poola wywołuje refetch z `pool_id=`.
+- bracket renderowany w `StudioContentFrame` (956px).
+- Okno 3 kolumn rund stosowane gdy rund > 3 (także w turniejach bez pooli, np. 5-rundowych ≤32).
+- W jednej kolumnie tylko mecze wybranego poola.
+- OBS: `&pool_id=...` wybiera pool, selektor ukryty; pusty `pool_id` w URL traktowany jak brak → effect ustawia POOL 1.
+- Turniej bez pooli i ≤3 rund — bez regresji.

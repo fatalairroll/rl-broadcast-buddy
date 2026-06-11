@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchMatches, fetchTournaments } from '@/lib/mmrivals-api';
 import { filterNext3VisibleMatches } from '@/lib/studio-match-utils';
-import type { Tournament, MatchData, MatchResponse, StudioMode } from '@/types/studio';
+import { isPoolTournament, poolIdFromMatchId } from '@/lib/pool-utils';
+import type { Tournament, MatchData, MatchResponse, PoolData, StudioMode } from '@/types/studio';
 
 function extractMatchNumber(matchId: string): number {
   const m = matchId.match(/-M(\d+)$/);
@@ -14,12 +15,15 @@ interface UseStudioDataOptions {
   count?: number;
   enabled?: boolean;
   pollInterval?: number;
+  bracketPoolId?: string;
 }
 
 interface UseStudioDataReturn {
   tournament: MatchResponse['tournament'] | null;
   matches: MatchData[];
   tournaments: Tournament[];
+  pools: PoolData[];
+  usePools: boolean;
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
@@ -31,10 +35,13 @@ export function useStudioData({
   count = 1,
   enabled = true,
   pollInterval = 5000,
+  bracketPoolId,
 }: UseStudioDataOptions): UseStudioDataReturn {
   const [tournament, setTournament] = useState<MatchResponse['tournament'] | null>(null);
   const [matches, setMatches] = useState<MatchData[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [pools, setPools] = useState<PoolData[]>([]);
+  const [usePools, setUsePools] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
@@ -56,10 +63,19 @@ export function useStudioData({
         apiMode = 'bracket';
       }
 
-      const res = await fetchMatches(tournamentId, apiMode);
+      const res = await fetchMatches(
+        tournamentId,
+        apiMode,
+        mode === 'bracket' && bracketPoolId ? { poolId: bracketPoolId } : undefined,
+      );
       setTournament(res.tournament);
+      setPools(res.pools ?? []);
+      setUsePools(res.use_pools ?? isPoolTournament(res.pools));
 
-      let resultMatches = res.matches ?? [];
+      let resultMatches: MatchData[] = (res.matches ?? []).map((m) => ({
+        ...m,
+        pool_id: m.pool_id ?? poolIdFromMatchId(m.match_id),
+      }));
 
       if (mode === 'recent') {
         resultMatches = resultMatches
@@ -110,7 +126,7 @@ export function useStudioData({
     } finally {
       setIsLoading(false);
     }
-  }, [tournamentId, mode, count, enabled]);
+  }, [tournamentId, mode, count, enabled, bracketPoolId]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -125,5 +141,5 @@ export function useStudioData({
     };
   }, [fetchData, enabled, pollInterval]);
 
-  return { tournament, matches, tournaments, isLoading, error, refetch: fetchData };
+  return { tournament, matches, tournaments, pools, usePools, isLoading, error, refetch: fetchData };
 }

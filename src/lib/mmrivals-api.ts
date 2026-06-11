@@ -29,6 +29,9 @@ export async function fetchTournaments(): Promise<TournamentResponse> {
 export async function fetchMatches(
   tournamentId: string,
   mode: string,
+  options?: { poolId?: string },
 ): Promise<MatchResponse> {
-  return apiFetch<MatchResponse>({ tournament_id: tournamentId, mode });
+  const params: Record<string, string> = { tournament_id: tournamentId, mode };
+  if (options?.poolId) params.pool_id = options.poolId;
+  return apiFetch<MatchResponse>(params);
 }
