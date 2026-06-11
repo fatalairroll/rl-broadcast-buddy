@@ -72,7 +72,7 @@ export function useStudioData({
       setPools(res.pools ?? []);
       setUsePools(res.use_pools ?? isPoolTournament(res.pools));
 
-      let resultMatches = (res.matches ?? []).map((m) => ({
+      let resultMatches: MatchData[] = (res.matches ?? []).map((m) => ({
         ...m,
         pool_id: m.pool_id ?? poolIdFromMatchId(m.match_id),
       }));
