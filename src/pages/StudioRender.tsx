@@ -10,6 +10,7 @@ import { PostgameSummary } from '@/components/studio/PostgameSummary';
 import { StudioContentFrame } from '@/components/studio/StudioContentFrame';
 import { STUDIO_RECENT_OFFSET_TOP } from '@/lib/studio-layout';
 import { usePostgameRelay } from '@/hooks/usePostgameRelay';
+import { selectablePools } from '@/lib/pool-utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { StudioMode, MatchData, PollResults } from '@/types/studio';
 
@@ -29,23 +30,33 @@ export default function StudioRender() {
   const initialMode = (params.get('mode') ?? 'next_3') as StudioMode;
   const count = Number(params.get('count') ?? '3');
   const key = params.get('key') ?? '';
+  const urlPool = params.get('pool_id') ?? '';
 
   const authorized = key === VALID_KEY;
 
   const [mode, setMode] = useState<StudioMode>(initialMode);
+  const [bracketPoolId, setBracketPoolId] = useState<string>(urlPool);
 
   const isPostgame =
     mode === 'postgame' ||
     mode === 'postgame_players' ||
     mode === 'postgame_summary';
 
-  const { tournament, matches, isLoading, error } = useStudioData({
+  const { tournament, matches, pools, usePools, isLoading, error } = useStudioData({
     tournamentId,
     mode,
     count,
     enabled: authorized && !!tournamentId && !isPostgame,
     pollInterval: 5000,
+    bracketPoolId: mode === 'bracket' ? (bracketPoolId || undefined) : undefined,
   });
+
+  // Default pool when entering bracket with use_pools and no selection
+  useEffect(() => {
+    if (mode !== 'bracket' || !usePools || bracketPoolId) return;
+    const first = selectablePools(pools)[0];
+    if (first) setBracketPoolId(first.pool_id);
+  }, [mode, usePools, pools, bracketPoolId]);
 
   const { postgame, connected: pgConnected, error: pgError } = usePostgameRelay();
 
@@ -264,7 +275,14 @@ export default function StudioRender() {
         </StudioContentFrame>
       ) : mode === 'bracket' ? (
         <StudioContentFrame obs={obs}>
-          <BracketView matches={matches} />
+          <BracketView
+            matches={matches}
+            pools={pools}
+            usePools={usePools}
+            selectedPoolId={bracketPoolId || null}
+            onPoolChange={setBracketPoolId}
+            obs={obs}
+          />
         </StudioContentFrame>
       ) : mode === 'recent' ? (
         <StudioContentFrame obs={obs}>
