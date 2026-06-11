@@ -57,6 +57,19 @@ function getContainerHeight(absoluteRoundIndex: number): number {
   return 2 * getContainerHeight(absoluteRoundIndex - 1) + BASE_GAP;
 }
 
+function getSlotLayout(visualRoundOffset: number): {
+  height: number;
+  alignItems: 'flex-start' | 'center';
+} {
+  if (visualRoundOffset === 0) {
+    return { height: MATCH_HEIGHT, alignItems: 'flex-start' };
+  }
+  return {
+    height: getContainerHeight(visualRoundOffset),
+    alignItems: 'center',
+  };
+}
+
 export function BracketView({
   matches,
   pools,
@@ -69,6 +82,7 @@ export function BracketView({
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const maxScrollRef = useRef(0);
+  const scrollGenerationRef = useRef(0);
   const [lines, setLines] = useState<LineData[]>([]);
 
   const poolMatches = useMemo(() => {
@@ -204,6 +218,7 @@ export function BracketView({
 
     // (auto-scroll cycle below)
 
+    const myGen = scrollGenerationRef.current;
     let rafId = 0;
     let running = true;
     let phase: 'pause-top' | 'scrolling-down' | 'pause-bottom' | 'scrolling-up' = 'pause-top';
@@ -211,6 +226,10 @@ export function BracketView({
 
     const step = (timestamp: number) => {
       if (!running) return;
+      if (scrollGenerationRef.current !== myGen) {
+        running = false;
+        return;
+      }
 
       const maxScroll = maxScrollRef.current;
       if (phaseStart === null) phaseStart = timestamp;
@@ -266,9 +285,10 @@ export function BracketView({
       running = false;
       cancelAnimationFrame(rafId);
     };
-  }, [enableAutoScroll]);
+  }, [enableAutoScroll, startIdx, selectedPoolId]);
 
   useEffect(() => {
+    scrollGenerationRef.current += 1;
     if (outerRef.current) outerRef.current.scrollTop = 0;
   }, [startIdx, selectedPoolId]);
 
@@ -404,17 +424,18 @@ export function BracketView({
 
           {hasPreviousRounds && (
             <div
-              className="shrink-0 self-stretch"
+              className="shrink-0 self-start"
               style={{
                 width: PREVIOUS_ROUNDS_WIDTH,
                 minWidth: PREVIOUS_ROUNDS_WIDTH,
+                minHeight: MATCH_HEIGHT,
                 borderLeft: '1px solid rgba(255,255,255,0.08)',
               }}
             />
           )}
 
           {visibleRounds.map(([roundIdx, roundMatches], roundOffset) => {
-            const containerHeight = getContainerHeight(roundOffset);
+            const { height: slotHeight, alignItems: slotAlign } = getSlotLayout(roundOffset);
 
             return (
               <div key={roundIdx} className="flex flex-col items-center shrink-0 self-start" style={{ minWidth: CARD_WIDTH }}>
@@ -422,10 +443,10 @@ export function BracketView({
                   <div
                     key={match.match_id}
                     style={{
-                      height: containerHeight,
+                      height: slotHeight,
                       marginTop: matchIndex > 0 ? BASE_GAP : 0,
                       display: 'flex',
-                      alignItems: roundOffset === 0 ? 'flex-start' : 'center',
+                      alignItems: slotAlign,
                     }}
                   >
                     <BracketMatchCard match={match} refCallback={(el) => setMatchRef(match.match_id, el)} />
