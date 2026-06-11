@@ -202,6 +202,8 @@ export function BracketView({
     const outer = outerRef.current;
     if (!outer) return;
 
+    // (auto-scroll cycle below)
+
     let rafId = 0;
     let running = true;
     let phase: 'pause-top' | 'scrolling-down' | 'pause-bottom' | 'scrolling-up' = 'pause-top';
@@ -265,6 +267,10 @@ export function BracketView({
       cancelAnimationFrame(rafId);
     };
   }, [enableAutoScroll]);
+
+  useEffect(() => {
+    if (outerRef.current) outerRef.current.scrollTop = 0;
+  }, [startIdx, selectedPoolId]);
 
   const setMatchRef = useCallback((matchId: string, el: HTMLDivElement | null) => {
     if (el) {
