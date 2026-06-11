@@ -10,8 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { fetchTournaments } from '@/lib/mmrivals-api';
-import type { Tournament, StudioMode } from '@/types/studio';
+import { fetchTournaments, fetchMatches } from '@/lib/mmrivals-api';
+import type { PoolData, Tournament, StudioMode } from '@/types/studio';
+import { selectablePools, poolTabLabel, isPoolTournament } from '@/lib/pool-utils';
 import { Copy, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,6 +24,9 @@ export default function Studio() {
   const [count, setCount] = useState('1');
   const [streamerKey, setStreamerKey] = useState('');
   const [loading, setLoading] = useState(true);
+  const [pools, setPools] = useState<PoolData[]>([]);
+  const [usePools, setUsePools] = useState(false);
+  const [selectedPool, setSelectedPool] = useState<string>('');
 
   useEffect(() => {
     fetchTournaments()
@@ -30,6 +34,34 @@ export default function Studio() {
       .catch(() => setTournaments([]))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!selectedTournament) {
+      setPools([]);
+      setUsePools(false);
+      setSelectedPool('');
+      return;
+    }
+    let cancelled = false;
+    fetchMatches(selectedTournament, 'bracket')
+      .then((res) => {
+        if (cancelled) return;
+        const ps = res.pools ?? [];
+        setPools(ps);
+        setUsePools(res.use_pools ?? isPoolTournament(ps));
+        const first = selectablePools(ps)[0];
+        setSelectedPool(first?.pool_id ?? '');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPools([]);
+        setUsePools(false);
+        setSelectedPool('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTournament]);
 
   const renderUrl = (() => {
     if (!selectedTournament || !streamerKey) return '';
@@ -39,6 +71,9 @@ export default function Studio() {
       count: String(count),
       key: streamerKey,
     });
+    if (mode === 'bracket' && usePools && selectedPool) {
+      params.set('pool_id', selectedPool);
+    }
     return `${window.location.origin}/studio/render?${params.toString()}`;
   })();
 
@@ -121,6 +156,25 @@ export default function Studio() {
                       {[1, 2, 3, 4, 5].map((n) => (
                         <SelectItem key={n} value={String(n)}>
                           {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Pool select (bracket only, when use_pools) */}
+              {mode === 'bracket' && usePools && selectablePools(pools).length > 0 && (
+                <div className="space-y-2">
+                  <Label>Pool</Label>
+                  <Select value={selectedPool} onValueChange={setSelectedPool}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectablePools(pools).map((p) => (
+                        <SelectItem key={p.pool_id} value={p.pool_id}>
+                          {poolTabLabel(p)}
                         </SelectItem>
                       ))}
                     </SelectContent>
