@@ -461,7 +461,13 @@ export function BracketView({
             style={{ width: '100%', height: '100%', overflow: 'visible', zIndex: 0 }}
           >
             {lines.map((line) => (
-              <path key={line.id} d={line.d} fill="none" stroke={LINE_COLOR} strokeWidth={LINE_WIDTH} />
+              <path
+                key={line.id}
+                d={line.d}
+                fill="none"
+                stroke={isGlass ? GLASS_LINE_COLOR : STD_LINE_COLOR}
+                strokeWidth={LINE_WIDTH}
+              />
             ))}
           </svg>
 
