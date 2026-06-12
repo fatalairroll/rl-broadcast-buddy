@@ -200,3 +200,7 @@ export const glassContentLayer: CSSProperties = {
   position: 'relative',
   zIndex: 2,
 };
+
+/* ── Bracket constants ── */
+export const BRACKET_TOP_OFFSET = 0;
+export const PAN_SPEED_PX_S = 35;

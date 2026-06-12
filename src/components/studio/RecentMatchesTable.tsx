@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MatchData } from '@/types/studio';
 import {
   type StudioTheme,
@@ -26,6 +27,8 @@ interface RecentMatchesTableProps {
 
 const STD_SKEW = -15;
 const STD_UNSKEW = 15;
+const GLASS_ROW_H = 43;
+const GLASS_GAP = 4;
 
 function Header({ skew, unskew }: { skew: number; unskew: number }) {
   return (
@@ -140,7 +143,7 @@ function MatchRow({
       className="flex items-stretch overflow-hidden"
       style={
         isGlass
-          ? { gap: 4 }
+          ? { gap: 4, height: GLASS_ROW_H }
           : {
               transform: `skewX(${skew}deg)`,
               background: 'linear-gradient(90deg, rgba(15,23,42,0.9) 0%, rgba(30,41,59,0.7) 100%)',
@@ -164,7 +167,7 @@ function MatchRow({
           <span
             className="text-xs uppercase tracking-wider truncate flex-1 text-right"
             style={isGlass
-              ? { ...(bWon ? glassNameDead : glassName), fontSize: 14 }
+              ? { ...(bWon ? glassNameDead : glassName), fontSize: 17 }
               : { fontFamily: 'Rajdhani, Inter, sans-serif', color: '#ffffff', fontWeight: 500 }}
           >
             {match.team_a?.name ?? 'TBD'}
@@ -199,7 +202,7 @@ function MatchRow({
 
         <div style={isGlass ? glassContentLayer : undefined} className="flex flex-col items-center">
           {isGlass ? (
-            <span className="text-base font-bold tracking-widest" style={{ ...glassLabel, fontStyle: 'normal', letterSpacing: '.08em', color: '#fff' }}>
+            <span className="font-bold tracking-widest" style={{ ...glassLabel, fontStyle: 'normal', letterSpacing: '.08em', color: '#fff', fontSize: 22 }}>
               <span style={aWon ? glassScoreDigitWin : glassScoreDigitLose}>{match.score_a}</span>
               <span style={{ opacity: 0.5, margin: '0 4px' }}>:</span>
               <span style={bWon ? glassScoreDigitWin : glassScoreDigitLose}>{match.score_b}</span>
@@ -245,7 +248,7 @@ function MatchRow({
           <span
             className="text-xs uppercase tracking-wider truncate flex-1 text-left"
             style={isGlass
-              ? { ...(aWon ? glassNameDead : glassName), fontSize: 14 }
+              ? { ...(aWon ? glassNameDead : glassName), fontSize: 17 }
               : { fontFamily: 'Rajdhani, Inter, sans-serif', color: '#ffffff', fontWeight: 500 }}
           >
             {match.team_b?.name ?? 'TBD'}
@@ -261,6 +264,32 @@ export function RecentMatchesTable({ matches, theme = 'standard' }: RecentMatche
   const isGlass = theme === 'sharp-glass';
   const skew = isGlass ? 0 : STD_SKEW;
   const unskew = isGlass ? 0 : STD_UNSKEW;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [maxRows, setMaxRows] = useState<number>(matches.length);
+
+  useLayoutEffect(() => {
+    if (!isGlass) return;
+    const measure = () => {
+      const container = containerRef.current;
+      const header = headerRef.current;
+      if (!container) return;
+      const availableH = container.clientHeight;
+      const headerH = header?.offsetHeight ?? 0;
+      const n = Math.max(0, Math.floor((availableH - headerH) / (GLASS_ROW_H + GLASS_GAP)));
+      setMaxRows(n);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (containerRef.current) ro.observe(containerRef.current);
+    if (headerRef.current) ro.observe(headerRef.current);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [isGlass, matches.length]);
+
   if (matches.length === 0) {
     return (
       <div className="flex items-center justify-center p-8 font-esports text-lg" style={{ color: 'hsl(215, 16%, 45%)' }}>
@@ -269,16 +298,22 @@ export function RecentMatchesTable({ matches, theme = 'standard' }: RecentMatche
     );
   }
 
+  const visibleMatches = isGlass ? matches.slice(0, maxRows) : matches;
+
   return (
     <div
+      ref={containerRef}
       className="flex flex-col gap-0.5 p-3 w-full mx-auto"
       style={{
         backdropFilter: 'blur(16px)',
+        ...(isGlass ? { height: '100%', gap: GLASS_GAP } : null),
       }}
     >
-      <Header skew={skew} unskew={unskew} />
+      <div ref={headerRef}>
+        <Header skew={skew} unskew={unskew} />
+      </div>
       <AnimatePresence mode="popLayout">
-        {matches.map((match, index) => (
+        {visibleMatches.map((match, index) => (
           <MatchRow key={match.match_id} match={match} index={index} theme={theme} />
         ))}
       </AnimatePresence>

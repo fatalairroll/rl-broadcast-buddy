@@ -29,6 +29,8 @@ const MID_W = 190;
 const TILE_H = 50;
 const TOTAL_W = BLUE_W + MID_W + ORANGE_W;
 
+const SHOW_TEAM_LOGOS = false;
+
 const BLUE_GRADIENT = 'linear-gradient(135deg,#1e3a8a,#2563eb,#3b82f6)';
 const ORANGE_GRADIENT = 'linear-gradient(135deg,#9a3412,#f97316,#fb923c)';
 const BLUE_GLOW = '0 0 18px rgba(37,99,235,0.55)';
@@ -151,14 +153,15 @@ function GlassHeader({
 
   return (
     <div className="select-none flex items-stretch" style={{ height: H, gap: 4 }}>
-      {/* Chip A */}
-      <div className="relative flex items-center justify-center" style={{ width: CHIP_W, height: H, ...glassChip, ...chamferLeft(10) }}>
-        <div style={glassSpecularSweep} aria-hidden />
-        <span style={{ ...glassLabel, fontSize: 13, ...glassContentLayer }}>A</span>
-      </div>
+      {SHOW_TEAM_LOGOS && (
+        <div className="relative flex items-center justify-center" style={{ width: CHIP_W, height: H, ...glassChip, ...chamferLeft(10) }}>
+          <div style={glassSpecularSweep} aria-hidden />
+          <span style={{ ...glassLabel, fontSize: 13, ...glassContentLayer }}>A</span>
+        </div>
+      )}
 
       {/* Name A */}
-      <div className="relative flex items-center justify-end px-4" style={{ width: NAME_W, height: H, ...glassBarBlue }}>
+      <div className="relative flex items-center justify-end px-4" style={{ width: NAME_W, height: H, ...glassBarBlue, ...chamferLeft(10) }}>
         <div style={glassSpecularSweep} aria-hidden />
         <span style={{ ...glassName, fontSize: 22, ...glassContentLayer, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {teamNames.blue}
@@ -182,18 +185,19 @@ function GlassHeader({
       </div>
 
       {/* Name B */}
-      <div className="relative flex items-center justify-start px-4" style={{ width: NAME_W, height: H, ...glassBarOrange }}>
+      <div className="relative flex items-center justify-start px-4" style={{ width: NAME_W, height: H, ...glassBarOrange, ...chamferRight(10) }}>
         <div style={glassSpecularSweep} aria-hidden />
         <span style={{ ...glassName, fontSize: 22, ...glassContentLayer, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {teamNames.orange}
         </span>
       </div>
 
-      {/* Chip B */}
-      <div className="relative flex items-center justify-center" style={{ width: CHIP_W, height: H, ...glassChip, ...chamferRight(10) }}>
-        <div style={glassSpecularSweep} aria-hidden />
-        <span style={{ ...glassLabel, fontSize: 13, ...glassContentLayer }}>B</span>
-      </div>
+      {SHOW_TEAM_LOGOS && (
+        <div className="relative flex items-center justify-center" style={{ width: CHIP_W, height: H, ...glassChip, ...chamferRight(10) }}>
+          <div style={glassSpecularSweep} aria-hidden />
+          <span style={{ ...glassLabel, fontSize: 13, ...glassContentLayer }}>B</span>
+        </div>
+      )}
     </div>
   );
 }
