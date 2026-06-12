@@ -1,11 +1,12 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { Star } from 'lucide-react';
 import type { PostgamePayload, PostgamePlayer, PostgameState } from '@/types/postgame';
 import {
   BLUE,
   ORANGE,
   PostgameGlassPanel,
   PostgameTeamBarRow,
-  PostgameStatBarGlass,
+  PostgameMiniBarGlass,
   TEXT_SHADOW,
   formatValue,
   type PostgameRowFormat,
@@ -17,7 +18,6 @@ import {
   glassLabel,
   type StudioTheme,
 } from '@/lib/studio-glass-theme';
-import { PANEL_STYLE_GLASS } from './PostgameShared';
 
 interface Props {
   data: PostgamePayload | null;
@@ -226,7 +226,7 @@ export function PostgameSummary({ data, state, theme = 'standard' }: Props) {
       </div>
 
       {theme === 'sharp-glass' ? (
-        <GlassStatsView data={data} bluePlayers={bluePlayers} orangePlayers={orangePlayers} />
+        <GlassGridView data={data} bluePlayers={bluePlayers} orangePlayers={orangePlayers} />
       ) : (
         <PostgameGlassPanel
           className="w-full"
