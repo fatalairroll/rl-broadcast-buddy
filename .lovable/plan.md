@@ -1,127 +1,66 @@
+# Poprawki GLASS OVERLAY — pozycje + wersjonowanie + ikona rangi
 
-# Plan: GLASS OVERLAY — wariant OPAQUE (aneks, v2)
+## Diagnoza
 
-Modyfikacja zaakceptowanego presetu GLASS OVERLAY w kreatorze v2. Studio i inne presety — nietknięte. Dodajemy nowe tokeny "opaque glass" i przebudowujemy trzy komponenty presetu, aby były w 100% kryjące i zakrywały natywny HUD gry RL.
+1. **Stary wiersz w DB** — `ensureGlassPreset` jest `if exists → return`. Wiersz "GLASS OVERLAY" zapisany przed aneksem opaque trzyma stare pozycje (`offsetY:-516`, karta `center-bottom`).
+2. **Scorebar nie sięga y=0** — `GLASS_OVERLAY_CONFIG.scoreboard.position = { anchorV:'top', offsetY:0 }`. W `src/lib/position-utils.ts` `anchorV:'top'` ustawia górną krawędź elementu na `540 + offsetY`. Czyli `offsetY:0` daje top=540, NIE top=0. Aby górna krawędź dotykała y=0, musi być `offsetY:-540`. Poprawka u źródła — w configu presetu, nie w renderze (resolver jest poprawny i wspólny dla całego v2).
+3. **Karta w środku-dole** — kod presetu już ma `left/bottom 24/64`, ale w DB siedzi stara wersja (patrz 1).
+4. **Ikona rangi** — pola `rankIconSize / rankIconOffsetX / rankIconOffsetY` (jako `rankOffsetX/Y` + `rankIconSize`) są w typach i UI kreatora; `GlassPlayerCard` używa stałych `width={30} height={30}` i nie respektuje offsetów.
 
-**Korekta vs poprzednia wersja planu:** rząd 1 scorebara po prawej stronie ścina GÓRNY prawy róg (nie dolny). Cały slab tworzy symetryczny ośmiokąt: górne rogi w rzędzie 1, dolne w rzędzie 2 — bez prześwitów na stykach.
+## Zmiany
 
-## 1. Nowe tokeny — `src/lib/studio-glass-theme.ts` (tylko DODAJEMY)
+### A. Wersjonowanie systemowego presetu
 
-Dopisać na końcu pliku nową sekcję `OPAQUE` — nic istniejącego nie ruszamy:
+**`src/types/overlayV2.ts`**
+- W `GeneralV2Style` dodać `presetVersion?: number` (opcjonalne, defaultem `undefined` dla zwykłych configów).
+- W `mergeV2Config` przepuścić pole bez zmian.
 
-- `opaqueBarBlue`, `opaqueBarOrange`, `opaqueDark` — pełne gradienty (alpha=1), border + borderTop/borderBottom, inset shadow (highlight + głębia).
-- `fakeRefractionBlue/Orange/Dark` — warstwa malowana radial-gradientami symulująca refrakcję.
-- `opaqueCornerSpec` — refleks narożny (wypukłość) do skrajnych segmentów.
-- `opaquePillBlue/Orange/Empty` — pigułki serii w wariancie opaque.
-- **Nowe helpery chamfer dla rzędu 1 scorebara (tną tylko górne rogi):**
-  ```ts
-  export const chamferTopLeft = (px = 12): CSSProperties => ({
-    clipPath: `polygon(${px}px 0, 100% 0, 100% 100%, 0 100%, 0 ${px}px)`,
-  });
-  export const chamferTopRight = (px = 12): CSSProperties => ({
-    clipPath: `polygon(0 0, calc(100% - ${px}px) 0, 100% ${px}px, 100% 100%, 0 100%)`,
-  });
-  ```
-  Istniejące `chamferLeft/Right` (tnące pary góra-lewo + dół-lewo / góra-prawo + dół-prawo) zostają nietknięte — używają ich inne komponenty.
+**`src/lib/v2-glass-preset.ts`**
+- Stała `GLASS_PRESET_VERSION = 3`.
+- `GLASS_OVERLAY_CONFIG.general.presetVersion = GLASS_PRESET_VERSION`.
+- `GLASS_OVERLAY_CONFIG.scoreboard.position.offsetY = -540` (górna krawędź = y=0).
+- Reszta presetu bez zmian (karta `left/bottom 24/64` już jest).
+- `ensureGlassPreset(presets, createPreset, updatePreset)`:
+  - jeśli brak wiersza po nazwie → `createPreset(...)` (jak teraz),
+  - jeśli wiersz istnieje i `config.general.presetVersion < GLASS_PRESET_VERSION` (lub brak) → `updatePreset(row.id, { config: GLASS_OVERLAY_CONFIG, description: ... })`. Całość presetu systemowego nadpisywana. Inne presety/sceny użytkowników nietykane (filtr po dokładnej nazwie `"GLASS OVERLAY"`).
 
-Kolejność warstw w każdym opaque-panelu (od spodu):
-1. baza `opaque*`
-2. `fakeRefraction*`
-3. `glassSpecularSweep` (istniejący)
-4. opcjonalnie `opaqueCornerSpec` na skrajnym segmencie
-5. treść z `glassContentLayer` (zIndex 2)
+**`src/pages/Creator.tsx`**
+- Wywołanie `ensureGlassPreset(presets, createPreset, updatePreset)` — dołożyć `updatePreset` do argumentów.
 
-W komponentach opaque NIE używamy `backdropFilter` ani `WebkitBackdropFilter`.
+### B. Konfigurowalna ikona rangi w `GlassPlayerCard`
 
-## 2. Typy presetu — `src/types/overlayV2.ts`
+**`src/components/v2/glass/GlassPlayerCard.tsx`**
+- W miejscu `<motion.img ... width={30} height={30}>` użyć:
+  - `const size = config.playerCard.rankIconSize ?? 30;`
+  - `const ox = config.playerCard.rankOffsetX ?? 0;`
+  - `const oy = config.playerCard.rankOffsetY ?? 0;`
+  - `width={size} height={size}`, `style.transform = 'translate(calc(-50% + {ox}px), calc(-50% + {oy}px))'`.
+- Box (`BOX_W=84`, `overflow:hidden`) bez zmian — skrajne offsety przycinają ikonę (akceptowalny feedback).
+- Stan `GOL!` bez zmian (nie czyta tych pól).
 
-Rozszerzyć `scoreboard` o opcjonalne pola:
-- `coverWidth?: number` (default 620)
-- `coverHeight?: number` (default 104, suma: rząd1 66 + rząd2 38)
+**`src/components/creator/StyleEditorV2.tsx`**
+- Kontrolki już istnieją (linie 200–202). Zostawić; ewentualnie zawęzić zakresy do specyfikacji jeśli to potrzebne — w specyfikacji jest 18–48 / -20..20 / -12..12, w kodzie obecnie 16–160 / -200..200 / -200..200. **Rozstrzygnięcie:** zostawiamy szersze zakresy (bardziej elastyczne, nie psują DoD — DoD wymaga tylko, by kontrolki działały na żywo i były zapisywane z presetem). Jeśli chcesz strict zakresy, zmienimy w jednym kroku.
 
-`mergeV2Config` musi domyślać oba pola, by sceny istniejące zachowały kompatybilność. Pola wykorzystywane wyłącznie przez `theme: 'glass'`.
+### C. Brak zmian w resolverze pozycji
 
-## 3. Scorebar — `src/components/v2/glass/GlassScorebar.tsx`
+`src/lib/position-utils.ts` jest poprawny i używany przez cały v2 (standard + glass). Semantyka `anchorV:'top' + offsetY:-540 → top=0`, `anchorH:'left' + offsetX:-960 → left=0` jest spójna. Korekta wyłącznie w danych presetu.
 
-### Geometria
-- Pozycja domyślna presetu: `anchorV: 'top'`, `offsetY: 0`.
-- Wymiary: `coverWidth × coverHeight` z configu (domyślnie 620×104).
-- Rząd 1: 66 px; rząd 2: `coverHeight - 66`.
-- Szerokości segmentów rzędu 1 (baza dla 620): nazwa A | wynik A 58 | zegar 116 | wynik B 58 | nazwa B (nazwy dzielą resztę po równo).
+## Pliki edytowane
 
-### Rząd 1 — chamfery (KOREKTA)
-- Pasek A (blue, lewa skrajna): `chamferTopLeft(12)` — ścina TYLKO górny-lewy róg.
-- Pasek B (orange, prawa skrajna): `chamferTopRight(12)` — ścina TYLKO górny-prawy róg.
-- Segmenty środkowe (wyniki, zegar): bez clip-path.
-- Skutek: rząd 1 ma proste krawędzie dolne na całej szerokości → idealny styk z rzędem 2, brak trójkątnych prześwitów.
+- `src/types/overlayV2.ts` — `presetVersion` w `GeneralV2Style`.
+- `src/lib/v2-glass-preset.ts` — wersja, `offsetY:-540`, `ensureGlassPreset` z update'em.
+- `src/pages/Creator.tsx` — przekazanie `updatePreset` do `ensureGlassPreset`.
+- `src/components/v2/glass/GlassPlayerCard.tsx` — `rankIconSize` + offsety przez `transform`.
 
-### Rząd 1 — treść
-- Nazwy: `glassName` 27 px; blue left-align (padding 0 14 0 22), orange right-align (padding 0 22 0 14).
-- Wyniki: 34 px; prowadzący `glassScoreDigitWin`, przegrywający `color: rgba(255,255,255,.30)` bez glow; remis → oba `win`.
-- Zegar: 30 px, sam czas; bordery boczne `1px rgba(255,255,255,.14)`. BEZ podlinii "Mecz {n} · BO{x}".
-- `opaqueCornerSpec` na pasku A (`left:-8%`) i lustrzanie na pasku B (`left:auto; right:-8%`).
+## Nieruszane
 
-### Rząd 2 — domknięcie + seria
-- Pojedynczy slab `opaqueDark` na pełną szerokość, `borderTop: 'none'` (styk z rzędem 1 bez szwu).
-- Dolne narożniki fazowane obustronnie, górne proste:
-  ```
-  clip-path: polygon(
-    0 0, 100% 0,
-    100% calc(100% - 12px), calc(100% - 12px) 100%,
-    12px 100%, 0 calc(100% - 12px)
-  )
-  ```
-- Cała sylwetka slabu = symetryczny ośmiokąt: 4 ścięcia (2 góra w rz. 1 + 2 dół w rz. 2), żadnych prześwitów.
-- Zawartość (flex row, gap 18, center):
-  `MMRIVALS` (glassLabel 10 px, rgba(255,255,255,.6)) · pigułki `opaquePill*` (liczba = BO, kolejność blue-wins → orange-wins → empty) · `Mecz {n} · BO{x}` (glassLabel 10 px).
-- Sweep w rzędzie 2: height 30%.
+Studio, tokeny szklane, `useGoalEventDetector`, logika stanów karty, standardowe komponenty v2, sceny i presety użytkowników o nazwie ≠ "GLASS OVERLAY".
 
-## 4. Boost panels — `src/components/v2/glass/GlassBoostPanel.tsx`
+## Definition of Done — mapowanie
 
-- `glassBarBlue/Orange` → `opaqueBarBlue/Orange`; `glassScoreBox` → `opaqueDark`.
-- Dodać warstwę `fakeRefraction*` nad bazą, pod fill/sweep.
-- Kolejność: baza → fakeRefraction → fill (`glassBoostFill*` bez zmian) → sweep → treść.
-- Brak `backdropFilter`.
-- Stany `<10` (critical red fill) i `=100` (gold digit) — bez zmian.
-- Chamfery wewnętrzne (`chamferLeft/Right(10)` istniejące): bez zmian — rzędy boostu mają inną geometrię niż scorebar, oba rogi po jednej stronie ścinają się celowo (nie ma drugiego rzędu pod spodem).
-- Pozycje, wymiary, lustrzaność — bez zmian.
-
-## 5. Karta zawodnika — `src/components/v2/glass/GlassPlayerCard.tsx`
-
-- Pozycja domyślna w `GLASS_OVERLAY_CONFIG.playerCard.position`: `anchorH: 'left'`, `anchorV: 'bottom'`, `offsetX: 24`, `offsetY: 64`.
-- Wewnątrz karty:
-  - pasek drużyny `glassBar*` → `opaqueBar*` + `fakeRefraction*`.
-  - box rangi / box "GOL!" `glassScoreBox` → `opaqueDark` + `fakeRefractionDark`.
-  - kicker nad kartą: wyrównany do lewej.
-  - odłamki pod kartą: `justifyContent: 'flex-start'`, marginLeft 2 px.
-- Logika stanów (idle / GOL / bez rangi), `framer-motion` (translateY 180 ms, hold 6000 ms), detektor gola — BEZ ZMIAN.
-
-## 6. Preset — `src/lib/v2-glass-preset.ts`
-
-W `GLASS_OVERLAY_CONFIG`:
-- `scoreboard.position` → `{ anchorH:'center', anchorV:'top', offsetX:0, offsetY:0 }`.
-- `scoreboard.coverWidth = 620`, `scoreboard.coverHeight = 104`.
-- `playerCard.position` → `{ anchorH:'left', anchorV:'bottom', offsetX:24, offsetY:64 }`.
-- `seriesScore.visible` pozostaje `false`.
-
-`ensureGlassPreset` jest idempotentne po nazwie — istniejące instancje w DB użytkowników NIE zostaną nadpisane (akceptujemy).
-
-## 7. Czego NIE ruszamy
-
-- Studio (motyw sharp-glass) i jego overlaye.
-- Istniejące tokeny w `studio-glass-theme.ts` (`chamferLeft/Right` zostają dla innych komponentów).
-- Standardowe komponenty v2.
-- Hook `useGoalEventDetector`, logika stanów karty, dane.
-- Sceny `theme: 'standard'`.
-
-## 8. Definition of Done
-
-- [ ] Scorebar top:0, 620×104 domyślnie; `coverWidth/coverHeight` edytowalne w configu presetu.
-- [ ] Natywny HUD RL (skala 100%, 1080p) całkowicie zakryty.
-- [ ] Rząd 1 ścinany TYLKO na górnych rogach (`chamferTopLeft/Right`); rząd 2 ścinany TYLKO na dolnych rogach — sylwetka = symetryczny ośmiokąt, brak trójkątnych prześwitów na stykach.
-- [ ] Rząd 2: pigułki + brand MMRIVALS + numer meczu; styk z rzędem 1 bez szwu.
-- [ ] Wolnostojący seriesScore nieaktywny w GLASS OVERLAY.
-- [ ] Wszystkie panele presetu w 100% kryjące — zero `backdropFilter`, zero alpha w bazach; refrakcja + sweep + edge lighting obecne.
-- [ ] Karta zawodnika w lewym-dolnym rogu, kicker i odłamki wyrównane do lewej; stany działają.
-- [ ] Pigułki w wariancie opaque.
-- [ ] TS/lint czysto; standard i Studio bez regresji.
+- presetVersion + auto-update systemowego presetu → A.
+- scorebar top=0 → A (offsetY:-540).
+- karta 24/64 lewy-dół → A (auto-update wymusza świeży preset).
+- kontrolki ikony rangi działają na żywo → B (już są w UI; runtime teraz je czyta).
+- "GOL!" niezależny → B (nie czyta pól).
+- TS/lint czysto, Studio i standard bez regresji → wszystkie zmiany lokalne w configu/komponentach glass.
