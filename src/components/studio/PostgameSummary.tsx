@@ -11,10 +11,12 @@ import {
 } from './PostgameShared';
 import { PostgameScoreboardHeader } from './PostgameScoreboardHeader';
 import { POSTGAME_CENTER_COL_WIDTH } from '@/lib/studio-layout';
+import type { StudioTheme } from '@/lib/studio-glass-theme';
 
 interface Props {
   data: PostgamePayload | null;
   state: PostgameState;
+  theme?: StudioTheme;
 }
 
 type Side = 'blue' | 'orange';
@@ -185,7 +187,7 @@ function PlayerValuesRow({
   );
 }
 
-export function PostgameSummary({ data, state }: Props) {
+export function PostgameSummary({ data, state, theme = 'standard' }: Props) {
   if (state.error) {
     return <StatusMessage>Relay niedostępny (127.0.0.1:49300)</StatusMessage>;
   }
@@ -213,12 +215,14 @@ export function PostgameSummary({ data, state }: Props) {
           teamNames={data.team_names}
           blueScore={data.blue_score}
           orangeScore={data.orange_score}
+          theme={theme}
         />
       </div>
 
       <PostgameGlassPanel
         className="w-full"
         style={{ padding: '16px 20px', marginTop: 8 }}
+        theme={theme}
       >
         <div style={gridStyle}>
           {/* Header row — player nicks */}
