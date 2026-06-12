@@ -202,7 +202,7 @@ function MatchRow({
 
         <div style={isGlass ? glassContentLayer : undefined} className="flex flex-col items-center">
           {isGlass ? (
-            <span className="font-bold tracking-widest" style={{ ...glassLabel, fontStyle: 'normal', letterSpacing: '.08em', color: '#fff', fontSize: 22 }}>
+            <span className="font-bold tracking-widest flex items-center justify-center" style={{ ...glassLabel, fontStyle: 'normal', letterSpacing: '.08em', color: '#fff', fontSize: 22, height: '100%' }}>
               <span style={aWon ? glassScoreDigitWin : glassScoreDigitLose}>{match.score_a}</span>
               <span style={{ opacity: 0.5, margin: '0 4px' }}>:</span>
               <span style={bWon ? glassScoreDigitWin : glassScoreDigitLose}>{match.score_b}</span>
@@ -213,20 +213,20 @@ function MatchRow({
             </span>
           )}
 
-          <div
-            className="mt-0.5 px-2 py-0.5"
-            style={isGlass
-              ? { ...glassChip, ...chamferTag, marginTop: 4 }
-              : { background: 'rgba(255,255,255,0.05)' }}
-          >
-            <span
-              className="font-esports text-[9px] uppercase tracking-[0.2em]"
-              style={{ color: isGlass ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.45)' }}
+          {!isGlass && (
+            <div
+              className="mt-0.5 px-2 py-0.5"
+              style={{ background: 'rgba(255,255,255,0.05)' }}
             >
-              R{match.round_index}
-              {match.match_index != null ? ` M${match.match_index}` : ''}
-            </span>
-          </div>
+              <span
+                className="font-esports text-[9px] uppercase tracking-[0.2em]"
+                style={{ color: 'rgba(255,255,255,0.45)' }}
+              >
+                R{match.round_index}
+                {match.match_index != null ? ` M${match.match_index}` : ''}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
