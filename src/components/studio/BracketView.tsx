@@ -430,7 +430,7 @@ export function BracketView({
       cancelAnimationFrame(rafId);
       if (container) container.style.transform = 'translateY(0px)';
     };
-  }, [isGlass, startIdx, selectedPoolId, visibleRounds]);
+  }, [isGlass, startIdx, selectedPoolId]);
 
   const setMatchRef = useCallback((matchId: string, el: HTMLDivElement | null) => {
     if (el) {
@@ -550,7 +550,7 @@ export function BracketView({
         ref={outerRef}
         style={{
           width: '100%',
-          maxHeight: isGlass ? undefined : (enableAutoScroll ? 960 : undefined),
+          maxHeight: isGlass ? 'calc(100vh - 200px)' : (enableAutoScroll ? 960 : undefined),
           overflowY: 'hidden',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
