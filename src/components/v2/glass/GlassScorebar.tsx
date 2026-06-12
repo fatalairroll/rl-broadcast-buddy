@@ -47,7 +47,7 @@ function fmtTimer(m: MatchMetadata | null): string {
 
 export function GlassScorebar({ match, series, blueName, orangeName, config }: Props) {
   if (!config.scoreboard.visible) return null;
-  const totalW = config.scoreboard.coverWidth ?? 620;
+  const totalW = config.scoreboard.coverWidth ?? 736;
   const totalH = config.scoreboard.coverHeight ?? 104;
   const row2H = Math.max(24, totalH - ROW1_H);
   const nameW = Math.max(120, Math.floor((totalW - SCORE_W * 2 - TIMER_W) / 2));
@@ -65,6 +65,11 @@ export function GlassScorebar({ match, series, blueName, orangeName, config }: P
   for (let i = 0; i < series.blueScore; i++) pills.push('blue');
   for (let i = 0; i < series.orangeScore; i++) pills.push('orange');
   while (pills.length < total) pills.push('empty');
+
+  const fitFontSize = (n: string) =>
+    n.length <= 14 ? 21 : n.length <= 20 ? 19 : 17;
+  const blueFs = fitFontSize(blueName || 'BLUE');
+  const orangeFs = fitFontSize(orangeName || 'ORANGE');
 
   const segmentSweep: CSSProperties = { ...glassSpecularSweep };
   const row2Sweep: CSSProperties = { ...glassSpecularSweep, height: '30%' };
@@ -87,14 +92,14 @@ export function GlassScorebar({ match, series, blueName, orangeName, config }: P
             height: ROW1_H,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-start',
-            padding: '0 14px 0 22px',
+            justifyContent: 'flex-end',
+            padding: '0 14px 0 16px',
           }}
         >
           <div style={fakeRefractionBlue} />
           <div style={opaqueCornerSpec} />
           <div style={segmentSweep} />
-          <div style={{ ...glassContentLayer, ...glassName, fontSize: 27, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ ...glassContentLayer, ...glassName, fontSize: blueFs, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {blueName || 'BLUE'}
           </div>
         </div>
@@ -174,14 +179,14 @@ export function GlassScorebar({ match, series, blueName, orangeName, config }: P
             height: ROW1_H,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
-            padding: '0 22px 0 14px',
+            justifyContent: 'flex-start',
+            padding: '0 16px 0 14px',
           }}
         >
           <div style={fakeRefractionOrange} />
           <div style={{ ...opaqueCornerSpec, left: 'auto', right: '-8%' }} />
           <div style={segmentSweep} />
-          <div style={{ ...glassContentLayer, ...glassName, fontSize: 27, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ ...glassContentLayer, ...glassName, fontSize: orangeFs, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {orangeName || 'ORANGE'}
           </div>
         </div>
