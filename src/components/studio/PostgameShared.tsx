@@ -5,16 +5,10 @@ import {
 } from '@/lib/studio-layout';
 import {
   glassBarDead,
-  glassBarBlue,
-  glassBarOrange,
-  glassStatCenter,
-  glassStatCenterAccent,
   glassSpecularSweep,
   glassContentLayer,
   glassName,
   glassLabel,
-  chamferLeft,
-  chamferRight,
 } from '@/lib/studio-glass-theme';
 import type { StudioTheme } from '@/lib/studio-glass-theme';
 
