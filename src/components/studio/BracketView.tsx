@@ -650,6 +650,10 @@ function BracketMatchCard({
     const bStyle = bIsTbd || aWon ? glassBarDead : glassBarOrange;
     const aNameStyle = bWon || aIsTbd ? glassNameDead : glassName;
     const bNameStyle = aWon || bIsTbd ? glassNameDead : glassName;
+    const aShort = match.team_a?.name ? match.team_a.name.slice(0, 3).toUpperCase() : '—';
+    const bShort = match.team_b?.name ? match.team_b.name.slice(0, 3).toUpperCase() : '—';
+    const aDigitStyle = aWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' });
+    const bDigitStyle = bWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' });
 
     return (
       <div
@@ -657,57 +661,75 @@ function BracketMatchCard({
         className="relative"
         style={{
           width: CARD_WIDTH,
-          height: MATCH_HEIGHT,
+          height: GLASS_ROW_H * 2 + GLASS_ROW_GAP,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2,
+          gap: GLASS_ROW_GAP,
           position: 'relative',
           zIndex: 1,
         }}
       >
-        {/* Team A row */}
-        <div className="flex items-center" style={{ height: TEAM_ROW_H, ...aStyle, ...chamferLeft(8) }}>
-          <div style={glassSpecularSweep} aria-hidden />
-          <div className="flex items-center justify-between flex-1 px-2.5" style={{ ...glassContentLayer, height: '100%' }}>
-            <div className="flex items-center gap-1.5 min-w-0">
+        {/* Team A row: [chip][bar][score] */}
+        <div style={{ display: 'flex', height: GLASS_ROW_H, gap: 0 }}>
+          <div
+            className="relative flex items-center justify-center"
+            style={{ width: GLASS_CHIP_W, ...glassChip, ...chamferLeft(8) }}
+          >
+            <div style={glassSpecularSweep} aria-hidden />
+            <span style={{ ...glassLabel, fontSize: 10, ...glassContentLayer }}>{aShort}</span>
+          </div>
+          <div
+            className="relative flex items-center"
+            style={{ flex: 1, ...aStyle, paddingLeft: 8, paddingRight: 6 }}
+          >
+            <div style={glassSpecularSweep} aria-hidden />
+            <div className="flex items-center gap-1.5 min-w-0 w-full" style={glassContentLayer}>
               {showCheckIn && <CheckInDot team={match.team_a} />}
-              <span className="text-xs truncate" style={{ ...aNameStyle, fontSize: 13 }}>
+              <span className="truncate" style={{ ...aNameStyle, fontSize: 12 }}>
                 {match.team_a?.name ?? 'TBD'}
               </span>
             </div>
-            {match.team_a?.seed != null && (
-              <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                #{match.team_a.seed}
-              </span>
-            )}
+          </div>
+          <div
+            className="relative flex items-center justify-center"
+            style={{ width: GLASS_SCORE_W, ...glassScoreBox, ...chamferRight(8) }}
+          >
+            <div style={glassSpecularSweep} aria-hidden />
+            <span className="tabular-nums" style={{ ...glassContentLayer, fontWeight: 800, fontSize: 18, lineHeight: 1, ...aDigitStyle }}>
+              {match.score_a}
+            </span>
           </div>
         </div>
 
-        {/* Score row */}
-        <div className="relative flex items-center justify-center" style={{ height: SCORE_ROW_H, ...glassScoreBox }}>
-          <div style={glassSpecularSweep} aria-hidden />
-          <span className="font-esports text-xs font-bold tracking-widest" style={glassContentLayer}>
-            <span style={aWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' })}>{match.score_a}</span>
-            <span style={{ color: 'rgba(255,255,255,0.5)', margin: '0 4px' }}>:</span>
-            <span style={bWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' })}>{match.score_b}</span>
-          </span>
-        </div>
-
-        {/* Team B row */}
-        <div className="flex items-center" style={{ height: TEAM_ROW_H, ...bStyle, ...chamferRight(8) }}>
-          <div style={glassSpecularSweep} aria-hidden />
-          <div className="flex items-center justify-between flex-1 px-2.5" style={{ ...glassContentLayer, height: '100%' }}>
-            <div className="flex items-center gap-1.5 min-w-0">
+        {/* Team B row: [chip][bar][score] */}
+        <div style={{ display: 'flex', height: GLASS_ROW_H, gap: 0 }}>
+          <div
+            className="relative flex items-center justify-center"
+            style={{ width: GLASS_CHIP_W, ...glassChip, ...chamferLeft(8) }}
+          >
+            <div style={glassSpecularSweep} aria-hidden />
+            <span style={{ ...glassLabel, fontSize: 10, ...glassContentLayer }}>{bShort}</span>
+          </div>
+          <div
+            className="relative flex items-center"
+            style={{ flex: 1, ...bStyle, paddingLeft: 8, paddingRight: 6 }}
+          >
+            <div style={glassSpecularSweep} aria-hidden />
+            <div className="flex items-center gap-1.5 min-w-0 w-full" style={glassContentLayer}>
               {showCheckIn && <CheckInDot team={match.team_b} />}
-              <span className="text-xs truncate" style={{ ...bNameStyle, fontSize: 13 }}>
+              <span className="truncate" style={{ ...bNameStyle, fontSize: 12 }}>
                 {match.team_b?.name ?? 'TBD'}
               </span>
             </div>
-            {match.team_b?.seed != null && (
-              <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.75)' }}>
-                #{match.team_b.seed}
-              </span>
-            )}
+          </div>
+          <div
+            className="relative flex items-center justify-center"
+            style={{ width: GLASS_SCORE_W, ...glassScoreBox, ...chamferRight(8) }}
+          >
+            <div style={glassSpecularSweep} aria-hidden />
+            <span className="tabular-nums" style={{ ...glassContentLayer, fontWeight: 800, fontSize: 18, lineHeight: 1, ...bDigitStyle }}>
+              {match.score_b}
+            </span>
           </div>
         </div>
       </div>
