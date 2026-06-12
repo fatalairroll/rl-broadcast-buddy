@@ -2,7 +2,7 @@ import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2'
 import type { OverlayV2Preset } from '@/hooks/useOverlayV2Config';
 
 export const GLASS_PRESET_NAME = 'GLASS OVERLAY';
-export const GLASS_PRESET_VERSION = 5;
+export const GLASS_PRESET_VERSION = 6;
 
 export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
   ...defaultOverlayV2Config,
@@ -10,7 +10,7 @@ export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
     ...defaultOverlayV2Config.scoreboard,
     // anchorV:'top' + offsetY:-540 → top edge sits at y=0 (canvas top).
     position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -540 },
-    coverWidth: 620,
+    coverWidth: 736,
     coverHeight: 104,
   },
   seriesScore: {
