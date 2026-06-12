@@ -316,6 +316,8 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     fontFamily: 'Rajdhani, sans-serif',
     opacity: 1,
     skewDeg: -15,
+    coverWidth: 736,
+    coverHeight: 104,
   },
   scoreBlue: {
     gradient: defaultGradient(BLUE_FROM, BLUE_TO),

@@ -1,78 +1,57 @@
-# Poprawki Glass Overlay
+# Scorebar — szersze paski nazw + wyrównanie do zegara
 
-## 1. Gauge boosta — 100 px wyżej
+## 1. coverWidth 620 → 736
 
-`src/lib/v2-glass-preset.ts`:
-- `GLASS_OVERLAY_CONFIG.boostGauge.position.offsetY`: `524` → `424`
-- `GLASS_PRESET_VERSION`: `4` → `5` (wymusza nadpisanie wiersza systemowego presetu w DB przez `ensureGlassPreset`)
+Środkowe segmenty (`SCORE_W=58` + `TIMER_W=116` + `SCORE_W=58` = 232 px) bez zmian. Paski nazw rosną z 194 → 252 px (+30%). Nowy `coverWidth = 252·2 + 232 = 736`.
 
-## 2. Przesuwanie rangi — offset przez margin bezpośrednio na `motion.div`
+**`src/types/overlayV2.ts`:**
+- Default `scoreboard` (linia ~310) — dodać `coverWidth: 736, coverHeight: 104`.
+- `mergeV2Config` (linia 542) — fallback `?? 620` → `?? 736`.
 
-**Diagnoza:** ikona rangi to `motion.img`, framer-motion animuje `y`/`opacity` (czyli `transform`) i nadpisuje statyczny `transform: translate(calc(-50%+ox), calc(-50%+oy))`. Wizualnie offset znika po swapie ranga↔GOL.
+**`src/lib/v2-glass-preset.ts`:**
+- `GLASS_OVERLAY_CONFIG.scoreboard.coverWidth`: `620` → `736`.
+- `GLASS_PRESET_VERSION`: `5` → `6` (wymusza nadpisanie wiersza systemowego w DB).
 
-**Naprawa:** przenieść offset na `marginLeft`/`marginTop` (framer-motion nie dotyka marginesów) bezpośrednio na elemencie `motion.div`, który jest bezpośrednim dzieckiem `AnimatePresence` (wymóg framera: dzieci z `key` muszą być komponentami motion — żadnego pośredniego, statycznego wrappera, bo zabije to exit-animację).
+Rząd 2 w `GlassScorebar` już używa `totalW` z configu — żaden 620 nie jest zahardkodowany poza wymienionymi miejscami (zweryfikowano: `rg coverWidth|620` → tylko 3 wystąpienia w tych plikach). `nameW` liczy się automatycznie z `(totalW - SCORE_W*2 - TIMER_W)/2 = 252`.
 
-**`src/components/v2/glass/GlassPlayerCard.tsx`, `CardBody`** — w boxie 84 px:
+## 2. Mniejsza typografia nazw + gwarancja 25 znaków
 
-```tsx
-<AnimatePresence mode="wait">
-  {inGoal ? (
-    <motion.div key="goal"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: GOAL_SWAP_MS / 1000, ease: 'easeOut' }}
-      style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        ...glassName, ...glassScoreDigitWin,
-        fontSize: 24, letterSpacing: '.04em',
-      }}
-    >
-      GOL!
-    </motion.div>
-  ) : rankIconSrc ? (
-    <motion.div key="rank"
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: GOAL_SWAP_MS / 1000, ease: 'easeIn' }}
-      style={{
-        position: 'absolute', left: '50%', top: '50%',
-        marginLeft: -rankSize / 2 + rankOx,
-        marginTop:  -rankSize / 2 + rankOy,
-        width: rankSize, height: rankSize,
-      }}
-    >
-      <img src={rankIconSrc} alt={display.rank ?? ''}
-           width={rankSize} height={rankSize}
-           style={{ display: 'block', objectFit: 'contain' }}
-           draggable={false} />
-    </motion.div>
-  ) : null}
-</AnimatePresence>
+**`src/components/v2/glass/GlassScorebar.tsx`:**
+
+Wyliczyć deterministycznie rozmiar dla każdej nazwy osobno:
+
+```ts
+const fitFontSize = (n: string) =>
+  n.length <= 14 ? 21 : n.length <= 20 ? 19 : 17;
+const blueFs = fitFontSize(blueName || 'BLUE');
+const orangeFs = fitFontSize(orangeName || 'ORANGE');
 ```
 
-Zasady:
-- Gałąź "GOL!" — wyłącznie wycentrowana (`inset:0` + flex center), bez `ox/oy`.
-- Gałąź rangi — pozycja przez `left/top: 50%` + ujemne marginesy z dodanymi `rankOx`/`rankOy`. `motion.div` animuje tylko `opacity` i `y` (transform), marginesy zostają nietknięte → offset trwały także po exit/enter.
-- `size = rankIconSize ?? 30`, `ox = rankOffsetX ?? 0`, `oy = rankOffsetY ?? 0` — istniejące pola, bez nowych.
-- Box 84 px z `overflow: hidden` — bez zmian; skrajne wartości przycinają, nie rozpychają.
+W obu kafelkach nazw zastąpić `fontSize: 27` → `fontSize: blueFs` / `orangeFs`. Reszta stylu (`glassName`, wagi, italic) bez zmian. `overflow: hidden`, `textOverflow: 'ellipsis'`, `whiteSpace: nowrap` (dodać `whiteSpace` — obecnie polega na inline; jawne ustawienie to twardy bezpiecznik).
+
+## 3. Wyrównanie nazw do zegara
+
+W `GlassScorebar.tsx`:
+
+- **Blue (lewy):** `justifyContent: 'flex-end'`, `padding: '0 14px 0 16px'`.
+- **Orange (prawy):** `justifyContent: 'flex-start'`, `padding: '0 16px 0 14px'`.
+
+`opaqueCornerSpec` na zewnętrznych narożnikach bez zmian (już lustrzany w istniejącym kodzie).
 
 ## Czego nie ruszam
 
-Typy configu, kontrolki w `StyleEditorV2`, detektor gola, timery/stany karty, resolver pozycji, Studio, `GlassBoostGauge`, `GlassBoostPanel`, `GlassScorebar`, sceny użytkowników, tokeny.
+`SCORE_W`, `TIMER_W`, typografia wyników/zegara, chamfery, materiały (`opaqueBarBlue/Orange/Dark`), `fakeRefraction*`, sweep, rząd 2 (układ wewnętrzny), `boostGauge`, `GlassPlayerCard`, sceny użytkowników, kontrolki kreatora.
 
 ## Pliki
 
+- `src/types/overlayV2.ts`
 - `src/lib/v2-glass-preset.ts`
-- `src/components/v2/glass/GlassPlayerCard.tsx`
+- `src/components/v2/glass/GlassScorebar.tsx`
 
 ## DoD
 
-- Suwaki Przesunięcie X/Y w `/creator` przesuwają ikonę na żywo i offset zostaje PO swapie ranga↔GOL (test: wymusić gola).
-- Slider rozmiaru działa; ikona przycina się w boxie 84 px, layout nierozepchnięty.
-- "GOL!" zawsze wycentrowany, niezależny od `ox/oy`.
-- Brak warningów framer-motion (key na bezpośrednich dzieciach `AnimatePresence`, exit gra).
-- Gauge 100 px wyżej; preset v5; wiersz DB zaktualizowany przy najbliższym wejściu w `/creator`.
-- TS/lint czysto.
+- Domyślny `coverWidth = 736` (default + preset); rząd 2 na pełną szerokość; brak zahardkodowanego 620.
+- Nazwa 25-znakowa wpada bez ucięcia (17 px); >25 znaków → ellipsis, layout stabilny.
+- Blue dosunięty do prawej krawędzi paska, orange do lewej — obie nazwy "ciążą" ku zegarowi.
+- `GLASS_PRESET_VERSION = 6`; `ensureGlassPreset` nadpisze wiersz przy najbliższym wejściu w `/creator`.
+- TS/lint czysto; reszta presetu i Studio bez regresji.
