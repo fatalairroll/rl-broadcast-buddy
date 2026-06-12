@@ -654,8 +654,6 @@ function BracketMatchCard({
     const bStyle = bIsTbd || aWon ? glassBarDead : glassBarOrange;
     const aNameStyle = bWon || aIsTbd ? glassNameDead : glassName;
     const bNameStyle = aWon || bIsTbd ? glassNameDead : glassName;
-    const aShort = match.team_a?.name ? match.team_a.name.slice(0, 3).toUpperCase() : '—';
-    const bShort = match.team_b?.name ? match.team_b.name.slice(0, 3).toUpperCase() : '—';
     const aDigitStyle = aWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' });
     const bDigitStyle = bWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' });
 
@@ -673,18 +671,11 @@ function BracketMatchCard({
           zIndex: 1,
         }}
       >
-        {/* Team A row: [chip][bar][score] */}
+        {/* Team A row: [bar][score] */}
         <div style={{ display: 'flex', height: GLASS_ROW_H, gap: 0 }}>
           <div
-            className="relative flex items-center justify-center"
-            style={{ width: GLASS_CHIP_W, ...glassChip, ...chamferLeft(8) }}
-          >
-            <div style={glassSpecularSweep} aria-hidden />
-            <span style={{ ...glassLabel, fontSize: 10, ...glassContentLayer }}>{aShort}</span>
-          </div>
-          <div
             className="relative flex items-center"
-            style={{ flex: 1, ...aStyle, paddingLeft: 8, paddingRight: 6 }}
+            style={{ flex: 1, ...aStyle, ...chamferLeft(8), paddingLeft: 10, paddingRight: 6 }}
           >
             <div style={glassSpecularSweep} aria-hidden />
             <div className="flex items-center gap-1.5 min-w-0 w-full" style={glassContentLayer}>
@@ -705,18 +696,11 @@ function BracketMatchCard({
           </div>
         </div>
 
-        {/* Team B row: [chip][bar][score] */}
+        {/* Team B row: [bar][score] */}
         <div style={{ display: 'flex', height: GLASS_ROW_H, gap: 0 }}>
           <div
-            className="relative flex items-center justify-center"
-            style={{ width: GLASS_CHIP_W, ...glassChip, ...chamferLeft(8) }}
-          >
-            <div style={glassSpecularSweep} aria-hidden />
-            <span style={{ ...glassLabel, fontSize: 10, ...glassContentLayer }}>{bShort}</span>
-          </div>
-          <div
             className="relative flex items-center"
-            style={{ flex: 1, ...bStyle, paddingLeft: 8, paddingRight: 6 }}
+            style={{ flex: 1, ...bStyle, ...chamferLeft(8), paddingLeft: 10, paddingRight: 6 }}
           >
             <div style={glassSpecularSweep} aria-hidden />
             <div className="flex items-center gap-1.5 min-w-0 w-full" style={glassContentLayer}>
