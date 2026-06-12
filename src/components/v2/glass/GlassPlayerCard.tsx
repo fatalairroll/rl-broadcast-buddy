@@ -192,6 +192,9 @@ export function GlassPlayerCard({
             <CardBody
               display={display}
               goal={inGoalState ? activeGoal : null}
+              rankSize={config.playerCard.rankIconSize ?? 30}
+              rankOx={config.playerCard.rankOffsetX ?? 0}
+              rankOy={config.playerCard.rankOffsetY ?? 0}
             />
             {/* Shards */}
             <div style={{ display: 'flex', justifyContent: 'flex-start', gap: 4, marginTop: 4, paddingLeft: 2 }}>
