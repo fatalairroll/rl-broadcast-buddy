@@ -79,20 +79,23 @@ interface LineData {
   d: string;
 }
 
-function getContainerHeight(absoluteRoundIndex: number): number {
-  if (absoluteRoundIndex === 0) return MATCH_HEIGHT;
-  return 2 * getContainerHeight(absoluteRoundIndex - 1) + BASE_GAP;
+function getContainerHeight(absoluteRoundIndex: number, base: number): number {
+  if (absoluteRoundIndex === 0) return base;
+  return 2 * getContainerHeight(absoluteRoundIndex - 1, base) + BASE_GAP;
 }
 
-function getSlotLayout(visualRoundOffset: number): {
+function getSlotLayout(
+  visualRoundOffset: number,
+  base: number,
+): {
   height: number;
   alignItems: 'flex-start' | 'center';
 } {
   if (visualRoundOffset === 0) {
-    return { height: MATCH_HEIGHT, alignItems: 'flex-start' };
+    return { height: base, alignItems: 'flex-start' };
   }
   return {
-    height: getContainerHeight(visualRoundOffset),
+    height: getContainerHeight(visualRoundOffset, base),
     alignItems: 'center',
   };
 }
@@ -109,6 +112,7 @@ export function BracketView({
   const isGlass = theme === 'sharp-glass';
   const SKEW = isGlass ? 0 : STD_SKEW;
   const UNSKEW = isGlass ? 0 : STD_UNSKEW;
+  const cardH = isGlass ? GLASS_ROW_H * 2 + GLASS_ROW_GAP : MATCH_HEIGHT;
   const outerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
