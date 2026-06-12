@@ -196,11 +196,6 @@ export const gamePillEmpty: CSSProperties = {
   border: '1px solid rgba(255,255,255,.2)',
 };
 
-/* ── Helpers ── */
-export function GlassSweep() {
-  return <div style={glassSpecularSweep} aria-hidden />;
-}
-
 export const glassContentLayer: CSSProperties = {
   position: 'relative',
   zIndex: 2,
