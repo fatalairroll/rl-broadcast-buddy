@@ -402,10 +402,10 @@ export function BracketView({
               {isGlass ? (
                 <div
                   className="px-3 py-1 relative"
-                  style={{ ...glassTitleCool }}
+                  style={{ ...glassBarDead, ...chamferTag }}
                 >
                   <div style={glassSpecularSweep} aria-hidden />
-                  <span style={{ ...glassLabel, fontSize: 10, position: 'relative', zIndex: 2 }}>
+                  <span style={{ ...glassLabel, fontSize: 11.5, position: 'relative', zIndex: 2 }}>
                     Runda {roundIdx}{boInfo}
                   </span>
                 </div>
