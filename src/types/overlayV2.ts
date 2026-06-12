@@ -187,6 +187,12 @@ export interface PlayerCardV2Style {
   stats: PlayerCardStatsToggle;
 }
 
+export interface BoostGaugeV2Style {
+  visible: boolean;
+  size: number;            // px diameter, default 230
+  position: PositionV2;
+}
+
 export interface GeneralV2Style {
   animationsEnabled: boolean;
   transitionDuration: number; // ms
@@ -262,6 +268,7 @@ export interface OverlayV2Config {
   seriesScore: SeriesScoreStyle;
   teamNameBlue: TeamNameStyle;
   teamNameOrange: TeamNameStyle;
+  boostGauge: BoostGaugeV2Style;
   general: GeneralV2Style;
 }
 
@@ -275,6 +282,7 @@ export type V2EditableElement =
   | 'seriesScore'
   | 'teamNameBlue'
   | 'teamNameOrange'
+  | 'boostGauge'
   | 'general';
 
 export const V2_ELEMENT_LABELS: Record<V2EditableElement, string> = {
@@ -287,6 +295,7 @@ export const V2_ELEMENT_LABELS: Record<V2EditableElement, string> = {
   seriesScore: 'Wynik serii (BO)',
   teamNameBlue: 'Nazwa drużyny niebieskiej',
   teamNameOrange: 'Nazwa drużyny pomarańczowej',
+  boostGauge: 'Wskaźnik boosta (gauge, Glass)',
   general: 'Ogólne',
 };
 
