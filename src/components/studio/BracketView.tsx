@@ -79,20 +79,23 @@ interface LineData {
   d: string;
 }
 
-function getContainerHeight(absoluteRoundIndex: number): number {
-  if (absoluteRoundIndex === 0) return MATCH_HEIGHT;
-  return 2 * getContainerHeight(absoluteRoundIndex - 1) + BASE_GAP;
+function getContainerHeight(absoluteRoundIndex: number, base: number): number {
+  if (absoluteRoundIndex === 0) return base;
+  return 2 * getContainerHeight(absoluteRoundIndex - 1, base) + BASE_GAP;
 }
 
-function getSlotLayout(visualRoundOffset: number): {
+function getSlotLayout(
+  visualRoundOffset: number,
+  base: number,
+): {
   height: number;
   alignItems: 'flex-start' | 'center';
 } {
   if (visualRoundOffset === 0) {
-    return { height: MATCH_HEIGHT, alignItems: 'flex-start' };
+    return { height: base, alignItems: 'flex-start' };
   }
   return {
-    height: getContainerHeight(visualRoundOffset),
+    height: getContainerHeight(visualRoundOffset, base),
     alignItems: 'center',
   };
 }
@@ -109,6 +112,7 @@ export function BracketView({
   const isGlass = theme === 'sharp-glass';
   const SKEW = isGlass ? 0 : STD_SKEW;
   const UNSKEW = isGlass ? 0 : STD_UNSKEW;
+  const cardH = isGlass ? GLASS_ROW_H * 2 + GLASS_ROW_GAP : MATCH_HEIGHT;
   const outerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -426,7 +430,7 @@ export function BracketView({
       cancelAnimationFrame(rafId);
       if (container) container.style.transform = 'translateY(0px)';
     };
-  }, [isGlass, startIdx, selectedPoolId, visibleRounds]);
+  }, [isGlass, startIdx, selectedPoolId]);
 
   const setMatchRef = useCallback((matchId: string, el: HTMLDivElement | null) => {
     if (el) {
@@ -546,7 +550,7 @@ export function BracketView({
         ref={outerRef}
         style={{
           width: '100%',
-          maxHeight: isGlass ? undefined : (enableAutoScroll ? 960 : undefined),
+          maxHeight: isGlass ? 'calc(100vh - 200px)' : (enableAutoScroll ? 960 : undefined),
           overflowY: 'hidden',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
@@ -584,14 +588,14 @@ export function BracketView({
               style={{
                 width: PREVIOUS_ROUNDS_WIDTH,
                 minWidth: PREVIOUS_ROUNDS_WIDTH,
-                minHeight: MATCH_HEIGHT,
+                minHeight: cardH,
                 borderLeft: '1px solid rgba(255,255,255,0.08)',
               }}
             />
           )}
 
           {visibleRounds.map(([roundIdx, roundMatches], roundOffset) => {
-            const { height: slotHeight, alignItems: slotAlign } = getSlotLayout(roundOffset);
+            const { height: slotHeight, alignItems: slotAlign } = getSlotLayout(roundOffset, cardH);
 
             return (
               <div key={roundIdx} className="flex flex-col items-center shrink-0 self-start" style={{ minWidth: CARD_WIDTH }}>
@@ -650,8 +654,6 @@ function BracketMatchCard({
     const bStyle = bIsTbd || aWon ? glassBarDead : glassBarOrange;
     const aNameStyle = bWon || aIsTbd ? glassNameDead : glassName;
     const bNameStyle = aWon || bIsTbd ? glassNameDead : glassName;
-    const aShort = match.team_a?.name ? match.team_a.name.slice(0, 3).toUpperCase() : '—';
-    const bShort = match.team_b?.name ? match.team_b.name.slice(0, 3).toUpperCase() : '—';
     const aDigitStyle = aWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' });
     const bDigitStyle = bWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' });
 
@@ -669,18 +671,11 @@ function BracketMatchCard({
           zIndex: 1,
         }}
       >
-        {/* Team A row: [chip][bar][score] */}
+        {/* Team A row: [bar][score] */}
         <div style={{ display: 'flex', height: GLASS_ROW_H, gap: 0 }}>
           <div
-            className="relative flex items-center justify-center"
-            style={{ width: GLASS_CHIP_W, ...glassChip, ...chamferLeft(8) }}
-          >
-            <div style={glassSpecularSweep} aria-hidden />
-            <span style={{ ...glassLabel, fontSize: 10, ...glassContentLayer }}>{aShort}</span>
-          </div>
-          <div
             className="relative flex items-center"
-            style={{ flex: 1, ...aStyle, paddingLeft: 8, paddingRight: 6 }}
+            style={{ flex: 1, ...aStyle, ...chamferLeft(8), paddingLeft: 10, paddingRight: 6 }}
           >
             <div style={glassSpecularSweep} aria-hidden />
             <div className="flex items-center gap-1.5 min-w-0 w-full" style={glassContentLayer}>
@@ -701,18 +696,11 @@ function BracketMatchCard({
           </div>
         </div>
 
-        {/* Team B row: [chip][bar][score] */}
+        {/* Team B row: [bar][score] */}
         <div style={{ display: 'flex', height: GLASS_ROW_H, gap: 0 }}>
           <div
-            className="relative flex items-center justify-center"
-            style={{ width: GLASS_CHIP_W, ...glassChip, ...chamferLeft(8) }}
-          >
-            <div style={glassSpecularSweep} aria-hidden />
-            <span style={{ ...glassLabel, fontSize: 10, ...glassContentLayer }}>{bShort}</span>
-          </div>
-          <div
             className="relative flex items-center"
-            style={{ flex: 1, ...bStyle, paddingLeft: 8, paddingRight: 6 }}
+            style={{ flex: 1, ...bStyle, ...chamferLeft(8), paddingLeft: 10, paddingRight: 6 }}
           >
             <div style={glassSpecularSweep} aria-hidden />
             <div className="flex items-center gap-1.5 min-w-0 w-full" style={glassContentLayer}>

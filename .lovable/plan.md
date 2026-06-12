@@ -1,104 +1,66 @@
-# Plan naprawczy v2 — Sharp Liquid Glass (rev. 2)
+# Plan naprawczy v3 — Sharp Liquid Glass
 
-Zakres: wyłącznie tryb `theme === 'sharp-glass'`. Tryb `standard` bez zmian. Dane, hooki, OCR, Relay, /v2, Creator, scroll-anchor v2 i okno 3 rund — nietykane.
+Zakres: wyłącznie tryb `sharp-glass`. Standard, dane/hooki/relay/OCR/v2/Creator i logika doboru `startIdx` — bez zmian.
 
-## 1. POSTGAME
+## 1. Bracket (`BracketView.tsx`)
 
-Pliki: `PostgameScoreboardHeader.tsx`, `PostgameShared.tsx`, `PostgameSummary.tsx`.
+### 1a. Usunięcie chipa skrótu
+- Z `BracketMatchCard` (gałąź glass) usuwam chip 3-literowy (`GLASS_CHIP_W`) z obu wierszy.
+- Nowy wiersz: `[pasek nazwy — flex:1, chamferLeft(8)][score box 36px, chamferRight(8)]`. Nic więcej w wierszu.
 
-### 1a. Nagłówek — usunięcie chipów A/B
-- Dodać stałą `const SHOW_TEAM_LOGOS = false;` w `PostgameScoreboardHeader.tsx`.
-- W `GlassHeader` chipy A i B owinąć `{SHOW_TEAM_LOGOS && ...}` — kod zachowany.
-- Pierwszy widoczny element (`glassBarBlue` z nazwą A) dostaje `chamferLeft(10)`; ostatni (`glassBarOrange` z nazwą B) — `chamferRight(10)`.
-- Struktura: `[name A][score A][score B][name B]`, gap 4 px.
+### 1b. Kotwiczenie pierwszej widocznej rundy
+Diagnoza: `getSlotLayout(roundOffset)` używa już indeksu w oknie, ale cała geometria liczy się z `MATCH_HEIGHT = 72` (wysokość karty standard), podczas gdy karta glass ma `2×28 + 2 = 58 px`. Slot windowIdx 0 ma 72 px z `flex-start` (14 px luzu pod kartą), a kolumny windowIdx 1–2 centrują pary względem wysokości liczonej z 72 px — stąd przesunięcia pionowe i „obniżona" kolumna.
 
-### 1b. Statystyki — wiersz [panel][etykieta][panel]
-Nowy komponent `PostgameTeamBarRowGlass` w `PostgameShared.tsx`:
+Naprawa:
+- Wprowadzam `cardHeight = isGlass ? 58 : MATCH_HEIGHT` i parametryzuję `getContainerHeight`/`getSlotLayout` tą wysokością.
+- Audyt wszystkich miejsc liczących wysokości/offsety: `getContainerHeight`, `getSlotLayout`, `minHeight` placeholdera „Poprzednie rundy", sloty w pętli renderującej — wszystkie liczą wyłącznie z `windowIdx` (offset w `visibleRounds`) i właściwej wysokości karty. Żadne wyliczenie nie używa absolutnego `round_index`.
+- `calcLines` działa na `getBoundingClientRect` kart, więc po naprawie slotów łączniki liczą się z tych samych windowIdx-owych pozycji co karty.
+- Test akceptacyjny: 3 zrzuty (pool 1/okno r1, pool 1/okno r2, pool 2/okno r1) — etykieta rundy i górna krawędź pierwszej karty na identycznym Y (tolerancja 0 px), weryfikacja w preview.
 
-```text
-┌──────────────────┬────────┬──────────────────┐
-│ panel L (val A)  │ LABEL  │ panel R (val B)  │   height 38, gap 4
-└──────────────────┴────────┴──────────────────┘
-       [pasek proporcji 3px — opcjonalnie]
-```
+### 1c. Auto-pan pionowy
+Diagnoza (potwierdzona przez użytkownika w DevTools na renderze 1920×1080: `outer.clientHeight` ≈ wysokość viewportu overlaya, nie treści): pętla pan istnieje, ale `overhang = container.offsetHeight − outer.clientHeight` wychodzi ≤ 0, bo treść mieści się w viewporcie lub kontener treści nie przekracza outer — pan słusznie się nie uruchamia, ale gdy treść jest dłuższa, `container.offsetHeight` musi to odzwierciedlać. Naprawa obejmuje:
+- W glass `outer` dostaje jawny viewport: `flex: 1; minHeight: 0; overflow: hidden` w pionowym flexie zajmującym pełną wysokość ramki overlaya, tak by `clientHeight` zawsze odpowiadał dostępnej przestrzeni, a `container.offsetHeight` — pełnej wysokości treści (weryfikacja w DevTools po zmianie).
+- Pętla pan zostaje na `requestAnimationFrame` + `translateY` zgodnie z przepisem: pauza 3 s góra → zjazd 35 px/s z ease-in-out 400 ms na krańcach → pauza 3 s dół → powrót. `overhang` czytany na bieżąco w każdej klatce — polling co 5 s podąża za zmianami treści bez resetu animacji.
+- Z deps usuwam `visibleRounds` (nowa referencja przy każdym pollingu = niechciany restart); zostają `isGlass, startIdx, selectedPoolId`. Reset do `translateY(0)` przy zmianie okna/poola przez generation ref — zostaje.
+- Test DoD: przełączenie okna rund (poziome) przy aktywnym pionowym `translateY` — pan resetuje się do góry i wznawia pętlę; brak desyncu, brak akumulacji translateY.
 
-- `blueWins/orangeWins/tie` z porównania wartości.
-- Panel L: zwycięski → `glassBarBlue`; inaczej `glassBarDead`. Wartość `glassName`, `fontSize: 19`, `justify: flex-end`, `paddingRight: 16`. Przegrana: `color: rgba(255,255,255,.4)`. Remis: oba `glassBarDead`, oba białe.
-- Panel R: analogicznie z `glassBarOrange`, `justify: flex-start`, `paddingLeft: 16`.
-- Etykieta: width 108, `glassStatCenter` + górny accent `glassStatCenterAccent`, tekst `glassLabel` 10.5, center.
-- Sweep + `glassContentLayer` w każdym panelu.
-- Pasek proporcji pod wierszem: 3 px, segmenty `#00B2FF`/`#F95F02`, bez thumba, bez radius. Gdy `total === 0` — ukryty.
-- `isFirst`/`isLast` (z indeksu): chamferLeft(8) / chamferRight(8) na L/R; środkowe wiersze proste.
+## 2. Recent (`RecentMatchesTable.tsx`)
 
-W `PostgameSummary.tsx`: dla glass zamiast `PostgameTeamBarRow` używać `PostgameTeamBarRowGlass` z `isFirst`/`isLast`. Kolumny graczy bez zmian.
+- Usuwam chip „R{n} M{m}" z kolumny score w trybie glass (zostaje w standard) — to on spychał cyfry poza górną krawędź 43 px wiersza.
+- Score box glass: pojedyncza linia cyfr, `display:flex; alignItems:center; justifyContent:center; height:100%` — cyfry idealnie wycentrowane w 43 px.
+- Audyt wiersza glass: nazwa/seed/MMR jednoliniowe (`truncate`, `whiteSpace: nowrap`) — nic nie generuje drugiej linii.
 
-## 2. RECENT
+## 3. Postgame — przeprojektowanie sekcji statystyk
 
-Plik: `RecentMatchesTable.tsx` (tylko `isGlass`).
-- `GLASS_ROW_H = 43` (−10% z 48), `style={{ height: GLASS_ROW_H }}` na każdym wierszu w glass.
-- Font nazwy: 17. Cyfry score: 22.
-- Gap między wierszami: 4 px.
-- Twarde N: `ResizeObserver` na kontenerze + nagłówku → `N = Math.max(0, Math.floor((availableH - headerH) / (GLASS_ROW_H + 4)))`. `matches.slice(0, isGlass ? N : matches.length)`. Stan początkowy `N = matches.length` przed pomiarem.
+### 3a. Nowy komponent `PostgameStatBarGlass` (w `PostgameShared.tsx`)
+Układ RLCS: etykieta nad paskiem, wartości na zewnątrz, dwukolorowy pasek w środku.
+- Kontener: 100% szerokości sekcji, wysokość 44 px (etykieta 14 px + pasek 12 px + oddech), wiersze co 10 px.
+- Etykieta: `glassLabel`, fontSize 11, letterSpacing .24em, centrowana, `textShadow: 0 1px 8px rgba(0,0,0,.6)`, bez tła.
+- Pasek 12 px, szerokość 100% minus miejsce na wartości (`margin: 0 56px`), ostre rogi. Tor: `rgba(8,12,22,.55)` + `border-top: 1px solid rgba(255,255,255,.18)`.
+- Wypełnienia: niebieskie od lewej `linear-gradient(90deg,#1B6FF0,#00B2FF)` szer. `bluePct%`; pomarańczowe od prawej `linear-gradient(270deg,#EB4B00,#FF8C23)` szer. `orangePct%`; biały separator 2 px pełnej wysokości w punkcie styku (bez glow). `bluePct = blue/(blue+orange)*100`; suma 0 → pusty tor, separator na 50%.
+- Wartości: `glassName` 18 px, kolumny 48 px (wyrównanie right/left). Wygrywający: pełna biel + `textShadow: 0 0 12px rgba(255,255,255,.4)`; przegrywający `rgba(255,255,255,.55)`; remis: obie białe bez glow.
+- Stary `PostgameTeamBarRowGlass` z układem [panel][etykieta][panel] usuwam (nieużywany w standard).
 
-## 3. BRACKET
+### 3b. Struktura widoku glass (`PostgameSummary.tsx`)
+- Nagłówek `[nazwa A][score][score][nazwa B]` i pigułki serii — bez zmian.
+- W glass: zamiast trzykolumnowego gridu — pionowy stos `PostgameStatBarGlass` (istniejące `ROWS` + agregaty `row.team`/`sumPlayers`), a pod nim dwa kompaktowe panele graczy obok siebie (`PANEL_STYLE_GLASS`, po jednym na drużynę):
+  - wiersz na gracza (max 4, wysokość 26 px): nick (`glassName` 14 px) — score — gole — asysty — obrony (`glassLabel` 11 px w kolumnach).
+- Trzykolumnowy grid per gracz (`PlayerNamesRow`/`PlayerValuesRow`) pozostaje wyłącznie w gałęzi standard.
+- Bez dodatkowego tła za sekcją — czytelność z frosted toru paska i textShadow.
 
-Plik: `BracketView.tsx`. W `studio-glass-theme.ts` DODAĆ (bez zmiany istniejących wartości): `BRACKET_TOP_OFFSET`, `PAN_SPEED_PX_S = 35`.
-
-### 3a. Karta meczu (glass) — `BracketMatchCardGlass`
-```text
-[chip 28×TEAM_ROW_H][pasek nazwa flex-1][score 36]
-[chip 28×TEAM_ROW_H][pasek nazwa flex-1][score 36]   gap 2
-```
-- Chip: `glassChip`, skrót drużyny, `glassLabel` ~10.
-- Pasek: `glassBarBlue` (góra) / `glassBarOrange` (dół); TBD/przegrany → `glassBarDead` + `glassNameDead`.
-- Score: `glassScoreBox`, cyfra `glassScoreDigitWin/Lose`, fontSize 18.
-- Pierwszy element wiersza: `chamferLeft(8)`; ostatni: `chamferRight(8)`. Sweep + `glassContentLayer`.
-- `CARD_WIDTH = 200`, `H_GAP = 60` (bez zmian).
-
-Etykieta rundy w glass: `glassBarDead + chamferTag` + `glassLabel` 11.5 (zamiast `glassTitleCool`, który rezerwujemy dla tytułów sekcji).
-
-Linie w glass: `LINE_COLOR = 'rgba(255,255,255,.35)'`, `LINE_WIDTH = 1.5`.
-
-### 3b. Kotwiczenie faz
-- Pierwsza widoczna kolumna zawsze `slotHeight = MATCH_HEIGHT, alignItems: 'flex-start'` (już tak działa dla `visualRoundOffset === 0`).
-- Górny offset kontenera kolumn — `paddingTop: BRACKET_TOP_OFFSET`.
-- Brak wywołań `getContainerHeight(roundIdx)` / `getContainerHeight(round_index - 1)` (zakaz z dokumentu vertical-anchor).
-
-### 3c. Auto-pan pionowy (transform, nie scroll)
-- W trybie glass wyłączyć `scrollTop`-anim; użyć `transform: translateY(...)` na `containerRef.current`.
-- `overhang = containerH - outerH`. Gdy ≤ 0 → `translateY = 0`, brak pętli.
-- Pętla rAF: pause-top 3000 ms → zjazd `PAN_SPEED_PX_S = 35` (ease-in-out po 400 ms na końcach, środek liniowy) → pause-bottom 3000 ms → powrót → ...
-- Reset do 0 + pauza 2000 ms przy zmianie `startIdx`/`selectedPoolId` (bump `scrollGenerationRef`).
-- Outer w glass: `overflow: hidden`, bez `maxHeight: 960`.
-- Standard: bez zmian (istniejący `scrollTop`-anim zostaje).
-
-## 4. MATCHCARD
-
-Plik: `MatchCard.tsx` (tylko glass).
-
-### 4a. TeamBanner — szerokość
-**Sztywne `width: 360` px** (deterministyczne, nie 80% rodzica — uniezależnia od ewentualnych zmian kontenera). Wycentrować względem kolumny drużyny (`marginLeft/Right: 'auto'`). Panele graczy 160×320 bez zmian.
-
-### 4b. Górna belka — `chamferTag` × 3
-W `HeaderPanel` (glass):
-- Lewy (`Runda X Mecz Y`): `glassBarDead + chamferTag`, `glassLabel` 10.5, h=28.
-- Środkowy ("WKRÓTCE"): `glassScoreBox + chamferTag`, tekst `glassScoreDigitWin` fontSize 13 (wyróżnienie materiałem + glow, nie kształtem), h=28.
-- Prawy (`Format BOx`): `glassBarOrange + chamferTag`, `glassLabel` 10.5, h=28.
-- Wszystkie: gap 8 px, sweep + `glassContentLayer`.
-
-`glassTitleCool/Warm` (chamferTitle) zarezerwowane dla tytułów sekcji — nie używać w belkach.
+### 3c. Bez zmian
+`ROWS`, `sumPlayers`, `formatValue`, `usePostgameRelay`, kolejność statystyk, nagłówek, pigułki.
 
 ## Definition of Done
+- Bracket: wiersz `[pasek nazwy][score]` bez chipa.
+- Bracket: 3 zrzuty kotwiczenia — pierwsza widoczna kolumna zawsze na tej samej współrzędnej Y (pool 1/r1, pool 1/r2, pool 2/r1).
+- Bracket: auto-pan działa (pauza 3 s ↔ 35 px/s), restart przy zmianie okna/poola, brak restartu od pollingu danych.
+- Recent: cyfry wyniku w pełni widoczne i wycentrowane w 43 px; etykieta rundy usunięta; wiersz jednoliniowy.
+- Postgame: paski drużynowe `[wartość|pasek dwukolorowy z białym separatorem|wartość]` z etykietą nad paskiem; panele graczy pod spodem; grid per gracz usunięty z glass.
+- Standard bez regresji; TS/lint czysto; weryfikacja wizualna w preview (1920×1080).
 
-- [ ] Postgame: brak chipów A/B (flaga `SHOW_TEAM_LOGOS = false`); statystyki w układzie [panel][etykieta][panel]; pasek proporcji 3 px bez thumba.
-- [ ] Recent: wysokość wiersza 43 px, gap 4 px; `slice(0, N)` z pomiarem; żaden wiersz nie jest przycięty.
-- [ ] Bracket: karty [chip][pasek][score] w kolumnach; pool 2 startuje na identycznej wysokości px co pool 1 (test zrzutu); auto-pan na `translateY` 35 px/s z pauzą 3 s; wyłączony gdy treść mieści się.
-- [ ] **Bracket interakcja osi**: przełączenie okna rund (poziome, scroll-anchor v2) działa poprawnie przy aktywnym pionowym `translateY` — przy zmianie `startIdx` pan resetuje się do góry, pauzuje 2 s i wznawia pętlę. Brak desyncu, brak utraty kotwicy poziomej, brak akumulacji `translateY` między fazami.
-- [ ] MatchCard: TeamBanner **sztywne `width: 360 px`** w glass; górna belka — trzy elementy `chamferTag`, h=28, gap 8 px, identyczna geometria.
-- [ ] Tryb standard: bez regresji.
-- [ ] TS/lint bez błędów.
-
-## Czego nie ruszamy
-- Wartości istniejących tokenów w `studio-glass-theme.ts` (dozwolone tylko DODANIE: `BRACKET_TOP_OFFSET`, `PAN_SPEED_PX_S`).
-- Dane / hooki / Relay / OCR / /v2 / Creator / scroll-anchor v2 (poziome okno 3 rund — logika doboru `startIdx` bez zmian).
-- Tryb standard w żadnym z 4 plików.
+## Pliki
+- `src/components/studio/BracketView.tsx`
+- `src/components/studio/RecentMatchesTable.tsx`
+- `src/components/studio/PostgameShared.tsx`
+- `src/components/studio/PostgameSummary.tsx`
