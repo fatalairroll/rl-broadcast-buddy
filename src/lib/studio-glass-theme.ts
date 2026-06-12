@@ -214,3 +214,75 @@ export const glassBoostFillCritical =
   'linear-gradient(90deg, rgba(255,60,60,.6), rgba(255,120,60,.4))';
 export const GOAL_SWAP_MS = 180;
 export const GOAL_BANNER_HOLD_MS = 6000;
+
+/* ── OPAQUE GLASS (preset GLASS OVERLAY v2 — kryjące HUD gry) ── */
+export const opaqueBarBlue: CSSProperties = {
+  position: 'relative', overflow: 'hidden',
+  background: 'linear-gradient(112deg,#0E92E0 0%,#1655C4 58%,#0C3A96 100%)',
+  border: '1px solid #2F9FE8',
+  borderTop: '1.5px solid #BFE9FF',
+  borderBottom: '1px solid #082B70',
+  boxShadow: 'inset 0 1px 1px rgba(255,255,255,.45), inset 0 -12px 26px rgba(0,20,90,.45)',
+};
+export const opaqueBarOrange: CSSProperties = {
+  position: 'relative', overflow: 'hidden',
+  background: 'linear-gradient(248deg,#F8862A 0%,#E25303 58%,#B23C00 100%)',
+  border: '1px solid #F8A050',
+  borderTop: '1.5px solid #FFE2BE',
+  borderBottom: '1px solid #6E2400',
+  boxShadow: 'inset 0 1px 1px rgba(255,255,255,.45), inset 0 -12px 26px rgba(90,25,0,.45)',
+};
+export const opaqueDark: CSSProperties = {
+  position: 'relative', overflow: 'hidden',
+  background: 'linear-gradient(160deg,#131C2E 0%,#0B1322 60%,#070D18 100%)',
+  border: '1px solid #2A3650',
+  borderTop: '1.5px solid rgba(255,255,255,.5)',
+  borderBottom: '1px solid #03060C',
+  boxShadow: 'inset 0 1px 1px rgba(255,255,255,.3), inset 0 -10px 22px rgba(0,0,15,.6)',
+};
+
+export const fakeRefractionBlue: CSSProperties = {
+  position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+  background:
+    'radial-gradient(ellipse 90% 120% at 15% -30%, rgba(120,220,255,.28), transparent 55%),' +
+    'radial-gradient(ellipse 70% 90% at 95% 130%, rgba(0,60,180,.35), transparent 60%)',
+};
+export const fakeRefractionOrange: CSSProperties = {
+  position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+  background:
+    'radial-gradient(ellipse 90% 120% at 85% -30%, rgba(255,220,150,.30), transparent 55%),' +
+    'radial-gradient(ellipse 70% 90% at 5% 130%, rgba(160,40,0,.35), transparent 60%)',
+};
+export const fakeRefractionDark: CSSProperties = {
+  position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+  background:
+    'radial-gradient(ellipse 80% 100% at 30% -20%, rgba(80,140,220,.16), transparent 55%),' +
+    'radial-gradient(ellipse 60% 80% at 80% 130%, rgba(120,60,200,.12), transparent 60%)',
+};
+
+export const opaqueCornerSpec: CSSProperties = {
+  position: 'absolute', top: '-40%', left: '-8%', width: '55%', height: '90%',
+  background: 'radial-gradient(ellipse, rgba(255,255,255,.30), transparent 65%)',
+  pointerEvents: 'none', zIndex: 1,
+};
+
+export const opaquePillBlue: CSSProperties = {
+  height: 10, width: 30, transform: 'skewX(-32deg)',
+  background: 'linear-gradient(112deg,#15A8F0,#1B5FD6)', border: '1px solid #7FCBF5',
+  position: 'relative', overflow: 'hidden',
+};
+export const opaquePillOrange: CSSProperties = {
+  ...opaquePillBlue,
+  background: 'linear-gradient(248deg,#FF9430,#D44E00)', border: '1px solid #FFC086',
+};
+export const opaquePillEmpty: CSSProperties = {
+  ...opaquePillBlue, background: '#141B2B', border: '1px solid #2C3A50',
+};
+
+/* Chamfer tylko górnych rogów (rząd 1 scorebara — żeby styk z rzędem 2 nie miał prześwitów). */
+export const chamferTopLeft = (px = 12): CSSProperties => ({
+  clipPath: `polygon(${px}px 0, 100% 0, 100% 100%, 0 100%, 0 ${px}px)`,
+});
+export const chamferTopRight = (px = 12): CSSProperties => ({
+  clipPath: `polygon(0 0, calc(100% - ${px}px) 0, 100% ${px}px, 100% 100%, 0 100%)`,
+});
