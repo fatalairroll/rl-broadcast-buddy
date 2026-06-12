@@ -517,6 +517,11 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     attachOffsetX: 0,
     attachOffsetY: 0,
   },
+  boostGauge: {
+    visible: false,
+    size: 230,
+    position: { anchorH: 'right', anchorV: 'bottom', offsetX: 936, offsetY: 524 },
+  },
   general: {
     animationsEnabled: true,
     transitionDuration: 350,
