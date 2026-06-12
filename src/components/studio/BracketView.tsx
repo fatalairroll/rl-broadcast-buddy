@@ -588,14 +588,14 @@ export function BracketView({
               style={{
                 width: PREVIOUS_ROUNDS_WIDTH,
                 minWidth: PREVIOUS_ROUNDS_WIDTH,
-                minHeight: MATCH_HEIGHT,
+                minHeight: cardH,
                 borderLeft: '1px solid rgba(255,255,255,0.08)',
               }}
             />
           )}
 
           {visibleRounds.map(([roundIdx, roundMatches], roundOffset) => {
-            const { height: slotHeight, alignItems: slotAlign } = getSlotLayout(roundOffset);
+            const { height: slotHeight, alignItems: slotAlign } = getSlotLayout(roundOffset, cardH);
 
             return (
               <div key={roundIdx} className="flex flex-col items-center shrink-0 self-start" style={{ minWidth: CARD_WIDTH }}>
