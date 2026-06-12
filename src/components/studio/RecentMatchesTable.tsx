@@ -12,6 +12,7 @@ import {
   glassSpecularSweep,
   chamferLeft,
   chamferRight,
+  chamferTag,
   glassName,
   glassNameDead,
   glassLabel,
