@@ -47,7 +47,7 @@ export default function Creator() {
   useEffect(() => {
     if (glassEnsured || presets.length === 0) return;
     setGlassEnsured(true);
-    ensureGlassPreset(presets, createPreset);
+    ensureGlassPreset(presets, createPreset, updatePreset);
   }, [presets, createPreset, glassEnsured]);
 
   // Load default preset on mount

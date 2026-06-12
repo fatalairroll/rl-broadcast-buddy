@@ -192,6 +192,8 @@ export interface GeneralV2Style {
   transitionDuration: number; // ms
   globalScale: number;        // 0.5..2.0
   theme: 'standard' | 'glass';
+  /** Bumped by system presets (e.g. GLASS OVERLAY) to force re-seed on schema changes. */
+  presetVersion?: number;
 }
 
 export type SeriesType = 'bo1' | 'bo3' | 'bo5' | 'bo7';
