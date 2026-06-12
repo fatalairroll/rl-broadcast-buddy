@@ -297,7 +297,9 @@ function TeamBanner({ name, side, pollPct, team, theme = 'standard' }: { name: s
         className="py-2 px-5 text-base font-bold text-white uppercase tracking-[0.15em] relative"
         style={isGlass
           ? {
-              width: '450px',
+              width: '360px',
+              marginLeft: side === 'a' ? 'auto' : undefined,
+              marginRight: side === 'b' ? 'auto' : undefined,
               ...(side === 'a' ? glassBarBlue : glassBarOrange),
               ...(side === 'a' ? chamferRight(12) : chamferLeft(12)),
               textAlign,
