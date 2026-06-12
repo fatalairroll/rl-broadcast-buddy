@@ -294,7 +294,27 @@ function RowFragment({
   );
 }
 
-function GlassStatsView({
+const BLUE_TEAM_COLOR = '#00B2FF';
+const ORANGE_TEAM_COLOR = '#FF8C23';
+const MVP_HIGHLIGHT = true;
+
+function computeMvp(
+  bluePlayers: PostgamePlayer[],
+  orangePlayers: PostgamePlayer[],
+): { player: PostgamePlayer; side: Side } | null {
+  if (!MVP_HIGHLIGHT) return null;
+  const all: { player: PostgamePlayer; side: Side }[] = [
+    ...bluePlayers.map((p) => ({ player: p, side: 'blue' as Side })),
+    ...orangePlayers.map((p) => ({ player: p, side: 'orange' as Side })),
+  ];
+  if (all.length === 0) return null;
+  const max = Math.max(...all.map((e) => e.player.score ?? 0));
+  const top = all.filter((e) => (e.player.score ?? 0) === max);
+  if (top.length !== 1) return null;
+  return top[0];
+}
+
+function GlassGridView({
   data,
   bluePlayers,
   orangePlayers,
@@ -303,80 +323,176 @@ function GlassStatsView({
   bluePlayers: PostgamePlayer[];
   orangePlayers: PostgamePlayer[];
 }) {
+  const N = Math.max(bluePlayers.length, orangePlayers.length, 1);
+  const mvp = computeMvp(bluePlayers, orangePlayers);
+  const mvpColor = mvp ? (mvp.side === 'blue' ? BLUE_TEAM_COLOR : ORANGE_TEAM_COLOR) : undefined;
+
+  const gridStyle: CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${N}, minmax(0, 1fr)) 120px repeat(${N}, minmax(0, 1fr))`,
+    columnGap: 8,
+    rowGap: 0,
+    alignItems: 'center',
+  };
+
+  const renderNameCell = (p: PostgamePlayer, side: Side) => {
+    const isMvp = !!mvp && mvp.player === p;
+    return (
+      <div
+        key={`name-${side}-${p.player_name}`}
+        style={{ position: 'relative', textAlign: 'center', minWidth: 0 }}
+      >
+        {isMvp && (
+          <Star
+            size={12}
+            fill={mvpColor}
+            color={mvpColor}
+            strokeWidth={1}
+            style={{
+              position: 'absolute',
+              top: -10,
+              left: '50%',
+              transform: 'translateX(-50%)',
+            }}
+          />
+        )}
+        <span
+          style={{
+            ...glassName,
+            fontSize: 14,
+            color: '#fff',
+            display: 'block',
+            textAlign: 'center',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {p.player_name}
+        </span>
+      </div>
+    );
+  };
+
+  const renderValueCell = (p: PostgamePlayer, side: Side, row: RowDef, key: string) => {
+    const isMvp = !!mvp && mvp.player === p;
+    const color = isMvp ? (side === 'blue' ? BLUE_TEAM_COLOR : ORANGE_TEAM_COLOR) : '#fff';
+    const v = row.player ? row.player(p) : null;
+    const text = row.player ? formatValue(v, row.format) : '—';
+    return (
+      <div
+        key={key}
+        className="tabular-nums"
+        style={{
+          ...glassName,
+          fontSize: 16,
+          color,
+          textAlign: 'center',
+        }}
+      >
+        {text}
+      </div>
+    );
+  };
+
   return (
-    <div className="w-full" style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Team stat bars */}
-      <div style={{ width: '100%' }}>
+    <PostgameGlassPanel
+      className="w-full"
+      style={{ padding: '14px 18px', marginTop: 8 }}
+      theme="sharp-glass"
+    >
+      <div style={gridStyle}>
+        {/* Header row: nicks */}
+        {bluePlayers.map((p) => renderNameCell(p, 'blue'))}
+        <div />
+        {orangePlayers.map((p) => renderNameCell(p, 'orange'))}
+
+        {/* Team-color underline row */}
+        <div
+          style={{
+            gridColumn: `1 / span ${N}`,
+            height: 1.5,
+            background: BLUE_TEAM_COLOR,
+            marginTop: 4,
+            marginBottom: 6,
+          }}
+        />
+        <div />
+        <div
+          style={{
+            gridColumn: `${N + 2} / span ${N}`,
+            height: 1.5,
+            background: ORANGE_TEAM_COLOR,
+            marginTop: 4,
+            marginBottom: 6,
+          }}
+        />
+
+        {/* Stat rows */}
         {ROWS.map((row) => (
-          <PostgameStatBarGlass
+          <GlassStatRow
             key={row.label}
-            label={row.label}
-            blueValue={row.team(data, 'blue')}
-            orangeValue={row.team(data, 'orange')}
-            format={row.format}
+            row={row}
+            data={data}
+            bluePlayers={bluePlayers}
+            orangePlayers={orangePlayers}
+            renderValueCell={renderValueCell}
           />
         ))}
       </div>
-
-      {/* Compact player panels */}
-      <div style={{ display: 'flex', gap: 12, width: '100%' }}>
-        <GlassPlayerPanel players={bluePlayers} side="blue" />
-        <GlassPlayerPanel players={orangePlayers} side="orange" />
-      </div>
-    </div>
+    </PostgameGlassPanel>
   );
 }
 
-function GlassPlayerPanel({ players, side }: { players: PostgamePlayer[]; side: Side }) {
-  const accent = side === 'blue' ? '#00B2FF' : '#F95F02';
-  const COLS = ['SCORE', 'GOLE', 'AS', 'OBR'];
-  const pick = (p: PostgamePlayer): (number | null | undefined)[] => [
-    p.score, p.goals, p.assists, p.saves,
-  ];
+function GlassStatRow({
+  row,
+  data,
+  bluePlayers,
+  orangePlayers,
+  renderValueCell,
+}: {
+  row: RowDef;
+  data: PostgamePayload;
+  bluePlayers: PostgamePlayer[];
+  orangePlayers: PostgamePlayer[];
+  renderValueCell: (p: PostgamePlayer, side: Side, row: RowDef, key: string) => ReactNode;
+}) {
   return (
-    <div style={{ flex: 1, ...PANEL_STYLE_GLASS, padding: '8px 10px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', height: 18, borderBottom: `1px solid ${accent}40`, marginBottom: 4 }}>
-        <div style={{ flex: 1, minWidth: 0 }} />
-        {COLS.map((c) => (
-          <div key={c} style={{ width: 40, textAlign: 'center' }}>
-            <span style={{ ...glassLabel, fontSize: 9, color: accent }}>{c}</span>
-          </div>
-        ))}
+    <>
+      {bluePlayers.map((p, i) =>
+        renderValueCell(p, 'blue', row, `${row.label}-b-${i}`),
+      )}
+      <div
+        style={{
+          height: 34,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 3,
+        }}
+      >
+        <span
+          style={{
+            ...glassLabel,
+            fontSize: 10.5,
+            letterSpacing: '.22em',
+            textShadow: '0 1px 8px rgba(0,0,0,.6)',
+            textAlign: 'center',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {row.label}
+        </span>
+        <PostgameMiniBarGlass
+          blueValue={row.team(data, 'blue')}
+          orangeValue={row.team(data, 'orange')}
+        />
       </div>
-      {players.slice(0, 4).map((p, i) => {
-        const vals = pick(p);
-        return (
-          <div
-            key={`${p.player_name}-${i}`}
-            style={{ display: 'flex', alignItems: 'center', height: 26 }}
-          >
-            <span
-              style={{
-                ...glassName,
-                fontSize: 14,
-                flex: 1,
-                minWidth: 0,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {p.player_name}
-            </span>
-            {vals.map((v, idx) => (
-              <div key={idx} style={{ width: 40, textAlign: 'center' }}>
-                <span
-                  className="tabular-nums"
-                  style={{ ...glassLabel, fontSize: 13, color: '#fff', letterSpacing: '.04em' }}
-                >
-                  {v ?? '—'}
-                </span>
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
+      {orangePlayers.map((p, i) =>
+        renderValueCell(p, 'orange', row, `${row.label}-o-${i}`),
+      )}
+    </>
   );
 }
 
