@@ -204,3 +204,13 @@ export const glassContentLayer: CSSProperties = {
 /* ── Bracket constants ── */
 export const BRACKET_TOP_OFFSET = 0;
 export const PAN_SPEED_PX_S = 35;
+
+/* ── Glass overlay (v2 preset) ── */
+export const glassBoostFillBlue =
+  'linear-gradient(90deg, rgba(0,175,255,.55), rgba(0,220,255,.35))';
+export const glassBoostFillOrange =
+  'linear-gradient(270deg, rgba(255,140,35,.55), rgba(255,190,80,.35))';
+export const glassBoostFillCritical =
+  'linear-gradient(90deg, rgba(255,60,60,.6), rgba(255,120,60,.4))';
+export const GOAL_SWAP_MS = 180;
+export const GOAL_BANNER_HOLD_MS = 6000;

@@ -1,85 +1,102 @@
-# PLAN v3.1 — Postgame Glass Correction
 
-Sections 1 (Bracket) and 2 (Recent) from plan v3 remain in force. This plan **replaces section 3** (Postgame) only. Standard branch untouched.
+# Plan: preset "GLASS OVERLAY" w kreatorze v2
 
-## Scope
+## Założenia architektoniczne
 
-Rebuild the glass postgame body as a three-column grid mirroring the standard layout, but styled with glass tokens and a small team-proportion bar in the center column (in-game RL scoreboard reference).
+Kreator v2 działa na sztywnym schemacie `OverlayV2Config` (typy w `src/types/overlayV2.ts`), a presety to wiersze w `overlay_presets_v2` z konfiguracją renderowaną przez `ScoreboardV2 / BoostStackV2 / PlayerCardV2 / SeriesScoreV2 / TeamNameV2`. Spec wymaga zupełnie innego rysunku (chamfery, sweep, GOL-swap, brak boxa przy braku rangi) — niemożliwe do uzyskania samymi polami stylu. Więc dokładamy **przełącznik motywu** w configu i alternatywne komponenty.
 
-## Files
+Tryb `standard` (dzisiejszy) zostaje bez zmian — istniejące presety/sceny użytkowników nienaruszone.
 
-- `src/components/studio/PostgameSummary.tsx` — rewrite glass branch
-- `src/components/studio/PostgameShared.tsx` — add `PostgameMiniBarGlass`; remove `PostgameStatBarGlass` (unused after this change)
+## Zakres zmian
 
-## 1. Remove v3 leftovers from glass
+### 1. `src/lib/studio-glass-theme.ts` — DODAJEMY (bez modyfikacji istniejących wartości)
 
-- Delete `GlassStatsView`, `GlassPlayerPanel`, and the call site in `PostgameSummary`.
-- Delete `PostgameStatBarGlass` from `PostgameShared` (full-width bars no longer used).
-- Keep `PANEL_STYLE_GLASS`, `glassName`, `glassLabel` imports.
-
-## 2. New glass body: `GlassGridView`
-
-Rendered when `theme === 'sharp-glass'`, below header + series pills.
-
-### Grid template
-
-Column count derives from `pairsSorted.length` (2v2 → 2, 3v3 → 3):
-
-```text
-gridTemplateColumns:
-  `repeat(${N}, minmax(0, 1fr)) 120px repeat(${N}, minmax(0, 1fr))`
-rowGap: 0
-columnGap: 8px
+```ts
+export const glassBoostFillBlue = 'linear-gradient(90deg, rgba(0,175,255,.55), rgba(0,220,255,.35))';
+export const glassBoostFillOrange = 'linear-gradient(270deg, rgba(255,140,35,.55), rgba(255,190,80,.35))';
+export const glassBoostFillCritical = 'linear-gradient(90deg, rgba(255,60,60,.6), rgba(255,120,60,.4))';
+export const GOAL_SWAP_MS = 180;
+export const GOAL_BANNER_HOLD_MS = 6000;
 ```
 
-Wrap in `PostgameGlassPanel` (glass variant) with `padding: 14px 18px; marginTop: 8`.
+### 2. `src/types/overlayV2.ts` — pole motywu
 
-### Header row (nicks)
+- Dodać `theme: 'standard' | 'glass'` w `GeneralV2Style` (domyślnie `'standard'`).
+- `mergeV2Config` uzupełnia brak pola jako `'standard'` (back-compat dla zapisanych presetów).
+- `V2_ELEMENT_LABELS` bez zmian.
 
-- For each blue player and each orange player: cell with `glassName`, `fontSize: 14`, centered, `whiteSpace: nowrap`, `overflow: hidden`, `textOverflow: ellipsis`.
-- Center cell of header row: empty.
-- Directly under the header row, render **one** horizontal line per team that spans its N columns:
-  - blue underline: `gridColumn: 1 / span ${N}`, `height: 1.5px`, `background: #00B2FF`, `marginTop: 4px`, `marginBottom: 6px`
-  - empty center cell
-  - orange underline: `gridColumn: ${N + 2} / span ${N}`, `background: #FF8C23`
-- Lines implemented as their own grid row (3 cells: blue span, empty 120px, orange span).
+### 3. Nowe komponenty prezentacyjne (czytają wyłącznie z `studio-glass-theme.ts`)
 
-### Stat rows (one per `ROWS` entry)
+#### `src/components/v2/glass/GlassScorebar.tsx`
+- 46 px wys., ~560 px szer., wycentrowany u góry (pozycja z `config.scoreboard.position`).
+- Układ: `glassBarBlue` chamferLeft(10) z nazwą A → `glassScoreBox` 46 px (wynik A) → `glassScoreBox` 92 px (zegar 22 px + pod spodem `Mecz {n} · BO{x}` 8 px `glassLabel`, boczne bordery 1px rgba(255,255,255,.12)) → `glassScoreBox` 46 px (wynik B) → `glassBarOrange` chamferRight(10) z nazwą B (right-align).
+- Nazwy: `glassName` 21 px. Wyniki: `glassScoreDigitWin` u prowadzącego (remis → obaj win), `glassScoreDigitLose` u przegrywającego.
+- Pod scorebarem rząd pigułek serii (`gamePillBlue / Orange / Empty`, 26×9 px, gap 4, center), liczba = BO, wypełnienie wg `useBroadcastSeries()`.
+- Każdy segment z `glassSpecularSweep` + `glassContentLayer` (zIndex 2).
 
-Each row spans the full grid as `2N + 1` cells, `height: 34px`, `alignItems: center`:
+#### `src/components/v2/glass/GlassBoostPanel.tsx` (`side: 'blue' | 'orange'`)
+- Wiersz: 30 px wys., 218 px szer., gap 6 px.
+- Niebieski: `glassBarBlue` chamferLeft(10) z warstwą `.fill` `position:absolute; left:0; width:${boost}%` (`glassBoostFillBlue`) **pod** sweepem i nazwą; po prawej `glassScoreBox` 38 px z cyfrą boostu (15 px).
+- Pomarańczowy: lustro — chamferRight(10), fill od prawej (`glassBoostFillOrange`), score box po lewej (cyfra na zewnętrznej krawędzi).
+- Stany: `boost<10` → fill = `glassBoostFillCritical`, cyfra `#FF7A5C` z glow `0 0 10px rgba(255,90,60,.5)`; `boost===100` → cyfra `#FFD27A` glow `0 0 12px rgba(255,200,90,.6)`.
+- **Brak boxów rangi** w wierszach boostu.
+- Update boostu: `width` aktualizowany przez React; brak własnego rAF.
 
-- **Player value cells** (blue side N cells, then orange side N cells): `glassName`, `fontSize: 16`, centered, `tabular-nums`, value via `formatValue(row.player(p), row.format)`; `'—'` when `row.player === null`. Default text color: white. **MVP override (see §3): the MVP player's value cells use the MVP's own team color — blue MVP → `#00B2FF`, orange MVP → `#FF8C23`. Non-MVP cells (including all cells of the non-MVP team) stay white.**
-- **Center cell** (120px): vertical flex, `alignItems: center`, `justifyContent: center`, `gap: 3px`:
-  - Label: `glassLabel`, `fontSize: 10.5`, `letterSpacing: .22em`, `textAlign: center`, `textShadow: 0 1px 8px rgba(0,0,0,.6)`.
-  - Mini bar (new component `PostgameMiniBarGlass`):
-    - container 88×5 px, sharp corners, `background: rgba(8,12,22,.55)`, `borderTop: 1px solid rgba(255,255,255,.18)`, `position: relative`, `display: flex`, `overflow: hidden`
-    - inputs: `blueValue = row.team(data, 'blue')`, `orangeValue = row.team(data, 'orange')`
-    - total = blue + orange; `bluePct = total ? blue/total*100 : 50`
-    - when total > 0: blue fill `linear-gradient(90deg,#1B6FF0,#00B2FF)` width `bluePct%`; orange fill `linear-gradient(270deg,#EB4B00,#FF8C23)` width `orangePct%`; absolute white separator `width: 2px`, `left: bluePct%`, `transform: translateX(-50%)`, full height
-    - when total === 0: empty track + separator at 50%
+#### `src/components/v2/glass/GlassPlayerCard.tsx`
+Jeden kontener, dwa stany treści.
 
-No horizontal dividers between stat rows.
+**Geometria wspólna:** 430×52 px, kicker nad kartą (tick 18×2.5 px `skewX(-35deg)` w kolorze drużyny + `glassLabel` 10 px, 60% bieli, textShadow `0 1px 8px rgba(0,0,0,.5)`); karta = `[glassScoreBox 84 px chamferLeft(10)] [pasek koloru drużyny chamferRight(10), flex:1, padding 0 18px]`; pod kartą 3 odłamki `skewX(-30deg)` (kolor drużyny + biały) right-align; sweep + zIndex 2.
 
-## 3. MVP highlight
+**Stan IDLE:** w boxie 84 px `RankIcon` (reuse `src/components/studio/RankIcon.tsx`, `size='sm'` z `width/height=30`); pasek: nick `glassName` 23 px + `{mmr} MMR` `glassLabel` 11 px po prawej; kicker = nazwa drużyny gracza.
+**Gracz bez rangi (`rank == null`):** boxa nie renderujemy — pasek dostaje OBA chamfery (`chamferLeft+chamferRight`) i zajmuje całą szerokość; żadnych pustych boxów.
 
-- `const MVP_HIGHLIGHT = true;` (module-scope toggle).
-- Compute MVP: flatten `pairsSorted` into all players, pick the one with highest `score`. If two or more players tie on the top score across both teams → no MVP.
-- Determine MVP side from `team_num` (or by which array contains the player).
-- **MVP value color rule (canonical, applies to §2):** the MVP's value cells render in the MVP's own team color — blue MVP → `#00B2FF`, orange MVP → `#FF8C23`. Never the opposing color. All other cells (teammates and the other team) stay white.
-- In the header row, above the MVP nick cell, render a `Star` icon (`lucide-react`), `size={12}`, `fill={mvpColor}`, `stroke={mvpColor}` (same `mvpColor` as above), absolutely positioned at top center of the cell (`position: relative` on cell, star at `top: -10px, left: 50%, transform: translateX(-50%)`). Nick text stays white.
-- Tie on top score → no star, no color override.
+**Stan GOL:** ranga znika `translateY(-10px)+fade` ease-in `GOAL_SWAP_MS`, wchodzi `GOL!` `glassScoreDigitWin` 24 px letterSpacing .04em (`translateY(10px)→0+fade` ease-out, `GOAL_SWAP_MS`). Pasek: nick strzelca + `asysta · {nick}` po prawej tylko gdy istnieje. Kicker: `{drużyna} · {czas gola}`. Powrót do IDLE po `GOAL_BANNER_HOLD_MS` tą samą animacją w odwrocie; kolejny gol w trakcie → swap strzelca + reset timera. Animacje wyłącznie `transform/opacity`.
 
-## 4. Cleanup checks
+**Widoczność karty:** używamy istniejącego `activeCameraTarget` z `useLiveStatsV2`. Jeśli aktywny gracz istnieje → karta widoczna IDLE. Jeśli nie ma aktywnego gracza, karta jest UKRYTA i pojawia się wyłącznie w stanie GOL (entry `fade + translateY(16px)` 220 ms; podczas trwania pokazuje strzelca; po `GOAL_BANNER_HOLD_MS` znika exitem). Decyzja udokumentowana w PR.
 
-- Search for orphan imports of `PostgameStatBarGlass`, `GlassStatsView`, `GlassPlayerPanel` after edits.
-- Verify standard branch (`theme !== 'sharp-glass'`) renders the existing `gridStyle` + `RowFragment` path unchanged.
-- TypeScript: no unused vars; `Star` imported from `lucide-react`.
+#### `src/components/v2/glass/V2GlassStage.tsx`
+Kompozytor renderujący 4 elementy na pozycjach domyślnych presetu (kanwa 1920×1080). Konsumuje `OverlayV2Config` (pozycje edytowalne w kreatorze) + live data.
+
+### 4. Detektor gola — `src/hooks/useGoalEventDetector.ts`
+
+Brak gotowego eventu w `livestats`. Wyprowadzamy:
+- Trzymamy ref do poprzedniego `match.team0_score / team1_score` oraz poprzednich `goals` per gracz.
+- Inkrement wyniku drużyny → wybieramy stronę.
+- Strzelec = gracz tej strony, którego `goals` wzrósł o 1 w tym samym tiku; jeśli brak jednoznacznego → fallback: gracz z najwyższą wartością `goals` po stronie.
+- Asysta = gracz tej samej drużyny ≠ strzelec, którego `assists` wzrósł o 1; brak → `null`.
+- Zwraca `{ scorerName, assistName, teamSide, scoredAt }` z licznikiem nonce, żeby kolejny gol w trakcie holdu nadpisał stan.
+
+### 5. Integracja z presetem i renderem
+
+#### `src/lib/v2-glass-preset.ts`
+- Stała `GLASS_OVERLAY_CONFIG: OverlayV2Config` (na bazie `defaultOverlayV2Config` z `general.theme = 'glass'`) z pozycjami:
+  - scoreboard: `top 22, center X` (`anchorV:'top', offsetY: -518`),
+  - seriesScore: pod scorebarem (margines 6 px),
+  - boostBar.positionLeft: `left 18, top 200` (z anchorV:'top'); positionRight lustro,
+  - playerCard: `bottom 120, center X`.
+- Helper `ensureGlassPreset(presets, createPreset)` — przy starcie kreatora, jeśli nie istnieje wiersz `name='GLASS OVERLAY'` w `presets`, dodaje go raz przez `createPreset('GLASS OVERLAY', GLASS_OVERLAY_CONFIG)`.
+
+#### `src/pages/Creator.tsx`
+- Po załadowaniu `presets` wołamy `ensureGlassPreset` (jednorazowo, idempotentnie po nazwie). Preset pojawia się normalnie na liście wyboru.
+
+#### `src/components/creator/V2Preview.tsx` i `src/pages/OverlayV2.tsx`
+- Po wyliczeniu `config` sprawdzamy `config.general.theme`. Gdy `'glass'` → renderujemy `<V2GlassStage … />` zamiast obecnych komponentów; gdy `'standard'` → bez zmian.
+- W glass-stage przekazujemy: `match`, `blue`, `orange`, `registryMap`, `activeCameraTarget`, `activePlayer`, `activeRegistry`, `series`, `session.team_a_name/b_name`, `mmrOverride` (do rangi/MMR aktywnego gracza zgodnie z istniejącym mapowaniem MMRIVALS) oraz wynik `useGoalEventDetector`.
+
+### 6. Czego nie ruszamy
+
+- Schemat zapisu/odczytu presetów, `useV2Presets`, `useActiveV2Config` (poza fallbackiem `theme` w `mergeV2Config`).
+- Źródła danych (`useLiveStatsV2`, relay, MMRIVALS API, mapowanie graczy).
+- Studio i `studio-glass-theme.ts` w zakresie istniejących wartości.
+- Standardowe komponenty `ScoreboardV2 / BoostStackV2 / PlayerCardV2 / SeriesScoreV2 / TeamNameV2`.
 
 ## Definition of Done
 
-- Glass postgame: 3-column adaptive grid (N from data), center column 120 px.
-- One team-color underline per team group beneath nicks.
-- Center: label + 88×5 mini bar with 2 px white separator using team aggregates.
-- MVP: star above nick + values in MVP's own team color (blue→`#00B2FF`, orange→`#FF8C23`); tie → no highlight.
-- v3 full-width bars and compact panels removed from glass branch.
-- Standard unchanged; TS/lint clean; verified in preview at 1920×1080.
+- [ ] Preset "GLASS OVERLAY" widoczny na liście kreatora, ładowalny jednym kliknięciem, z poprawnymi pozycjami domyślnymi.
+- [ ] V2Preview (mock + live) i `/v2/overlay` w trybie `theme: 'glass'` renderują `V2GlassStage`; w `'standard'` zachowanie bez zmian.
+- [ ] Scorebar zasilany z `game_state` (match/timer/serii); leading score z glow, trailing przygaszony; remis → oba win.
+- [ ] Boost: fill wg %, lustrzana strona pomarańczowa, stany <10 i =100; brak rang w wierszach.
+- [ ] PlayerCard: idle z `RankIcon` 30 px w boxie 84 px; bez rangi → karta bez boxa (oba chamfery na pasku); gol → swap 180 ms na `GOL!`, strzelec + asysta, powrót po 6 s, kolejny gol resetuje timer.
+- [ ] Element "Powtórka" nie istnieje.
+- [ ] Tło `transparent` (już zapewnione w `OverlayV2`); animacje wyłącznie `transform/opacity`; weryfikacja w preview 1920×1080.
+- [ ] TS/lint czysto; istniejące presety nienaruszone (`mergeV2Config` uzupełnia `theme`).

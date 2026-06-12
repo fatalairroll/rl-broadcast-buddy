@@ -187,6 +187,7 @@ export interface GeneralV2Style {
   animationsEnabled: boolean;
   transitionDuration: number; // ms
   globalScale: number;        // 0.5..2.0
+  theme: 'standard' | 'glass';
 }
 
 export type SeriesType = 'bo1' | 'bo3' | 'bo5' | 'bo7';
@@ -505,6 +506,7 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     animationsEnabled: true,
     transitionDuration: 350,
     globalScale: 1,
+    theme: 'standard',
   },
 };
 
