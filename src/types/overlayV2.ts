@@ -23,6 +23,10 @@ export interface ScoreboardV2Style {
   opacity: number;
   // shared
   skewDeg: number;         // default -15
+  /** GLASS OVERLAY (opaque) cover plate width — overrides natywny HUD RL. */
+  coverWidth?: number;
+  /** GLASS OVERLAY (opaque) cover plate total height (row1 66 + row2 ...). */
+  coverHeight?: number;
 }
 
 export interface ScoreSideStyle {
@@ -519,6 +523,8 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   if (!(p.scoreboard as any)?.position && (p.scoreboard as any)?.topOffset != null) {
     sb.position = { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -540 + (p.scoreboard as any).topOffset };
   }
+  sb.coverWidth = sb.coverWidth ?? 620;
+  sb.coverHeight = sb.coverHeight ?? 104;
   const tm = { ...defaultOverlayV2Config.timer, ...(p.timer ?? {}) } as TimerStyle;
   tm.boxOffsetX = tm.boxOffsetX ?? 0;
   tm.boxOffsetY = tm.boxOffsetY ?? 0;

@@ -10,14 +10,17 @@ import {
   GLASS_ORANGE_TO,
   GOAL_BANNER_HOLD_MS,
   GOAL_SWAP_MS,
-  glassBarBlue,
-  glassBarOrange,
   glassContentLayer,
   glassLabel,
   glassName,
-  glassScoreBox,
   glassScoreDigitWin,
   glassSpecularSweep,
+  opaqueBarBlue,
+  opaqueBarOrange,
+  opaqueDark,
+  fakeRefractionBlue,
+  fakeRefractionOrange,
+  fakeRefractionDark,
 } from '@/lib/studio-glass-theme';
 import { getRankIcon, getRankFromMmr } from '@/lib/rank-utils';
 import { positionToStyle } from '@/lib/position-utils';
@@ -74,7 +77,7 @@ function resolvePlayer(
 }
 
 function barStyleFor(side: 'blue' | 'orange', bothChamfers: boolean) {
-  const base = side === 'blue' ? glassBarBlue : glassBarOrange;
+  const base = side === 'blue' ? opaqueBarBlue : opaqueBarOrange;
   if (bothChamfers) {
     // both chamfers: combine clip-paths by intersecting via single polygon.
     return {
@@ -191,7 +194,7 @@ export function GlassPlayerCard({
               goal={inGoalState ? activeGoal : null}
             />
             {/* Shards */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 4, paddingRight: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', gap: 4, marginTop: 4, paddingLeft: 2 }}>
               <div style={{ width: 14, height: 4, background: shardColor(display.side), transform: 'skewX(-30deg)' }} />
               <div style={{ width: 10, height: 4, background: '#fff', opacity: 0.7, transform: 'skewX(-30deg)' }} />
               <div style={{ width: 6, height: 4, background: shardColor(display.side), transform: 'skewX(-30deg)' }} />
@@ -222,7 +225,7 @@ function CardBody({
       {renderBox && (
         <div
           style={{
-            ...glassScoreBox,
+            ...opaqueDark,
             ...chamferLeft(10),
             width: BOX_W,
             height: CARD_H,
@@ -233,6 +236,7 @@ function CardBody({
             overflow: 'hidden',
           }}
         >
+          <div style={fakeRefractionDark} />
           <div style={glassSpecularSweep} />
           <div style={{ ...glassContentLayer, position: 'relative', width: '100%', height: '100%' }}>
             <AnimatePresence mode="wait">
@@ -295,6 +299,7 @@ function CardBody({
           overflow: 'hidden',
         }}
       >
+        <div style={display.side === 'blue' ? fakeRefractionBlue : fakeRefractionOrange} />
         <div style={glassSpecularSweep} />
         <div
           style={{

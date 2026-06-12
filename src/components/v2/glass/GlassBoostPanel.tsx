@@ -3,15 +3,18 @@ import type { PlayerLive } from '@/types/livestats';
 import {
   chamferLeft,
   chamferRight,
-  glassBarBlue,
-  glassBarOrange,
   glassBoostFillBlue,
   glassBoostFillCritical,
   glassBoostFillOrange,
   glassContentLayer,
   glassName,
-  glassScoreBox,
   glassSpecularSweep,
+  opaqueBarBlue,
+  opaqueBarOrange,
+  opaqueDark,
+  fakeRefractionBlue,
+  fakeRefractionOrange,
+  fakeRefractionDark,
 } from '@/lib/studio-glass-theme';
 
 interface Props {
@@ -41,8 +44,9 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
   const fill = isCritical ? glassBoostFillCritical : baseFill;
 
   const barStyle: CSSProperties = side === 'blue'
-    ? { ...glassBarBlue, ...chamferLeft(10) }
-    : { ...glassBarOrange, ...chamferRight(10) };
+    ? { ...opaqueBarBlue, ...chamferLeft(10) }
+    : { ...opaqueBarOrange, ...chamferRight(10) };
+  const barRefraction = side === 'blue' ? fakeRefractionBlue : fakeRefractionOrange;
 
   const nameNode = (
     <div
@@ -57,6 +61,7 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
         padding: side === 'blue' ? '0 10px 0 18px' : '0 18px 0 10px',
       }}
     >
+      <div style={barRefraction} />
       {/* fill */}
       <div
         style={{
@@ -67,7 +72,7 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
           width: `${boost}%`,
           background: fill,
           transition: 'width 120ms linear',
-          zIndex: 0,
+          zIndex: 1,
         }}
       />
       <div style={glassSpecularSweep} />
@@ -90,7 +95,7 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
   const scoreNode = (
     <div
       style={{
-        ...glassScoreBox,
+        ...opaqueDark,
         width: SCORE_W,
         height: ROW_H,
         display: 'flex',
@@ -98,6 +103,7 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
         justifyContent: 'center',
       }}
     >
+      <div style={fakeRefractionDark} />
       <div style={glassSpecularSweep} />
       <div
         style={{

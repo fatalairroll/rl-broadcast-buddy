@@ -7,7 +7,9 @@ export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
   ...defaultOverlayV2Config,
   scoreboard: {
     ...defaultOverlayV2Config.scoreboard,
-    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -518 },
+    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: 0 },
+    coverWidth: 620,
+    coverHeight: 104,
   },
   seriesScore: {
     ...defaultOverlayV2Config.seriesScore,
@@ -22,7 +24,7 @@ export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
   },
   playerCard: {
     ...defaultOverlayV2Config.playerCard,
-    position: { anchorH: 'center', anchorV: 'bottom', offsetX: 0, offsetY: 420 },
+    position: { anchorH: 'left', anchorV: 'bottom', offsetX: 24, offsetY: 64 },
   },
   general: { ...defaultOverlayV2Config.general, theme: 'glass' },
 };
