@@ -479,6 +479,53 @@ function UpcomingQueue({ matches, pollResults, theme }: { matches: MatchData[]; 
 
 function HeaderPanel({ roundIndex, matchIndex, bestOf, theme = 'standard' }: { roundIndex: number; matchIndex?: number; bestOf: number; theme?: StudioTheme }) {
   const isGlass = theme === 'sharp-glass';
+  if (isGlass) {
+    const H = 28;
+    return (
+      <div className="relative flex items-center justify-center mb-8" style={{ gap: 8 }}>
+        {/* Left: round/match */}
+        <div
+          className="relative flex items-center justify-center px-5"
+          style={{ height: H, ...glassBarDead, ...chamferTag }}
+        >
+          <div style={glassSpecularSweep} aria-hidden />
+          <span style={{ ...glassLabel, fontSize: 10.5, ...glassContentLayer }}>
+            Runda {roundIndex}{matchIndex != null ? ` Mecz ${matchIndex}` : ''}
+          </span>
+        </div>
+        {/* Center: WKRÓTCE — same shape, distinguished by material + glow */}
+        <div
+          className="relative flex items-center justify-center px-6"
+          style={{ height: H, ...glassScoreBox, ...chamferTag }}
+        >
+          <div style={glassSpecularSweep} aria-hidden />
+          <span
+            className="uppercase tracking-[0.25em]"
+            style={{
+              ...glassContentLayer,
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontWeight: 900,
+              fontStyle: 'italic',
+              fontSize: 13,
+              ...glassScoreDigitWin,
+            }}
+          >
+            Wkrótce
+          </span>
+        </div>
+        {/* Right: BOx */}
+        <div
+          className="relative flex items-center justify-center px-5"
+          style={{ height: H, ...glassBarOrange, ...chamferTag }}
+        >
+          <div style={glassSpecularSweep} aria-hidden />
+          <span style={{ ...glassLabel, fontSize: 10.5, ...glassContentLayer }}>
+            Format BO{bestOf}
+          </span>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="relative flex items-center justify-center gap-0 mb-8">
       <div
