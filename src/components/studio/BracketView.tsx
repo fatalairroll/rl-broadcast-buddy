@@ -9,14 +9,18 @@ import {
   glassScoreBox,
   glassScoreDigitWin,
   glassScoreDigitLose,
+  glassChip,
   glassSpecularSweep,
   chamferLeft,
   chamferRight,
+  chamferTag,
   glassTitleCool,
   glassName,
   glassNameDead,
   glassLabel,
   glassContentLayer,
+  BRACKET_TOP_OFFSET,
+  PAN_SPEED_PX_S,
 } from '@/lib/studio-glass-theme';
 
 function CheckInDot({ team }: { team: TeamData | null }) {
@@ -53,7 +57,8 @@ const BASE_GAP = 12;
 const H_GAP = 60;
 const SCROLL_CYCLE_MS = 30000;
 const SCROLL_PAUSE_MS = 2000;
-const LINE_COLOR = 'rgba(255,255,255,0.2)';
+const STD_LINE_COLOR = 'rgba(255,255,255,0.2)';
+const GLASS_LINE_COLOR = 'rgba(255,255,255,0.35)';
 const LINE_WIDTH = 1.5;
 const STD_SKEW = -7;
 const STD_UNSKEW = 7;
@@ -64,6 +69,10 @@ const SCROLL_THRESHOLD_MATCHES = 12;
 
 const TEAM_ROW_H = 28;
 const SCORE_ROW_H = 16;
+const GLASS_ROW_H = 28;
+const GLASS_ROW_GAP = 2;
+const GLASS_CHIP_W = 28;
+const GLASS_SCORE_W = 36;
 
 interface LineData {
   id: string;
