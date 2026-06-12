@@ -546,10 +546,11 @@ export function BracketView({
         ref={outerRef}
         style={{
           width: '100%',
-          maxHeight: enableAutoScroll ? 960 : undefined,
+          maxHeight: isGlass ? undefined : (enableAutoScroll ? 960 : undefined),
           overflowY: 'hidden',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
+          ...(isGlass ? { paddingTop: BRACKET_TOP_OFFSET } : null),
         }}
         className="[&::-webkit-scrollbar]:hidden"
       >
@@ -559,6 +560,7 @@ export function BracketView({
           style={{
             padding: '0 0 24px',
             gap: H_GAP,
+            willChange: isGlass ? 'transform' : undefined,
           }}
         >
           <svg
