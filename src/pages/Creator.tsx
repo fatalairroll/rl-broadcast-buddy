@@ -24,6 +24,7 @@ import {
   type V2EditableElement,
 } from '@/types/overlayV2';
 import { useV2Presets } from '@/hooks/useOverlayV2Config';
+import { ensureGlassPreset } from '@/lib/v2-glass-preset';
 import { ElementListV2 } from '@/components/creator/ElementListV2';
 import { StyleEditorV2 } from '@/components/creator/StyleEditorV2';
 import { V2Preview } from '@/components/creator/V2Preview';
@@ -40,6 +41,14 @@ export default function Creator() {
   const [element, setElement] = useState<V2EditableElement>('scoreboard');
   const [previewMode, setPreviewMode] = useState<'mock' | 'live'>('mock');
   const [dirty, setDirty] = useState(false);
+
+  // Bootstrap GLASS OVERLAY preset once if missing.
+  const [glassEnsured, setGlassEnsured] = useState(false);
+  useEffect(() => {
+    if (glassEnsured || presets.length === 0) return;
+    setGlassEnsured(true);
+    ensureGlassPreset(presets, createPreset);
+  }, [presets, createPreset, glassEnsured]);
 
   // Load default preset on mount
   useEffect(() => {
