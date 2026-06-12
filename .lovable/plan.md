@@ -1,66 +1,99 @@
-# Poprawki GLASS OVERLAY — pozycje + wersjonowanie + ikona rangi
+# Plan: GlassBoostGauge + weryfikacja rangi
 
-## Diagnoza
+## 1. Weryfikacja rangi w karcie (pkt 1)
 
-1. **Stary wiersz w DB** — `ensureGlassPreset` jest `if exists → return`. Wiersz "GLASS OVERLAY" zapisany przed aneksem opaque trzyma stare pozycje (`offsetY:-516`, karta `center-bottom`).
-2. **Scorebar nie sięga y=0** — `GLASS_OVERLAY_CONFIG.scoreboard.position = { anchorV:'top', offsetY:0 }`. W `src/lib/position-utils.ts` `anchorV:'top'` ustawia górną krawędź elementu na `540 + offsetY`. Czyli `offsetY:0` daje top=540, NIE top=0. Aby górna krawędź dotykała y=0, musi być `offsetY:-540`. Poprawka u źródła — w configu presetu, nie w renderze (resolver jest poprawny i wspólny dla całego v2).
-3. **Karta w środku-dole** — kod presetu już ma `left/bottom 24/64`, ale w DB siedzi stara wersja (patrz 1).
-4. **Ikona rangi** — pola `rankIconSize / rankIconOffsetX / rankIconOffsetY` (jako `rankOffsetX/Y` + `rankIconSize`) są w typach i UI kreatora; `GlassPlayerCard` używa stałych `width={30} height={30}` i nie respektuje offsetów.
+Stan po poprzedniej iteracji:
+- `PlayerCardV2Style` ma `rankIconSize`, `rankOffsetX`, `rankOffsetY` (overlayV2.ts:176–178, default 36/0/0).
+- `GlassPlayerCard` czyta je przez `config.playerCard.rankIconSize ?? 30` itp. i aplikuje przez `width`/`height` oraz `transform: translate(calc(-50% + ox), calc(-50% + oy))` (GlassPlayerCard.tsx:195–197, 278–288). To jest poprawne — działa na żywo (preview używa tego samego configu) i po zapisie (mergeV2Config zachowuje pola, bo `pc = { ...default, ...partial }`).
+- `StyleEditorV2` ma trzy slidery (rozmiar 16–160, offsety ±200) na liniach 200–202.
 
-## Zmiany
+Wniosek: punkt 1 zamknięty. Po bumpie `GLASS_PRESET_VERSION` w pkt 2 systemowy preset i tak się odświeży.
 
-### A. Wersjonowanie systemowego presetu
+## 2. GlassBoostGauge — okrągły wskaźnik boosta
 
-**`src/types/overlayV2.ts`**
-- W `GeneralV2Style` dodać `presetVersion?: number` (opcjonalne, defaultem `undefined` dla zwykłych configów).
-- W `mergeV2Config` przepuścić pole bez zmian.
+### 2a. Typy (src/types/overlayV2.ts)
+- Nowy interfejs:
+  ```ts
+  export interface BoostGaugeV2Style {
+    visible: boolean;
+    size: number;           // px, default 230, UI 180–320
+    position: PositionV2;   // anchorH:'right', anchorV:'bottom'
+  }
+  ```
+- Dodać `boostGauge: BoostGaugeV2Style` do `OverlayV2Config`.
+- Dodać `'boostGauge'` do `V2EditableElement` i `V2_ELEMENT_LABELS` (`'Wskaźnik boosta (gauge, Glass)'`).
+- `defaultOverlayV2Config.boostGauge = { visible: false, size: 230, position: { anchorH:'right', anchorV:'bottom', offsetX: 936, offsetY: 524 } }` (936 = 1920/2 − 24, 524 = 1080/2 − 16; resolver: prawy/dolny brzeg elementu = 960+offsetX / 540+offsetY).
+- W `mergeV2Config`: backfill z defaultu analogicznie do innych sekcji.
 
-**`src/lib/v2-glass-preset.ts`**
-- Stała `GLASS_PRESET_VERSION = 3`.
-- `GLASS_OVERLAY_CONFIG.general.presetVersion = GLASS_PRESET_VERSION`.
-- `GLASS_OVERLAY_CONFIG.scoreboard.position.offsetY = -540` (górna krawędź = y=0).
-- Reszta presetu bez zmian (karta `left/bottom 24/64` już jest).
-- `ensureGlassPreset(presets, createPreset, updatePreset)`:
-  - jeśli brak wiersza po nazwie → `createPreset(...)` (jak teraz),
-  - jeśli wiersz istnieje i `config.general.presetVersion < GLASS_PRESET_VERSION` (lub brak) → `updatePreset(row.id, { config: GLASS_OVERLAY_CONFIG, description: ... })`. Całość presetu systemowego nadpisywana. Inne presety/sceny użytkowników nietykane (filtr po dokładnej nazwie `"GLASS OVERLAY"`).
+### 2b. Komponent (src/components/v2/glass/GlassBoostGauge.tsx — NOWY)
+Props: `config: OverlayV2Config`, `activePlayer: PlayerLive | null`.
 
-**`src/pages/Creator.tsx`**
-- Wywołanie `ensureGlassPreset(presets, createPreset, updatePreset)` — dołożyć `updatePreset` do argumentów.
+Logika:
+- Brak `activePlayer` → `AnimatePresence` exit (opacity, 150 ms), nic.
+- `side = activePlayer.team_num === 0 ? 'blue' : 'orange'`.
+- `boost = clamp(activePlayer.boost, 0, 100)`.
+- `size = config.boostGauge.size`.
 
-### B. Konfigurowalna ikona rangi w `GlassPlayerCard`
+Markup (pozycja przez `positionToStyle(config.boostGauge.position)`):
+- Wrapper `width:size, height:size, borderRadius:'50%'`, materiał `opaqueDark` + `borderRadius:'50%'`, drop-shadow `0 10px 30px rgba(0,0,10,.5)`.
+- Warstwa `fakeRefractionDark` (inset 0, `borderRadius:'50%'`).
+- Refleks górny: absolute, `top:0, left:10%, right:10%, height:'40%', background:'radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.32), transparent 65%)'`.
+- SVG `width=size height=size` z `transform: rotate(-90deg)`:
+  - tor: `<circle stroke="rgba(255,255,255,.08)" strokeWidth=11 r=(size/2)-16 fill="none"/>`
+  - wypełnienie: `<circle stroke="url(#gauge-{side|critical})" strokeLinecap="round" strokeWidth=11 r=r fill="none" strokeDasharray=C strokeDashoffset=C*(1-boost/100)/>`, `transition:'stroke-dashoffset .12s linear'`.
+  - `<defs>` z liniowymi gradientami: blue `#00B2FF→#1B5FD6`, orange `#FF9430→#D44E00`, critical `#FF5C3C→#FF8A50` (wybór wg progu `boost<10`).
+- Środek (absolute centered):
+  - cyfra: `glassName` + `glassScoreDigitWin`, `fontSize: size*0.245`. `boost<10`: `#FF7A5C`, `textShadow:'0 0 16px rgba(255,90,60,.6)'`. `boost===100`: `#FFD27A`, `textShadow:'0 0 18px rgba(255,200,90,.65)'`.
+  - podpis `BOOST`: `glassLabel`, `fontSize: size*0.048` (~11 przy 230), `color: 'rgba(255,255,255,.55)'`, marginTop ~4.
+- `motion.div` initial/exit `{ opacity:0 }`, animate `{ opacity:1 }`, transition 0.15s.
 
-**`src/components/v2/glass/GlassPlayerCard.tsx`**
-- W miejscu `<motion.img ... width={30} height={30}>` użyć:
-  - `const size = config.playerCard.rankIconSize ?? 30;`
-  - `const ox = config.playerCard.rankOffsetX ?? 0;`
-  - `const oy = config.playerCard.rankOffsetY ?? 0;`
-  - `width={size} height={size}`, `style.transform = 'translate(calc(-50% + {ox}px), calc(-50% + {oy}px))'`.
-- Box (`BOX_W=84`, `overflow:hidden`) bez zmian — skrajne offsety przycinają ikonę (akceptowalny feedback).
-- Stan `GOL!` bez zmian (nie czyta tych pól).
+### 2c. Integracja (src/components/v2/glass/V2GlassStage.tsx)
+Po sekcji `playerCard`:
+```tsx
+{config.boostGauge.visible && (
+  <GlassBoostGauge config={config} activePlayer={activePlayer} />
+)}
+```
+Standard scene (`ScoreboardV2` itp.) — nie tykać; element żyje wyłącznie w stage Glass.
 
-**`src/components/creator/StyleEditorV2.tsx`**
-- Kontrolki już istnieją (linie 200–202). Zostawić; ewentualnie zawęzić zakresy do specyfikacji jeśli to potrzebne — w specyfikacji jest 18–48 / -20..20 / -12..12, w kodzie obecnie 16–160 / -200..200 / -200..200. **Rozstrzygnięcie:** zostawiamy szersze zakresy (bardziej elastyczne, nie psują DoD — DoD wymaga tylko, by kontrolki działały na żywo i były zapisywane z presetem). Jeśli chcesz strict zakresy, zmienimy w jednym kroku.
+### 2d. Kreator
+- `ElementListV2.tsx`: dodać `'boostGauge'` do `ORDER` po `playerCard`.
+- `StyleEditorV2.tsx`: panel renderowany tylko gdy `config.general.theme === 'glass'`:
+  ```tsx
+  {element === 'boostGauge' && config.general.theme === 'glass' && (
+    <>
+      <Toggle label="Widoczny" .../>
+      <PositionEditor .../>
+      <SliderInput label="Rozmiar" min={180} max={320} unit="px" .../>
+    </>
+  )}
+  {element === 'boostGauge' && config.general.theme !== 'glass' && (
+    <p className="text-xs text-muted-foreground">
+      Wskaźnik boosta (gauge) jest dostępny tylko dla motywu Glass.
+      Zmień motyw w sekcji „Ogólne", aby go konfigurować.
+    </p>
+  )}
+  ```
+  Dzięki temu sekcja jest widoczna w liście elementów (spójność UX), ale w trybie standard użytkownik dostaje czytelny komunikat zamiast martwych kontrolek, które niczego nie wyświetlą.
 
-### C. Brak zmian w resolverze pozycji
+### 2e. Preset (src/lib/v2-glass-preset.ts)
+- `GLASS_PRESET_VERSION = 4`.
+- `GLASS_OVERLAY_CONFIG.boostGauge = { visible: true, size: 230, position: { anchorH:'right', anchorV:'bottom', offsetX: 936, offsetY: 524 } }`.
+- `ensureGlassPreset` (logika z poprzedniego planu) sam zaktualizuje istniejący wiersz DB.
 
-`src/lib/position-utils.ts` jest poprawny i używany przez cały v2 (standard + glass). Semantyka `anchorV:'top' + offsetY:-540 → top=0`, `anchorH:'left' + offsetX:-960 → left=0` jest spójna. Korekta wyłącznie w danych presetu.
+## 3. Pliki
+- `src/types/overlayV2.ts` — typy + default + merge.
+- `src/components/v2/glass/GlassBoostGauge.tsx` — NOWY.
+- `src/components/v2/glass/V2GlassStage.tsx` — render.
+- `src/components/creator/ElementListV2.tsx` — pozycja w liście.
+- `src/components/creator/StyleEditorV2.tsx` — panel + gate motywu Glass.
+- `src/lib/v2-glass-preset.ts` — wpis w configu + bump wersji.
 
-## Pliki edytowane
+## 4. Czego NIE zmieniam
+Studio, GlassBoostPanel (boczne paski), GlassPlayerCard (poza już zrobionym rank), detektor gola, resolver pozycji, sceny użytkowników, tokeny w studio-glass-theme.ts.
 
-- `src/types/overlayV2.ts` — `presetVersion` w `GeneralV2Style`.
-- `src/lib/v2-glass-preset.ts` — wersja, `offsetY:-540`, `ensureGlassPreset` z update'em.
-- `src/pages/Creator.tsx` — przekazanie `updatePreset` do `ensureGlassPreset`.
-- `src/components/v2/glass/GlassPlayerCard.tsx` — `rankIconSize` + offsety przez `transform`.
-
-## Nieruszane
-
-Studio, tokeny szklane, `useGoalEventDetector`, logika stanów karty, standardowe komponenty v2, sceny i presety użytkowników o nazwie ≠ "GLASS OVERLAY".
-
-## Definition of Done — mapowanie
-
-- presetVersion + auto-update systemowego presetu → A.
-- scorebar top=0 → A (offsetY:-540).
-- karta 24/64 lewy-dół → A (auto-update wymusza świeży preset).
-- kontrolki ikony rangi działają na żywo → B (już są w UI; runtime teraz je czyta).
-- "GOL!" niezależny → B (nie czyta pól).
-- TS/lint czysto, Studio i standard bez regresji → wszystkie zmiany lokalne w configu/komponentach glass.
+## 5. Weryfikacja po build mode
+- `/creator`, preset GLASS OVERLAY → sekcja „Wskaźnik boosta (gauge, Glass)" pokazuje kontrolki; zmiany na żywo w preview.
+- Inny preset (theme standard) → ta sama sekcja pokazuje komunikat „dostępne tylko dla motywu Glass".
+- `/v2/overlay` po zapisie: gauge w prawym dolnym rogu, kolor zgodny z drużyną aktywnego gracza, fade-out gdy brak activeCamera.
+- Stary wiersz `GLASS OVERLAY` w DB przepisany dzięki bumpowi `GLASS_PRESET_VERSION` na 4.
