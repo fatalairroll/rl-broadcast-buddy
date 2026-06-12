@@ -271,25 +271,31 @@ function CardBody({
                   GOL!
                 </motion.div>
               ) : rankIconSrc ? (
-                <motion.img
+                <motion.div
                   key="rank"
-                  src={rankIconSrc}
-                  alt={display.rank ?? ''}
-                  width={rankSize}
-                  height={rankSize}
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: GOAL_SWAP_MS / 1000, ease: 'easeIn' }}
                   style={{
                     position: 'absolute',
-                    top: '50%',
                     left: '50%',
-                    transform: `translate(calc(-50% + ${rankOx}px), calc(-50% + ${rankOy}px))`,
-                    objectFit: 'contain',
+                    top: '50%',
+                    marginLeft: -rankSize / 2 + rankOx,
+                    marginTop: -rankSize / 2 + rankOy,
+                    width: rankSize,
+                    height: rankSize,
                   }}
-                  draggable={false}
-                />
+                >
+                  <img
+                    src={rankIconSrc}
+                    alt={display.rank ?? ''}
+                    width={rankSize}
+                    height={rankSize}
+                    style={{ display: 'block', objectFit: 'contain' }}
+                    draggable={false}
+                  />
+                </motion.div>
               ) : null}
             </AnimatePresence>
           </div>

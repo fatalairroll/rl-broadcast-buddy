@@ -2,7 +2,7 @@ import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2'
 import type { OverlayV2Preset } from '@/hooks/useOverlayV2Config';
 
 export const GLASS_PRESET_NAME = 'GLASS OVERLAY';
-export const GLASS_PRESET_VERSION = 4;
+export const GLASS_PRESET_VERSION = 5;
 
 export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
   ...defaultOverlayV2Config,
@@ -31,7 +31,7 @@ export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
   boostGauge: {
     visible: true,
     size: 230,
-    position: { anchorH: 'right', anchorV: 'bottom', offsetX: 936, offsetY: 524 },
+    position: { anchorH: 'right', anchorV: 'bottom', offsetX: 936, offsetY: 424 },
   },
   general: { ...defaultOverlayV2Config.general, theme: 'glass', presetVersion: GLASS_PRESET_VERSION },
 };
