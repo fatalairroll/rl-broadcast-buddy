@@ -1,6 +1,23 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import type { MatchData, PoolData, TeamData } from '@/types/studio';
 import { poolIdFromMatchId, selectablePools, poolTabLabel } from '@/lib/pool-utils';
+import {
+  type StudioTheme,
+  glassBarBlue,
+  glassBarOrange,
+  glassBarDead,
+  glassScoreBox,
+  glassScoreDigitWin,
+  glassScoreDigitLose,
+  glassSpecularSweep,
+  chamferLeft,
+  chamferRight,
+  glassTitleCool,
+  glassName,
+  glassNameDead,
+  glassLabel,
+  glassContentLayer,
+} from '@/lib/studio-glass-theme';
 
 function CheckInDot({ team }: { team: TeamData | null }) {
   if (!team) return null;
@@ -28,6 +45,7 @@ interface BracketViewProps {
   selectedPoolId?: string | null;
   onPoolChange?: (poolId: string) => void;
   obs?: boolean;
+  theme?: StudioTheme;
 }
 
 const MATCH_HEIGHT = 72;
@@ -37,8 +55,8 @@ const SCROLL_CYCLE_MS = 30000;
 const SCROLL_PAUSE_MS = 2000;
 const LINE_COLOR = 'rgba(255,255,255,0.2)';
 const LINE_WIDTH = 1.5;
-const SKEW = -7;
-const UNSKEW = 7;
+const STD_SKEW = -7;
+const STD_UNSKEW = 7;
 const CARD_WIDTH = 200;
 const PREVIOUS_ROUNDS_WIDTH = 28;
 const ROUND_WINDOW = 3;
@@ -77,7 +95,11 @@ export function BracketView({
   selectedPoolId,
   onPoolChange,
   obs = false,
+  theme = 'standard',
 }: BracketViewProps) {
+  const isGlass = theme === 'sharp-glass';
+  const SKEW = isGlass ? 0 : STD_SKEW;
+  const UNSKEW = isGlass ? 0 : STD_UNSKEW;
   const outerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -377,18 +399,30 @@ export function BracketView({
 
           return (
             <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ minWidth: CARD_WIDTH }}>
-              <div
-                className="font-esports text-[10px] uppercase tracking-[0.25em] px-3 py-1"
-                style={{
-                  transform: `skewX(${SKEW}deg)`,
-                  color: '#ffffff',
-                  fontWeight: 700,
-                }}
-              >
-                <span style={{ display: 'inline-block', transform: `skewX(${UNSKEW}deg)` }}>
-                  Runda {roundIdx}{boInfo}
-                </span>
-              </div>
+              {isGlass ? (
+                <div
+                  className="px-3 py-1 relative"
+                  style={{ ...glassTitleCool }}
+                >
+                  <div style={glassSpecularSweep} aria-hidden />
+                  <span style={{ ...glassLabel, fontSize: 10, position: 'relative', zIndex: 2 }}>
+                    Runda {roundIdx}{boInfo}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className="font-esports text-[10px] uppercase tracking-[0.25em] px-3 py-1"
+                  style={{
+                    transform: `skewX(${SKEW}deg)`,
+                    color: '#ffffff',
+                    fontWeight: 700,
+                  }}
+                >
+                  <span style={{ display: 'inline-block', transform: `skewX(${UNSKEW}deg)` }}>
+                    Runda {roundIdx}{boInfo}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}
@@ -449,7 +483,13 @@ export function BracketView({
                       alignItems: slotAlign,
                     }}
                   >
-                    <BracketMatchCard match={match} refCallback={(el) => setMatchRef(match.match_id, el)} />
+                    <BracketMatchCard
+                      match={match}
+                      refCallback={(el) => setMatchRef(match.match_id, el)}
+                      theme={theme}
+                      skew={SKEW}
+                      unskew={UNSKEW}
+                    />
                   </div>
                 ))}
               </div>
@@ -464,22 +504,100 @@ export function BracketView({
 function BracketMatchCard({
   match,
   refCallback,
+  theme,
+  skew,
+  unskew,
 }: {
   match: MatchData;
   refCallback: (el: HTMLDivElement | null) => void;
+  theme: StudioTheme;
+  skew: number;
+  unskew: number;
 }) {
   const isLive = match.state === 'in_progress' || match.state === 'live';
   const isFinished = match.state === 'finished' || match.state === 'done';
   const aWon = isFinished && match.winner_team_id === match.team_a?.team_id;
   const bWon = isFinished && match.winner_team_id === match.team_b?.team_id;
   const showCheckIn = match.state === 'scheduled';
+  const isGlass = theme === 'sharp-glass';
+
+  if (isGlass) {
+    const aIsTbd = !match.team_a;
+    const bIsTbd = !match.team_b;
+    const aStyle = aIsTbd || bWon ? glassBarDead : glassBarBlue;
+    const bStyle = bIsTbd || aWon ? glassBarDead : glassBarOrange;
+    const aNameStyle = bWon || aIsTbd ? glassNameDead : glassName;
+    const bNameStyle = aWon || bIsTbd ? glassNameDead : glassName;
+
+    return (
+      <div
+        ref={refCallback}
+        className="relative"
+        style={{
+          width: CARD_WIDTH,
+          height: MATCH_HEIGHT,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        {/* Team A row */}
+        <div className="flex items-center" style={{ height: TEAM_ROW_H, ...aStyle, ...chamferLeft(8) }}>
+          <div style={glassSpecularSweep} aria-hidden />
+          <div className="flex items-center justify-between flex-1 px-2.5" style={{ ...glassContentLayer, height: '100%' }}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              {showCheckIn && <CheckInDot team={match.team_a} />}
+              <span className="text-xs truncate" style={{ ...aNameStyle, fontSize: 13 }}>
+                {match.team_a?.name ?? 'TBD'}
+              </span>
+            </div>
+            {match.team_a?.seed != null && (
+              <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                #{match.team_a.seed}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Score row */}
+        <div className="relative flex items-center justify-center" style={{ height: SCORE_ROW_H, ...glassScoreBox }}>
+          <div style={glassSpecularSweep} aria-hidden />
+          <span className="font-esports text-xs font-bold tracking-widest" style={glassContentLayer}>
+            <span style={aWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' })}>{match.score_a}</span>
+            <span style={{ color: 'rgba(255,255,255,0.5)', margin: '0 4px' }}>:</span>
+            <span style={bWon ? glassScoreDigitWin : (isFinished ? glassScoreDigitLose : { color: '#fff' })}>{match.score_b}</span>
+          </span>
+        </div>
+
+        {/* Team B row */}
+        <div className="flex items-center" style={{ height: TEAM_ROW_H, ...bStyle, ...chamferRight(8) }}>
+          <div style={glassSpecularSweep} aria-hidden />
+          <div className="flex items-center justify-between flex-1 px-2.5" style={{ ...glassContentLayer, height: '100%' }}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              {showCheckIn && <CheckInDot team={match.team_b} />}
+              <span className="text-xs truncate" style={{ ...bNameStyle, fontSize: 13 }}>
+                {match.team_b?.name ?? 'TBD'}
+              </span>
+            </div>
+            {match.team_b?.seed != null && (
+              <span className="font-mono text-[9px] shrink-0 ml-1" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                #{match.team_b.seed}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={refCallback}
       className="relative overflow-hidden"
       style={{
-        transform: `skewX(${SKEW}deg)`,
+        transform: `skewX(${skew}deg)`,
         background: 'rgba(0, 0, 0, 0.75)',
         backdropFilter: 'blur(10px)',
         border: isLive
@@ -496,7 +614,7 @@ function BracketMatchCard({
         <div style={{ width: 4, height: '100%', background: '#2563eb', flexShrink: 0 }} />
         <div
           className="flex items-center justify-between flex-1 px-2.5"
-          style={{ transform: `skewX(${UNSKEW}deg)`, height: '100%' }}
+          style={{ transform: `skewX(${unskew}deg)`, height: '100%' }}
         >
           <div className="flex items-center gap-1.5 min-w-0 ml-2">
             {showCheckIn && <CheckInDot team={match.team_a} />}
@@ -520,7 +638,7 @@ function BracketMatchCard({
         style={{
           height: SCORE_ROW_H,
           background: 'rgba(8, 12, 24, 0.95)',
-          transform: `skewX(${UNSKEW}deg)`,
+          transform: `skewX(${unskew}deg)`,
         }}
       >
         <span className="font-esports text-xs font-bold tracking-widest" style={{ color: 'hsl(210, 20%, 95%)' }}>
@@ -532,7 +650,7 @@ function BracketMatchCard({
         <div style={{ width: 4, height: '100%', background: '#f97316', flexShrink: 0 }} />
         <div
           className="flex items-center justify-between flex-1 px-2.5"
-          style={{ transform: `skewX(${UNSKEW}deg)`, height: '100%' }}
+          style={{ transform: `skewX(${unskew}deg)`, height: '100%' }}
         >
           <div className="flex items-center gap-1.5 min-w-0 ml-2">
             {showCheckIn && <CheckInDot team={match.team_b} />}
