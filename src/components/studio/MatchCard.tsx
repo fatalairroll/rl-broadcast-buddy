@@ -4,6 +4,23 @@ import type { MatchData, PlayerData, PollResults, TeamData } from '@/types/studi
 import { RankIcon } from './RankIcon';
 import { getRankFromMmr, normalizeRankName, isValidRank } from '@/lib/rank-utils';
 import { isFullyTbdMatch } from '@/lib/studio-match-utils';
+import {
+  type StudioTheme,
+  glassBarBlue,
+  glassBarOrange,
+  glassBarDead,
+  glassChip,
+  glassSpecularSweep,
+  chamferLeft,
+  chamferRight,
+  chamferTag,
+  glassTitleCool,
+  glassTitleWarm,
+  glassName,
+  glassNameDead,
+  glassLabel,
+  glassContentLayer,
+} from '@/lib/studio-glass-theme';
 
 function formatCheckInTime(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -17,6 +34,7 @@ interface MatchCardProps {
   gameMode: string;
   upcomingMatches?: MatchData[];
   pollResults?: PollResults;
+  theme?: StudioTheme;
 }
 
 function getMmrForMode(player: PlayerData, mode: string): number | null {
@@ -115,17 +133,20 @@ function PlayerPanel({
   gameMode,
   side,
   index,
+  theme = 'standard',
 }: {
   player: PlayerData;
   gameMode: string;
   side: 'a' | 'b';
   index: number;
+  theme?: StudioTheme;
 }) {
   const mmr = getMmrForMode(player, gameMode);
   const rank = resolveRank(player, gameMode);
   const displayName = player.nick_in_game ?? player.nick;
+  const isGlass = theme === 'sharp-glass';
 
-  const glassBg =
+  const fallbackBg =
     side === 'a'
       ? 'rgba(10,15,30,0.85)'
       : 'rgba(30,15,10,0.85)';
@@ -137,22 +158,28 @@ function PlayerPanel({
       : '0 0 25px rgba(249,115,22,0.3), 0 0 50px rgba(249,115,22,0.1)';
   const accentColor = side === 'a' ? '#2563eb' : '#f97316';
 
+  const glassPanel = side === 'a' ? glassBarBlue : glassBarOrange;
+  const glassChamfer = side === 'a' ? chamferLeft(14) : chamferRight(14);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.12, ease: 'easeOut' }}
       className="relative w-[160px] h-[320px] overflow-hidden"
-      style={{
-        background: glassBg,
-        clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderTop: `2px solid ${accentColor}`,
-        boxShadow: boxGlow,
-        transform: 'skewX(-5deg)',
-        backdropFilter: 'blur(15px)',
-      }}
+      style={isGlass
+        ? { ...glassPanel, ...glassChamfer, boxShadow: boxGlow }
+        : {
+            background: fallbackBg,
+            clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderTop: `2px solid ${accentColor}`,
+            boxShadow: boxGlow,
+            transform: 'skewX(-5deg)',
+            backdropFilter: 'blur(15px)',
+          }}
     >
+      {isGlass && <div style={glassSpecularSweep} aria-hidden />}
       <SmokeLayer side={side} />
       <MmrHeroText mmr={mmr} side={side} />
 
@@ -161,16 +188,19 @@ function PlayerPanel({
         style={{
           height: '48px',
           background: 'rgba(0,0,0,0.75)',
-          paddingLeft: '15%',
+          paddingLeft: isGlass ? 0 : '15%',
         }}
       >
         <span
-          className="font-esports font-bold text-white uppercase drop-shadow-md block truncate text-center w-full px-2"
-          style={{
-            letterSpacing: '0.12em',
-            fontSize: '11px',
-            transform: 'skewX(5deg)',
-          }}
+          className="font-bold text-white uppercase drop-shadow-md block truncate text-center w-full px-2"
+          style={isGlass
+            ? { ...glassName, fontSize: 13 }
+            : {
+                letterSpacing: '0.12em',
+                fontSize: '11px',
+                fontFamily: 'Rajdhani, Inter, sans-serif',
+                transform: 'skewX(5deg)',
+              }}
           title={displayName}
         >
           {displayName}
@@ -179,7 +209,7 @@ function PlayerPanel({
 
       <div
         className="absolute inset-0 flex items-center justify-center z-10"
-        style={{ transform: 'skewX(5deg)', paddingTop: '24px' }}
+        style={{ transform: isGlass ? undefined : 'skewX(5deg)', paddingTop: '24px' }}
       >
         <div className="-mt-4 -ml-2">
           <RankIcon rank={rank} size="xl" glowColor={glowColor} />
@@ -189,23 +219,26 @@ function PlayerPanel({
   );
 }
 
-function TbdPanel({ side }: { side: 'a' | 'b' }) {
+function TbdPanel({ side, theme = 'standard' }: { side: 'a' | 'b'; theme?: StudioTheme }) {
+  const isGlass = theme === 'sharp-glass';
   const glassBg = side === 'a' ? 'rgba(10,15,30,0.6)' : 'rgba(30,15,10,0.6)';
   const accentColor = side === 'a' ? '#2563eb' : '#f97316';
 
   return (
     <div
       className="w-[160px] h-[320px] flex items-center justify-center text-white/30 text-sm font-esports font-bold uppercase"
-      style={{
-        background: glassBg,
-        clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderTop: `2px solid ${accentColor}`,
-        transform: 'skewX(-5deg)',
-        backdropFilter: 'blur(10px)',
-      }}
+      style={isGlass
+        ? { ...glassBarDead, ...(side === 'a' ? chamferLeft(14) : chamferRight(14)) }
+        : {
+            background: glassBg,
+            clipPath: 'polygon(15% 0, 100% 0, 85% 100%, 0 100%)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderTop: `2px solid ${accentColor}`,
+            transform: 'skewX(-5deg)',
+            backdropFilter: 'blur(10px)',
+          }}
     >
-      <span style={{ transform: 'skewX(5deg)' }}>TBD</span>
+      <span style={isGlass ? glassNameDead : { transform: 'skewX(5deg)' }}>TBD</span>
     </div>
   );
 }
@@ -234,7 +267,8 @@ function CheckInBadge({ team, side }: { team: TeamData | null; side: 'a' | 'b' }
   );
 }
 
-function TeamBanner({ name, side, pollPct, team }: { name: string; side: 'a' | 'b'; pollPct?: number; team: TeamData | null }) {
+function TeamBanner({ name, side, pollPct, team, theme = 'standard' }: { name: string; side: 'a' | 'b'; pollPct?: number; team: TeamData | null; theme?: StudioTheme }) {
+  const isGlass = theme === 'sharp-glass';
   const bg =
     side === 'a'
       ? 'linear-gradient(90deg, transparent 0%, rgba(37,99,235,0.5) 30%, rgba(37,99,235,0.7) 100%)'
@@ -260,18 +294,34 @@ function TeamBanner({ name, side, pollPct, team }: { name: string; side: 'a' | '
   const banner = (
     <div style={{ ...margin }}>
       <div
-        className="py-2 px-5 font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
-        style={{
-          width: '450px',
-          background: bg,
-          transform: 'skewX(-5deg)',
-          textAlign,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-          ...padding,
-        }}
+        className="py-2 px-5 text-base font-bold text-white uppercase tracking-[0.15em] relative"
+        style={isGlass
+          ? {
+              width: '450px',
+              ...(side === 'a' ? glassBarBlue : glassBarOrange),
+              ...(side === 'a' ? chamferRight(12) : chamferLeft(12)),
+              textAlign,
+              ...padding,
+            }
+          : {
+              width: '450px',
+              background: bg,
+              transform: 'skewX(-5deg)',
+              textAlign,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+              fontFamily: 'Rajdhani, Inter, sans-serif',
+              ...padding,
+            }}
       >
+        {isGlass && <div style={glassSpecularSweep} aria-hidden />}
         <span
-          style={{
+          style={isGlass ? {
+            ...glassContentLayer,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+          } : {
             transform: 'skewX(5deg)',
             display: 'flex',
             alignItems: 'center',
@@ -280,7 +330,7 @@ function TeamBanner({ name, side, pollPct, team }: { name: string; side: 'a' | '
           }}
         >
           {side === 'a' ? checkIcon : <span style={{ width: 0 }} />}
-          <span style={{ flex: 1, textAlign }}>{name}</span>
+          <span style={isGlass ? { ...glassName, flex: 1, textAlign, overflow: 'hidden', textOverflow: 'ellipsis' } : { flex: 1, textAlign }}>{name}</span>
           {side === 'b' ? checkIcon : <span style={{ width: 0 }} />}
         </span>
       </div>
@@ -302,7 +352,7 @@ function TeamBanner({ name, side, pollPct, team }: { name: string; side: 'a' | '
       <div className="flex items-center">
         <div
           className="flex items-center gap-1 text-white font-esports font-bold text-base uppercase tracking-[0.15em] shrink-0"
-          style={{ marginRight: '8px', transform: 'skewX(-5deg)', textShadow: '0 1px 4px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.4)', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}
+          style={{ marginRight: '8px', transform: isGlass ? undefined : 'skewX(-5deg)', textShadow: '0 1px 4px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.4)', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}
         >
           <BarChart3 size={16} />
           <span>{pollPct}%</span>
@@ -315,7 +365,8 @@ function TeamBanner({ name, side, pollPct, team }: { name: string; side: 'a' | '
   return banner;
 }
 
-function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: number }) {
+function UpcomingQueueRow({ match, pollPct, theme = 'standard' }: { match: MatchData; pollPct?: number; theme?: StudioTheme }) {
+  const isGlass = theme === 'sharp-glass';
   const teamA = match.team_a?.name ?? 'TBD';
   const teamB = match.team_b?.name ?? 'TBD';
   const aCheckedIn = match.team_a?.checked_in === true;
@@ -334,38 +385,42 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
 
   const row = (
     <div
-      className="flex items-center font-esports text-base font-bold text-white uppercase tracking-[0.15em]"
-      style={{
-        width: '956px',
-        transform: 'skewX(-5deg)',
-        background: 'linear-gradient(90deg, rgba(15,23,42,0.92), rgba(20,28,50,0.85), rgba(30,20,15,0.92))',
-        border: '1px solid rgba(255,255,255,0.06)',
-        padding: '8px 20px',
-        marginLeft: '-2px',
-      }}
+      className="flex items-center text-base font-bold text-white uppercase tracking-[0.15em] relative"
+      style={isGlass
+        ? { width: '956px', ...glassBarDead, padding: '8px 20px', marginLeft: '-2px' }
+        : {
+            width: '956px',
+            transform: 'skewX(-5deg)',
+            background: 'linear-gradient(90deg, rgba(15,23,42,0.92), rgba(20,28,50,0.85), rgba(30,20,15,0.92))',
+            border: '1px solid rgba(255,255,255,0.06)',
+            fontFamily: 'Rajdhani, Inter, sans-serif',
+            padding: '8px 20px',
+            marginLeft: '-2px',
+          }}
     >
-      <div className="flex-1 flex items-center pr-3 relative" style={{ transform: 'skewX(5deg)' }}>
+      {isGlass && <div style={glassSpecularSweep} aria-hidden />}
+      <div className="flex-1 flex items-center pr-3 relative" style={isGlass ? glassContentLayer : { transform: 'skewX(5deg)' }}>
         {aCheckedIn && (
           <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
             {checkIcon}
           </div>
         )}
-        <span className="truncate w-full text-right">{teamA}</span>
+        <span className="truncate w-full text-right" style={isGlass ? glassName : undefined}>{teamA}</span>
       </div>
 
-      <div className="flex items-center gap-0 shrink-0" style={{ transform: 'skewX(5deg)' }}>
-        <div style={{ width: 3, height: 18, background: '#2563eb', boxShadow: '0 0 6px rgba(37,99,235,0.6)', transform: 'skewX(-5deg)' }} />
+      <div className="flex items-center gap-0 shrink-0" style={isGlass ? { ...glassChip, ...chamferTag, padding: '4px 10px', ...glassContentLayer } : { transform: 'skewX(5deg)' }}>
+        {!isGlass && <div style={{ width: 3, height: 18, background: '#2563eb', boxShadow: '0 0 6px rgba(37,99,235,0.6)', transform: 'skewX(-5deg)' }} />}
         <div className="flex flex-col items-center px-2">
           <span className="text-[10px] text-white/60 tracking-[0.15em] leading-tight">Runda {match.round_index}</span>
           {match.match_index != null && (
             <span className="text-[10px] text-white/60 tracking-[0.15em] leading-tight">Mecz {match.match_index}</span>
           )}
         </div>
-        <div style={{ width: 3, height: 18, background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.6)', transform: 'skewX(-5deg)' }} />
+        {!isGlass && <div style={{ width: 3, height: 18, background: '#f97316', boxShadow: '0 0 6px rgba(249,115,22,0.6)', transform: 'skewX(-5deg)' }} />}
       </div>
 
-      <div className="flex-1 flex items-center pl-3 relative" style={{ transform: 'skewX(5deg)' }}>
-        <span className="truncate w-full text-left">{teamB}</span>
+      <div className="flex-1 flex items-center pl-3 relative" style={isGlass ? glassContentLayer : { transform: 'skewX(5deg)' }}>
+        <span className="truncate w-full text-left" style={isGlass ? glassName : undefined}>{teamB}</span>
         {bCheckedIn && (
           <div style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)' }}>
             {checkIcon}
@@ -380,7 +435,7 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
       <div className="flex items-center">
         <div
           className="flex items-center gap-1 text-white font-esports font-bold text-base uppercase tracking-[0.15em] shrink-0"
-          style={{ marginRight: '8px', transform: 'skewX(-5deg)', textShadow: '0 1px 4px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.4)', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}
+          style={{ marginRight: '8px', transform: isGlass ? undefined : 'skewX(-5deg)', textShadow: '0 1px 4px rgba(0,0,0,0.7), 0 0 8px rgba(0,0,0,0.4)', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }}
         >
           <BarChart3 size={16} />
           <span>{pollPct}%</span>
@@ -393,7 +448,7 @@ function UpcomingQueueRow({ match, pollPct }: { match: MatchData; pollPct?: numb
   return row;
 }
 
-function UpcomingQueue({ matches, pollResults }: { matches: MatchData[]; pollResults?: PollResults }) {
+function UpcomingQueue({ matches, pollResults, theme }: { matches: MatchData[]; pollResults?: PollResults; theme?: StudioTheme }) {
   const visible = matches.filter((m) => !isFullyTbdMatch(m));
   if (visible.length === 0) return null;
 
@@ -411,7 +466,7 @@ function UpcomingQueue({ matches, pollResults }: { matches: MatchData[]; pollRes
               exit={{ opacity: 0, y: -16 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
             >
-              <UpcomingQueueRow match={m} pollPct={pollResults?.[pollKey]} />
+              <UpcomingQueueRow match={m} pollPct={pollResults?.[pollKey]} theme={theme} />
             </motion.div>
           );
         })}
@@ -420,7 +475,8 @@ function UpcomingQueue({ matches, pollResults }: { matches: MatchData[]; pollRes
   );
 }
 
-function HeaderPanel({ roundIndex, matchIndex, bestOf }: { roundIndex: number; matchIndex?: number; bestOf: number }) {
+function HeaderPanel({ roundIndex, matchIndex, bestOf, theme = 'standard' }: { roundIndex: number; matchIndex?: number; bestOf: number; theme?: StudioTheme }) {
+  const isGlass = theme === 'sharp-glass';
   return (
     <div className="relative flex items-center justify-center gap-0 mb-8">
       <div
@@ -440,16 +496,20 @@ function HeaderPanel({ roundIndex, matchIndex, bestOf }: { roundIndex: number; m
       />
 
       <div
-        className="relative z-10 px-5 py-2 font-esports text-[11px] font-bold text-white/70 uppercase tracking-[0.2em]"
-        style={{
-          background: 'rgba(10,15,30,0.5)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          transform: 'skewX(-5deg)',
-          clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
-        }}
+        className="relative z-10 px-5 py-2 text-[11px] font-bold text-white/70 uppercase tracking-[0.2em]"
+        style={isGlass
+          ? { ...glassTitleCool }
+          : {
+              background: 'rgba(10,15,30,0.5)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              fontFamily: 'Rajdhani, Inter, sans-serif',
+              transform: 'skewX(-5deg)',
+              clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
+            }}
       >
-        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Runda {roundIndex}{matchIndex != null ? ` Mecz ${matchIndex}` : ''}</span>
+        {isGlass && <div style={glassSpecularSweep} aria-hidden />}
+        <span style={isGlass ? { ...glassLabel, fontSize: 11, ...glassContentLayer, display: 'block' } : { transform: 'skewX(5deg)', display: 'block' }}>Runda {roundIndex}{matchIndex != null ? ` Mecz ${matchIndex}` : ''}</span>
       </div>
 
       <div
@@ -469,22 +529,26 @@ function HeaderPanel({ roundIndex, matchIndex, bestOf }: { roundIndex: number; m
       </div>
 
       <div
-        className="relative z-10 px-5 py-2 font-esports text-[11px] font-bold text-white/70 uppercase tracking-[0.2em]"
-        style={{
-          background: 'rgba(30,15,10,0.5)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          transform: 'skewX(-5deg)',
-          clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
-        }}
+        className="relative z-10 px-5 py-2 text-[11px] font-bold text-white/70 uppercase tracking-[0.2em]"
+        style={isGlass
+          ? { ...glassTitleWarm }
+          : {
+              background: 'rgba(30,15,10,0.5)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              fontFamily: 'Rajdhani, Inter, sans-serif',
+              transform: 'skewX(-5deg)',
+              clipPath: 'polygon(8% 0, 100% 0, 92% 100%, 0 100%)',
+            }}
       >
-        <span style={{ transform: 'skewX(5deg)', display: 'block' }}>Format BO{bestOf}</span>
+        {isGlass && <div style={glassSpecularSweep} aria-hidden />}
+        <span style={isGlass ? { ...glassLabel, fontSize: 11, ...glassContentLayer, display: 'block' } : { transform: 'skewX(5deg)', display: 'block' }}>Format BO{bestOf}</span>
       </div>
     </div>
   );
 }
 
-export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults }: MatchCardProps) {
+export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults, theme = 'standard' }: MatchCardProps) {
   const activePollKey = `Runda ${match.round_index} Mecz ${match.match_index ?? '?'}`;
   const activePollPct = pollResults?.[activePollKey];
 
@@ -498,7 +562,7 @@ export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults }
       className="p-6"
     >
       {/* Header */}
-      <HeaderPanel roundIndex={match.round_index} matchIndex={match.match_index} bestOf={match.best_of} />
+      <HeaderPanel roundIndex={match.round_index} matchIndex={match.match_index} bestOf={match.best_of} theme={theme} />
 
       {/* Players + VERSUS */}
       <div className="flex items-stretch justify-center">
@@ -506,11 +570,11 @@ export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults }
         <div className="team-blue-wrapper flex flex-col items-end">
           <div className="flex" style={{ marginRight: '-8px' }}>
             {match.team_a?.players.map((p, i) => (
-              <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="a" index={i} />
-            )) ?? <TbdPanel side="a" />}
+              <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="a" index={i} theme={theme} />
+            )) ?? <TbdPanel side="a" theme={theme} />}
           </div>
           <div style={{ marginTop: 'auto' }}>
-            <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" pollPct={activePollPct} team={match.team_a} />
+            <TeamBanner name={match.team_a?.name ?? 'TBD'} side="a" pollPct={activePollPct} team={match.team_a} theme={theme} />
           </div>
         </div>
 
@@ -533,17 +597,17 @@ export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults }
         <div className="team-orange-wrapper flex flex-col items-start">
           <div className="flex" style={{ marginLeft: '-8px' }}>
             {match.team_b?.players.map((p, i) => (
-              <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="b" index={i + 2} />
-            )) ?? <TbdPanel side="b" />}
+              <PlayerPanel key={p.discord_id} player={p} gameMode={gameMode} side="b" index={i + 2} theme={theme} />
+            )) ?? <TbdPanel side="b" theme={theme} />}
           </div>
           <div style={{ marginTop: 'auto' }}>
-            <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" team={match.team_b} />
+            <TeamBanner name={match.team_b?.name ?? 'TBD'} side="b" team={match.team_b} theme={theme} />
           </div>
         </div>
       </div>
 
       {/* Upcoming matches queue */}
-      <UpcomingQueue matches={upcomingMatches} pollResults={pollResults} />
+      <UpcomingQueue matches={upcomingMatches} pollResults={pollResults} theme={theme} />
     </motion.div>
   );
 }

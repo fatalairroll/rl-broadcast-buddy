@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import { fetchTournaments, fetchMatches } from '@/lib/mmrivals-api';
 import type { PoolData, Tournament, StudioMode } from '@/types/studio';
+import type { StudioTheme } from '@/lib/studio-glass-theme';
 import { selectablePools, poolTabLabel, isPoolTournament } from '@/lib/pool-utils';
 import { Copy, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +28,14 @@ export default function Studio() {
   const [pools, setPools] = useState<PoolData[]>([]);
   const [usePools, setUsePools] = useState(false);
   const [selectedPool, setSelectedPool] = useState<string>('');
+  const [theme, setTheme] = useState<StudioTheme>(() => {
+    if (typeof window === 'undefined') return 'standard';
+    return (localStorage.getItem('studio.theme') as StudioTheme) || 'standard';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('studio.theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     fetchTournaments()
@@ -73,6 +82,9 @@ export default function Studio() {
     });
     if (mode === 'bracket' && usePools && selectedPool) {
       params.set('pool_id', selectedPool);
+    }
+    if (theme === 'sharp-glass') {
+      params.set('theme', 'glass');
     }
     return `${window.location.origin}/studio/render?${params.toString()}`;
   })();
@@ -142,6 +154,20 @@ export default function Studio() {
                     Wymaga relay na tym samym PC; dane = ostatni zakończony mecz RL.
                   </p>
                 )}
+              </div>
+
+              {/* Theme */}
+              <div className="space-y-2">
+                <Label>Motyw</Label>
+                <Select value={theme} onValueChange={(v) => setTheme(v as StudioTheme)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="sharp-glass">Sharp Liquid Glass</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Count */}
