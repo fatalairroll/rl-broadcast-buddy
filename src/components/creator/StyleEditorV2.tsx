@@ -260,6 +260,24 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             mmrLocked={overrides.hasMmrMatchBinding}
           />
         )}
+
+        {element === 'boostGauge' && config.general.theme === 'glass' && (
+          <>
+            <Toggle label="Widoczny" value={config.boostGauge.visible} onChange={(v) => update('boostGauge', { visible: v })} />
+            <PositionEditor value={config.boostGauge.position} onChange={(p) => update('boostGauge', { position: p })} />
+            <Separator />
+            <SliderInput label="Rozmiar tarczy" value={config.boostGauge.size} onValueChange={(v) => update('boostGauge', { size: v })} min={180} max={320} unit="px" />
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              Pierścień pokazuje boost aktywnego gracza. Kolor wg drużyny; &lt; 10 czerwony, = 100 złoty.
+            </p>
+          </>
+        )}
+        {element === 'boostGauge' && config.general.theme !== 'glass' && (
+          <p className="text-xs text-muted-foreground leading-snug">
+            Wskaźnik boosta (gauge) jest dostępny wyłącznie dla motywu <b>Glass</b>.
+            Zmień motyw w sekcji „Ogólne", aby go skonfigurować i wyświetlić w overlay.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
