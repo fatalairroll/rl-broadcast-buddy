@@ -10,6 +10,8 @@ import {
   glassBarOrange,
   glassBarDead,
   glassChip,
+  glassScoreBox,
+  glassScoreDigitWin,
   glassSpecularSweep,
   chamferLeft,
   chamferRight,
