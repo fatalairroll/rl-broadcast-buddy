@@ -3,7 +3,19 @@ import {
   POSTGAME_BAR_LABEL_FONT_SIZE,
   POSTGAME_BAR_LABEL_LETTER_SPACING,
 } from '@/lib/studio-layout';
-import { glassBarDead, glassSpecularSweep, glassContentLayer } from '@/lib/studio-glass-theme';
+import {
+  glassBarDead,
+  glassBarBlue,
+  glassBarOrange,
+  glassStatCenter,
+  glassStatCenterAccent,
+  glassSpecularSweep,
+  glassContentLayer,
+  glassName,
+  glassLabel,
+  chamferLeft,
+  chamferRight,
+} from '@/lib/studio-glass-theme';
 import type { StudioTheme } from '@/lib/studio-glass-theme';
 
 export const BLUE = '#2563eb';
@@ -178,6 +190,136 @@ export function PostgameTeamBarRow({
           }}
         />
       </div>
+    </div>
+  );
+}
+
+interface BarRowGlassProps extends BarRowProps {
+  isFirst?: boolean;
+  isLast?: boolean;
+}
+
+export function PostgameTeamBarRowGlass({
+  label,
+  blueValue,
+  orangeValue,
+  format = 'number',
+  isFirst = false,
+  isLast = false,
+}: BarRowGlassProps) {
+  const blueRaw = blueValue ?? 0;
+  const orangeRaw = orangeValue ?? 0;
+  const total = blueRaw + orangeRaw;
+  const blueWins = blueRaw > orangeRaw;
+  const orangeWins = orangeRaw > blueRaw;
+  const tie = blueRaw === orangeRaw;
+
+  const bluePct = total === 0 ? 50 : (blueRaw / total) * 100;
+  const orangePct = 100 - bluePct;
+
+  const ROW_H = 38;
+  const LABEL_W = 108;
+
+  const leftPanelStyle = tie || !blueWins ? glassBarDead : glassBarBlue;
+  const rightPanelStyle = tie || !orangeWins ? glassBarDead : glassBarOrange;
+
+  const leftValueColor = tie
+    ? '#fff'
+    : blueWins
+      ? '#fff'
+      : 'rgba(255,255,255,0.4)';
+  const rightValueColor = tie
+    ? '#fff'
+    : orangeWins
+      ? '#fff'
+      : 'rgba(255,255,255,0.4)';
+
+  const leftChamfer = isFirst ? chamferLeft(8) : undefined;
+  const rightChamfer = isLast ? chamferRight(8) : undefined;
+
+  return (
+    <div style={{ width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 4, height: ROW_H }}>
+        {/* Left panel */}
+        <div
+          className="relative flex items-center"
+          style={{
+            flex: 1,
+            ...leftPanelStyle,
+            ...leftChamfer,
+            justifyContent: 'flex-end',
+            paddingRight: 16,
+          }}
+        >
+          <div style={glassSpecularSweep} aria-hidden />
+          <span
+            className="tabular-nums"
+            style={{
+              ...glassName,
+              fontSize: 19,
+              color: leftValueColor,
+              textShadow: leftValueColor === '#fff' ? glassName.textShadow : 'none',
+              ...glassContentLayer,
+            }}
+          >
+            {formatValue(blueValue, format)}
+          </span>
+        </div>
+
+        {/* Center label */}
+        <div
+          className="relative flex items-center justify-center"
+          style={{ width: LABEL_W, ...glassStatCenter }}
+        >
+          <div style={glassStatCenterAccent} aria-hidden />
+          <div style={glassSpecularSweep} aria-hidden />
+          <span
+            style={{
+              ...glassLabel,
+              fontSize: 10.5,
+              ...glassContentLayer,
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {label}
+          </span>
+        </div>
+
+        {/* Right panel */}
+        <div
+          className="relative flex items-center"
+          style={{
+            flex: 1,
+            ...rightPanelStyle,
+            ...rightChamfer,
+            justifyContent: 'flex-start',
+            paddingLeft: 16,
+          }}
+        >
+          <div style={glassSpecularSweep} aria-hidden />
+          <span
+            className="tabular-nums"
+            style={{
+              ...glassName,
+              fontSize: 19,
+              color: rightValueColor,
+              textShadow: rightValueColor === '#fff' ? glassName.textShadow : 'none',
+              ...glassContentLayer,
+            }}
+          >
+            {formatValue(orangeValue, format)}
+          </span>
+        </div>
+      </div>
+
+      {/* Proportion bar (3px) */}
+      {total > 0 && (
+        <div style={{ display: 'flex', height: 3, width: '100%', marginTop: 1 }}>
+          <div style={{ width: `${bluePct}%`, background: '#00B2FF' }} />
+          <div style={{ width: `${orangePct}%`, background: '#F95F02' }} />
+        </div>
+      )}
     </div>
   );
 }
