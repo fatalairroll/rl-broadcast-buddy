@@ -3,20 +3,24 @@ import type { MatchMetadata } from '@/types/livestats';
 import type { SeriesData } from '@/hooks/useBroadcastSeries';
 import type { OverlayV2Config } from '@/types/overlayV2';
 import {
-  chamferLeft,
-  chamferRight,
-  gamePillBlue,
-  gamePillEmpty,
-  gamePillOrange,
-  glassBarBlue,
-  glassBarOrange,
+  chamferTopLeft,
+  chamferTopRight,
   glassContentLayer,
   glassLabel,
   glassName,
-  glassScoreBox,
   glassScoreDigitLose,
   glassScoreDigitWin,
   glassSpecularSweep,
+  opaqueBarBlue,
+  opaqueBarOrange,
+  opaqueDark,
+  opaqueCornerSpec,
+  opaquePillBlue,
+  opaquePillOrange,
+  opaquePillEmpty,
+  fakeRefractionBlue,
+  fakeRefractionOrange,
+  fakeRefractionDark,
 } from '@/lib/studio-glass-theme';
 import { positionToStyle } from '@/lib/position-utils';
 
@@ -28,11 +32,9 @@ interface Props {
   config: OverlayV2Config;
 }
 
-const BAR_H = 46;
-const SCORE_W = 46;
-const TIMER_W = 92;
-const NAME_W = 188;
-const TOTAL_W = NAME_W * 2 + SCORE_W * 2 + TIMER_W;
+const ROW1_H = 66;
+const SCORE_W = 58;
+const TIMER_W = 116;
 
 const SERIES_COUNT: Record<string, number> = { bo1: 1, bo3: 3, bo5: 5, bo7: 7 };
 
@@ -45,10 +47,16 @@ function fmtTimer(m: MatchMetadata | null): string {
 
 export function GlassScorebar({ match, series, blueName, orangeName, config }: Props) {
   if (!config.scoreboard.visible) return null;
+  const totalW = config.scoreboard.coverWidth ?? 620;
+  const totalH = config.scoreboard.coverHeight ?? 104;
+  const row2H = Math.max(24, totalH - ROW1_H);
+  const nameW = Math.max(120, Math.floor((totalW - SCORE_W * 2 - TIMER_W) / 2));
+
   const blue = match?.blue_score ?? 0;
   const orange = match?.orange_score ?? 0;
-  const blueWin = blue >= orange;
-  const orangeWin = orange >= blue;
+  const tie = blue === orange;
+  const blueWin = tie || blue > orange;
+  const orangeWin = tie || orange > blue;
   const total = SERIES_COUNT[series.type] ?? 3;
   const matchNo = (series.blueScore ?? 0) + (series.orangeScore ?? 0) + 1;
   const boLabel = `Mecz ${matchNo} · BO${total}`;
@@ -59,91 +67,99 @@ export function GlassScorebar({ match, series, blueName, orangeName, config }: P
   while (pills.length < total) pills.push('empty');
 
   const segmentSweep: CSSProperties = { ...glassSpecularSweep };
+  const row2Sweep: CSSProperties = { ...glassSpecularSweep, height: '30%' };
+
+  const row2Clip: CSSProperties = {
+    clipPath:
+      'polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px))',
+  };
 
   return (
-    <div style={{ ...positionToStyle(config.scoreboard.position), width: TOTAL_W }}>
-      <div style={{ display: 'flex', alignItems: 'stretch', width: TOTAL_W, height: BAR_H }}>
+    <div style={{ ...positionToStyle(config.scoreboard.position), width: totalW }}>
+      {/* ROW 1 — nazwy, wyniki, zegar */}
+      <div style={{ display: 'flex', alignItems: 'stretch', width: totalW, height: ROW1_H }}>
         {/* Blue team name */}
         <div
           style={{
-            ...glassBarBlue,
-            ...chamferLeft(10),
-            width: NAME_W,
-            height: BAR_H,
+            ...opaqueBarBlue,
+            ...chamferTopLeft(12),
+            width: nameW,
+            height: ROW1_H,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-start',
             padding: '0 14px 0 22px',
           }}
         >
+          <div style={fakeRefractionBlue} />
+          <div style={opaqueCornerSpec} />
           <div style={segmentSweep} />
-          <div style={{ ...glassContentLayer, ...glassName, fontSize: 21, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ ...glassContentLayer, ...glassName, fontSize: 27, overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {blueName || 'BLUE'}
           </div>
         </div>
         {/* Blue score */}
         <div
           style={{
-            ...glassScoreBox,
+            ...opaqueDark,
             width: SCORE_W,
-            height: BAR_H,
+            height: ROW1_H,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
+          <div style={fakeRefractionDark} />
           <div style={segmentSweep} />
           <div
             style={{
               ...glassContentLayer,
               ...glassName,
               ...(blueWin ? glassScoreDigitWin : glassScoreDigitLose),
-              fontSize: 26,
+              fontSize: 34,
             }}
           >
             {blue}
           </div>
         </div>
-        {/* Timer + BO label */}
+        {/* Timer */}
         <div
           style={{
-            ...glassScoreBox,
+            ...opaqueDark,
             width: TIMER_W,
-            height: BAR_H,
+            height: ROW1_H,
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            borderLeft: '1px solid rgba(255,255,255,.12)',
-            borderRight: '1px solid rgba(255,255,255,.12)',
+            borderLeft: '1px solid rgba(255,255,255,.14)',
+            borderRight: '1px solid rgba(255,255,255,.14)',
           }}
         >
+          <div style={fakeRefractionDark} />
           <div style={segmentSweep} />
-          <div style={{ ...glassContentLayer, ...glassName, fontSize: 22, lineHeight: 1 }}>
+          <div style={{ ...glassContentLayer, ...glassName, fontSize: 30, lineHeight: 1 }}>
             {fmtTimer(match)}
-          </div>
-          <div style={{ ...glassContentLayer, ...glassLabel, fontSize: 8, marginTop: 2, color: 'rgba(255,255,255,.6)' }}>
-            {boLabel}
           </div>
         </div>
         {/* Orange score */}
         <div
           style={{
-            ...glassScoreBox,
+            ...opaqueDark,
             width: SCORE_W,
-            height: BAR_H,
+            height: ROW1_H,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
+          <div style={fakeRefractionDark} />
           <div style={segmentSweep} />
           <div
             style={{
               ...glassContentLayer,
               ...glassName,
               ...(orangeWin ? glassScoreDigitWin : glassScoreDigitLose),
-              fontSize: 26,
+              fontSize: 34,
             }}
           >
             {orange}
@@ -152,40 +168,56 @@ export function GlassScorebar({ match, series, blueName, orangeName, config }: P
         {/* Orange team name */}
         <div
           style={{
-            ...glassBarOrange,
-            ...chamferRight(10),
-            width: NAME_W,
-            height: BAR_H,
+            ...opaqueBarOrange,
+            ...chamferTopRight(12),
+            width: nameW,
+            height: ROW1_H,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
             padding: '0 22px 0 14px',
           }}
         >
+          <div style={fakeRefractionOrange} />
+          <div style={{ ...opaqueCornerSpec, left: 'auto', right: '-8%' }} />
           <div style={segmentSweep} />
-          <div style={{ ...glassContentLayer, ...glassName, fontSize: 21, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ ...glassContentLayer, ...glassName, fontSize: 27, overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {orangeName || 'ORANGE'}
           </div>
         </div>
       </div>
-      {/* Series pills */}
+      {/* ROW 2 — domknięcie + seria + brand + numer meczu */}
       <div
         style={{
+          ...opaqueDark,
+          ...row2Clip,
+          borderTop: 'none',
+          width: totalW,
+          height: row2H,
           display: 'flex',
-          justifyContent: 'center',
           alignItems: 'center',
-          gap: 4,
-          marginTop: 6,
+          justifyContent: 'center',
+          gap: 18,
         }}
       >
-        {pills.map((p, i) => (
-          <div
-            key={i}
-            style={
-              p === 'blue' ? gamePillBlue : p === 'orange' ? gamePillOrange : gamePillEmpty
-            }
-          />
-        ))}
+        <div style={fakeRefractionDark} />
+        <div style={row2Sweep} />
+        <div style={{ ...glassContentLayer, ...glassLabel, fontSize: 10, color: 'rgba(255,255,255,.6)' }}>
+          MMRIVALS
+        </div>
+        <div style={{ ...glassContentLayer, display: 'flex', alignItems: 'center', gap: 4 }}>
+          {pills.map((p, i) => (
+            <div
+              key={i}
+              style={
+                p === 'blue' ? opaquePillBlue : p === 'orange' ? opaquePillOrange : opaquePillEmpty
+              }
+            />
+          ))}
+        </div>
+        <div style={{ ...glassContentLayer, ...glassLabel, fontSize: 10, color: 'rgba(255,255,255,.6)' }}>
+          {boLabel}
+        </div>
       </div>
     </div>
   );
