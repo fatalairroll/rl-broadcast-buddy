@@ -601,6 +601,8 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
     ss2.offsetX = ss2.offsetX ?? 0;
     ss2.offsetY = ss2.offsetY ?? 0;
   }
+  const bg = { ...defaultOverlayV2Config.boostGauge, ...((p as any).boostGauge ?? {}) };
+  bg.position = bg.position ?? defaultOverlayV2Config.boostGauge.position;
   return {
     scoreboard: sb,
     scoreBlue: sblue,
@@ -611,6 +613,7 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
     seriesScore: ss,
     teamNameBlue: tnb,
     teamNameOrange: tno,
+    boostGauge: bg,
     general: { ...defaultOverlayV2Config.general, ...(p.general ?? {}) },
   };
 }
