@@ -225,32 +225,33 @@ export function PostgameSummary({ data, state, theme = 'standard' }: Props) {
         />
       </div>
 
-      <PostgameGlassPanel
-        className="w-full"
-        style={{ padding: '16px 20px', marginTop: 8 }}
-        theme={theme}
-      >
-        <div style={gridStyle}>
-          {/* Header row — player nicks */}
-          <PlayerNamesRow players={bluePlayers} side="blue" small={small} />
-          <div />
-          <PlayerNamesRow players={orangePlayers} side="orange" small={small} />
+      {theme === 'sharp-glass' ? (
+        <GlassStatsView data={data} bluePlayers={bluePlayers} orangePlayers={orangePlayers} />
+      ) : (
+        <PostgameGlassPanel
+          className="w-full"
+          style={{ padding: '16px 20px', marginTop: 8 }}
+          theme={theme}
+        >
+          <div style={gridStyle}>
+            {/* Header row — player nicks */}
+            <PlayerNamesRow players={bluePlayers} side="blue" small={small} />
+            <div />
+            <PlayerNamesRow players={orangePlayers} side="orange" small={small} />
 
-          {ROWS.map((row, i) => (
-            <RowFragment
-              key={row.label}
-              row={row}
-              data={data}
-              bluePlayers={bluePlayers}
-              orangePlayers={orangePlayers}
-              small={small}
-              theme={theme}
-              isFirst={i === 0}
-              isLast={i === ROWS.length - 1}
-            />
-          ))}
-        </div>
-      </PostgameGlassPanel>
+            {ROWS.map((row) => (
+              <RowFragment
+                key={row.label}
+                row={row}
+                data={data}
+                bluePlayers={bluePlayers}
+                orangePlayers={orangePlayers}
+                small={small}
+              />
+            ))}
+          </div>
+        </PostgameGlassPanel>
+      )}
     </div>
   );
 }
@@ -261,20 +262,13 @@ function RowFragment({
   bluePlayers,
   orangePlayers,
   small,
-  theme = 'standard',
-  isFirst = false,
-  isLast = false,
 }: {
   row: RowDef;
   data: PostgamePayload;
   bluePlayers: PostgamePlayer[];
   orangePlayers: PostgamePlayer[];
   small: boolean;
-  theme?: StudioTheme;
-  isFirst?: boolean;
-  isLast?: boolean;
 }) {
-  const isGlass = theme === 'sharp-glass';
   return (
     <>
       <PlayerValuesRow players={bluePlayers} row={row} small={small} />
@@ -288,26 +282,101 @@ function RowFragment({
           alignItems: 'stretch',
         }}
       >
-        {isGlass ? (
-          <PostgameTeamBarRowGlass
-            label={row.label}
-            blueValue={row.team(data, 'blue')}
-            orangeValue={row.team(data, 'orange')}
-            format={row.format}
-            isFirst={isFirst}
-            isLast={isLast}
-          />
-        ) : (
-          <PostgameTeamBarRow
-            label={row.label}
-            blueValue={row.team(data, 'blue')}
-            orangeValue={row.team(data, 'orange')}
-            format={row.format}
-          />
-        )}
+        <PostgameTeamBarRow
+          label={row.label}
+          blueValue={row.team(data, 'blue')}
+          orangeValue={row.team(data, 'orange')}
+          format={row.format}
+        />
       </div>
       <PlayerValuesRow players={orangePlayers} row={row} small={small} />
     </>
+  );
+}
+
+function GlassStatsView({
+  data,
+  bluePlayers,
+  orangePlayers,
+}: {
+  data: PostgamePayload;
+  bluePlayers: PostgamePlayer[];
+  orangePlayers: PostgamePlayer[];
+}) {
+  return (
+    <div className="w-full" style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Team stat bars */}
+      <div style={{ width: '100%' }}>
+        {ROWS.map((row) => (
+          <PostgameStatBarGlass
+            key={row.label}
+            label={row.label}
+            blueValue={row.team(data, 'blue')}
+            orangeValue={row.team(data, 'orange')}
+            format={row.format}
+          />
+        ))}
+      </div>
+
+      {/* Compact player panels */}
+      <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+        <GlassPlayerPanel players={bluePlayers} side="blue" />
+        <GlassPlayerPanel players={orangePlayers} side="orange" />
+      </div>
+    </div>
+  );
+}
+
+function GlassPlayerPanel({ players, side }: { players: PostgamePlayer[]; side: Side }) {
+  const accent = side === 'blue' ? '#00B2FF' : '#F95F02';
+  const COLS = ['SCORE', 'GOLE', 'AS', 'OBR'];
+  const pick = (p: PostgamePlayer): (number | null | undefined)[] => [
+    p.score, p.goals, p.assists, p.saves,
+  ];
+  return (
+    <div style={{ flex: 1, ...PANEL_STYLE_GLASS, padding: '8px 10px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', height: 18, borderBottom: `1px solid ${accent}40`, marginBottom: 4 }}>
+        <div style={{ flex: 1, minWidth: 0 }} />
+        {COLS.map((c) => (
+          <div key={c} style={{ width: 40, textAlign: 'center' }}>
+            <span style={{ ...glassLabel, fontSize: 9, color: accent }}>{c}</span>
+          </div>
+        ))}
+      </div>
+      {players.slice(0, 4).map((p, i) => {
+        const vals = pick(p);
+        return (
+          <div
+            key={`${p.player_name}-${i}`}
+            style={{ display: 'flex', alignItems: 'center', height: 26 }}
+          >
+            <span
+              style={{
+                ...glassName,
+                fontSize: 14,
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {p.player_name}
+            </span>
+            {vals.map((v, idx) => (
+              <div key={idx} style={{ width: 40, textAlign: 'center' }}>
+                <span
+                  className="tabular-nums"
+                  style={{ ...glassLabel, fontSize: 13, color: '#fff', letterSpacing: '.04em' }}
+                >
+                  {v ?? '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
