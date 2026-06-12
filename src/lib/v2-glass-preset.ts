@@ -2,7 +2,7 @@ import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2'
 import type { OverlayV2Preset } from '@/hooks/useOverlayV2Config';
 
 export const GLASS_PRESET_NAME = 'GLASS OVERLAY';
-export const GLASS_PRESET_VERSION = 3;
+export const GLASS_PRESET_VERSION = 4;
 
 export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
   ...defaultOverlayV2Config,
@@ -27,6 +27,11 @@ export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
   playerCard: {
     ...defaultOverlayV2Config.playerCard,
     position: { anchorH: 'left', anchorV: 'bottom', offsetX: 24, offsetY: 64 },
+  },
+  boostGauge: {
+    visible: true,
+    size: 230,
+    position: { anchorH: 'right', anchorV: 'bottom', offsetX: 936, offsetY: 524 },
   },
   general: { ...defaultOverlayV2Config.general, theme: 'glass', presetVersion: GLASS_PRESET_VERSION },
 };

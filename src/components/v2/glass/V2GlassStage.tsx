@@ -4,6 +4,7 @@ import type { SeriesData } from '@/hooks/useBroadcastSeries';
 import { GlassScorebar } from './GlassScorebar';
 import { GlassBoostPanel } from './GlassBoostPanel';
 import { GlassPlayerCard } from './GlassPlayerCard';
+import { GlassBoostGauge } from './GlassBoostGauge';
 import { useGoalEventDetector } from '@/hooks/useGoalEventDetector';
 import { positionToStyle } from '@/lib/position-utils';
 
@@ -68,6 +69,9 @@ export function V2GlassStage({
           orangeName={orangeName}
           goal={goal}
         />
+      )}
+      {config.boostGauge.visible && (
+        <GlassBoostGauge config={config} activePlayer={activePlayer} />
       )}
     </>
   );
