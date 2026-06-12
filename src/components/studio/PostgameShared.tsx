@@ -193,14 +193,12 @@ interface BarRowGlassProps extends BarRowProps {
   isLast?: boolean;
 }
 
-export function PostgameTeamBarRowGlass({
+export function PostgameStatBarGlass({
   label,
   blueValue,
   orangeValue,
   format = 'number',
-  isFirst = false,
-  isLast = false,
-}: BarRowGlassProps) {
+}: BarRowProps) {
   const blueRaw = blueValue ?? 0;
   const orangeRaw = orangeValue ?? 0;
   const total = blueRaw + orangeRaw;
@@ -211,109 +209,115 @@ export function PostgameTeamBarRowGlass({
   const bluePct = total === 0 ? 50 : (blueRaw / total) * 100;
   const orangePct = 100 - bluePct;
 
-  const ROW_H = 38;
-  const LABEL_W = 108;
+  const leftColor = total === 0
+    ? 'rgba(255,255,255,.55)'
+    : tie || blueWins ? '#fff' : 'rgba(255,255,255,.55)';
+  const rightColor = total === 0
+    ? 'rgba(255,255,255,.55)'
+    : tie || orangeWins ? '#fff' : 'rgba(255,255,255,.55)';
+  const leftShadow = total > 0 && (tie || blueWins) ? '0 0 12px rgba(255,255,255,.4)' : 'none';
+  const rightShadow = total > 0 && (tie || orangeWins) ? '0 0 12px rgba(255,255,255,.4)' : 'none';
 
-  const leftPanelStyle = tie || !blueWins ? glassBarDead : glassBarBlue;
-  const rightPanelStyle = tie || !orangeWins ? glassBarDead : glassBarOrange;
-
-  const leftValueColor = tie
-    ? '#fff'
-    : blueWins
-      ? '#fff'
-      : 'rgba(255,255,255,0.4)';
-  const rightValueColor = tie
-    ? '#fff'
-    : orangeWins
-      ? '#fff'
-      : 'rgba(255,255,255,0.4)';
-
-  const leftChamfer = isFirst ? chamferLeft(8) : undefined;
-  const rightChamfer = isLast ? chamferRight(8) : undefined;
+  const VALUE_W = 48;
 
   return (
-    <div style={{ width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'stretch', gap: 4, height: ROW_H }}>
-        {/* Left panel */}
-        <div
-          className="relative flex items-center"
+    <div style={{ width: '100%', height: 44, marginBottom: 10, display: 'flex', flexDirection: 'column' }}>
+      {/* Label above bar */}
+      <div style={{ height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span
           style={{
-            flex: 1,
-            ...leftPanelStyle,
-            ...leftChamfer,
-            justifyContent: 'flex-end',
-            paddingRight: 16,
+            ...glassLabel,
+            fontSize: 11,
+            letterSpacing: '.24em',
+            textShadow: '0 1px 8px rgba(0,0,0,.6)',
+            whiteSpace: 'nowrap',
           }}
         >
-          <div style={glassSpecularSweep} aria-hidden />
-          <span
-            className="tabular-nums"
-            style={{
-              ...glassName,
-              fontSize: 19,
-              color: leftValueColor,
-              textShadow: leftValueColor === '#fff' ? glassName.textShadow : 'none',
-              ...glassContentLayer,
-            }}
-          >
-            {formatValue(blueValue, format)}
-          </span>
-        </div>
-
-        {/* Center label */}
-        <div
-          className="relative flex items-center justify-center"
-          style={{ width: LABEL_W, ...glassStatCenter }}
-        >
-          <div style={glassStatCenterAccent} aria-hidden />
-          <div style={glassSpecularSweep} aria-hidden />
-          <span
-            style={{
-              ...glassLabel,
-              fontSize: 10.5,
-              ...glassContentLayer,
-              textAlign: 'center',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {label}
-          </span>
-        </div>
-
-        {/* Right panel */}
-        <div
-          className="relative flex items-center"
-          style={{
-            flex: 1,
-            ...rightPanelStyle,
-            ...rightChamfer,
-            justifyContent: 'flex-start',
-            paddingLeft: 16,
-          }}
-        >
-          <div style={glassSpecularSweep} aria-hidden />
-          <span
-            className="tabular-nums"
-            style={{
-              ...glassName,
-              fontSize: 19,
-              color: rightValueColor,
-              textShadow: rightValueColor === '#fff' ? glassName.textShadow : 'none',
-              ...glassContentLayer,
-            }}
-          >
-            {formatValue(orangeValue, format)}
-          </span>
-        </div>
+          {label}
+        </span>
       </div>
 
-      {/* Proportion bar (3px) */}
-      {total > 0 && (
-        <div style={{ display: 'flex', height: 3, width: '100%', marginTop: 1 }}>
-          <div style={{ width: `${bluePct}%`, background: '#00B2FF' }} />
-          <div style={{ width: `${orangePct}%`, background: '#F95F02' }} />
+      {/* Values + bar row */}
+      <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+        <span
+          className="tabular-nums"
+          style={{
+            ...glassName,
+            fontSize: 18,
+            width: VALUE_W,
+            textAlign: 'right',
+            color: leftColor,
+            textShadow: leftShadow,
+          }}
+        >
+          {formatValue(blueValue, format)}
+        </span>
+        <div
+          style={{
+            flex: 1,
+            margin: '0 8px',
+            height: 12,
+            position: 'relative',
+            background: 'rgba(8,12,22,.55)',
+            borderTop: '1px solid rgba(255,255,255,.18)',
+            display: 'flex',
+            overflow: 'hidden',
+          }}
+        >
+          {total > 0 ? (
+            <>
+              <div
+                style={{
+                  width: `${bluePct}%`,
+                  background: 'linear-gradient(90deg,#1B6FF0,#00B2FF)',
+                }}
+              />
+              <div
+                style={{
+                  width: `${orangePct}%`,
+                  background: 'linear-gradient(270deg,#EB4B00,#FF8C23)',
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  left: `${bluePct}%`,
+                  width: 2,
+                  transform: 'translateX(-50%)',
+                  background: '#fff',
+                }}
+              />
+            </>
+          ) : (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: '50%',
+                width: 2,
+                transform: 'translateX(-50%)',
+                background: '#fff',
+              }}
+            />
+          )}
         </div>
-      )}
+        <span
+          className="tabular-nums"
+          style={{
+            ...glassName,
+            fontSize: 18,
+            width: VALUE_W,
+            textAlign: 'left',
+            color: rightColor,
+            textShadow: rightShadow,
+          }}
+        >
+          {formatValue(orangeValue, format)}
+        </span>
+      </div>
     </div>
   );
 }
