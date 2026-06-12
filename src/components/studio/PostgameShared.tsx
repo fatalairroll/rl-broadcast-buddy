@@ -3,6 +3,8 @@ import {
   POSTGAME_BAR_LABEL_FONT_SIZE,
   POSTGAME_BAR_LABEL_LETTER_SPACING,
 } from '@/lib/studio-layout';
+import { glassBarDead, glassSpecularSweep, glassContentLayer } from '@/lib/studio-glass-theme';
+import type { StudioTheme } from '@/lib/studio-glass-theme';
 
 export const BLUE = '#2563eb';
 export const ORANGE = '#f97316';
@@ -16,6 +18,11 @@ const PANEL_STYLE: CSSProperties = {
   borderRadius: 8,
   backdropFilter: 'blur(14px)',
   WebkitBackdropFilter: 'blur(14px)',
+};
+
+export const PANEL_STYLE_GLASS: CSSProperties = {
+  ...glassBarDead,
+  borderRadius: 8,
 };
 
 export const TEXT_SHADOW = '0 1px 3px rgba(0,0,0,0.7)';
@@ -60,10 +67,12 @@ interface PanelProps {
   style?: CSSProperties;
 }
 
-export function PostgameGlassPanel({ children, className, style }: PanelProps) {
+export function PostgameGlassPanel({ children, className, style, theme = 'standard' }: PanelProps & { theme?: StudioTheme }) {
+  const isGlass = theme === 'sharp-glass';
   return (
-    <div className={className} style={{ ...PANEL_STYLE, ...style }}>
-      {children}
+    <div className={className} style={{ ...(isGlass ? PANEL_STYLE_GLASS : PANEL_STYLE), ...style }}>
+      {isGlass && <div style={glassSpecularSweep} aria-hidden />}
+      <div style={isGlass ? glassContentLayer : undefined}>{children}</div>
     </div>
   );
 }
