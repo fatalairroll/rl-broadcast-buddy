@@ -5,6 +5,7 @@ import {
   ORANGE,
   PostgameGlassPanel,
   PostgameTeamBarRow,
+  PostgameTeamBarRowGlass,
   TEXT_SHADOW,
   formatValue,
   type PostgameRowFormat,
@@ -230,7 +231,7 @@ export function PostgameSummary({ data, state, theme = 'standard' }: Props) {
           <div />
           <PlayerNamesRow players={orangePlayers} side="orange" small={small} />
 
-          {ROWS.map((row) => (
+          {ROWS.map((row, i) => (
             <RowFragment
               key={row.label}
               row={row}
@@ -238,6 +239,9 @@ export function PostgameSummary({ data, state, theme = 'standard' }: Props) {
               bluePlayers={bluePlayers}
               orangePlayers={orangePlayers}
               small={small}
+              theme={theme}
+              isFirst={i === 0}
+              isLast={i === ROWS.length - 1}
             />
           ))}
         </div>
@@ -252,13 +256,20 @@ function RowFragment({
   bluePlayers,
   orangePlayers,
   small,
+  theme = 'standard',
+  isFirst = false,
+  isLast = false,
 }: {
   row: RowDef;
   data: PostgamePayload;
   bluePlayers: PostgamePlayer[];
   orangePlayers: PostgamePlayer[];
   small: boolean;
+  theme?: StudioTheme;
+  isFirst?: boolean;
+  isLast?: boolean;
 }) {
+  const isGlass = theme === 'sharp-glass';
   return (
     <>
       <PlayerValuesRow players={bluePlayers} row={row} small={small} />
@@ -272,12 +283,23 @@ function RowFragment({
           alignItems: 'stretch',
         }}
       >
-        <PostgameTeamBarRow
-          label={row.label}
-          blueValue={row.team(data, 'blue')}
-          orangeValue={row.team(data, 'orange')}
-          format={row.format}
-        />
+        {isGlass ? (
+          <PostgameTeamBarRowGlass
+            label={row.label}
+            blueValue={row.team(data, 'blue')}
+            orangeValue={row.team(data, 'orange')}
+            format={row.format}
+            isFirst={isFirst}
+            isLast={isLast}
+          />
+        ) : (
+          <PostgameTeamBarRow
+            label={row.label}
+            blueValue={row.team(data, 'blue')}
+            orangeValue={row.team(data, 'orange')}
+            format={row.format}
+          />
+        )}
       </div>
       <PlayerValuesRow players={orangePlayers} row={row} small={small} />
     </>
