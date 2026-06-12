@@ -13,6 +13,7 @@ import { usePostgameRelay } from '@/hooks/usePostgameRelay';
 import { selectablePools } from '@/lib/pool-utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { StudioMode, MatchData, PollResults } from '@/types/studio';
+import type { StudioTheme } from '@/lib/studio-glass-theme';
 
 const VALID_KEY = 'kXS6cVkTpJM2Qti';
 const ROTATE_INTERVAL = 6000;
@@ -31,6 +32,8 @@ export default function StudioRender() {
   const count = Number(params.get('count') ?? '3');
   const key = params.get('key') ?? '';
   const urlPool = params.get('pool_id') ?? '';
+  const theme: StudioTheme =
+    params.get('theme') === 'glass' ? 'sharp-glass' : 'standard';
 
   const authorized = key === VALID_KEY;
 
@@ -271,6 +274,7 @@ export default function StudioRender() {
           <PostgameSummary
             data={postgame}
             state={{ postgame, connected: pgConnected, error: pgError }}
+            theme={theme}
           />
         </StudioContentFrame>
       ) : mode === 'bracket' ? (
@@ -282,12 +286,13 @@ export default function StudioRender() {
             selectedPoolId={bracketPoolId || null}
             onPoolChange={setBracketPoolId}
             obs={obs}
+            theme={theme}
           />
         </StudioContentFrame>
       ) : mode === 'recent' ? (
         <StudioContentFrame obs={obs}>
           <div style={{ marginTop: STUDIO_RECENT_OFFSET_TOP, width: '100%' }}>
-            <RecentMatchesTable matches={matches} />
+            <RecentMatchesTable matches={matches} theme={theme} />
           </div>
         </StudioContentFrame>
       ) : (
@@ -307,6 +312,7 @@ export default function StudioRender() {
                     gameMode={gameMode}
                     upcomingMatches={upcomingMatches}
                     pollResults={Object.keys(pollResults).length > 0 ? pollResults : undefined}
+                    theme={theme}
                   />
                 </motion.div>
               )}
