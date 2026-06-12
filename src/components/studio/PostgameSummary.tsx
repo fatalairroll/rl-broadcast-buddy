@@ -5,14 +5,19 @@ import {
   ORANGE,
   PostgameGlassPanel,
   PostgameTeamBarRow,
-  PostgameTeamBarRowGlass,
+  PostgameStatBarGlass,
   TEXT_SHADOW,
   formatValue,
   type PostgameRowFormat,
 } from './PostgameShared';
 import { PostgameScoreboardHeader } from './PostgameScoreboardHeader';
 import { POSTGAME_CENTER_COL_WIDTH } from '@/lib/studio-layout';
-import type { StudioTheme } from '@/lib/studio-glass-theme';
+import {
+  glassName,
+  glassLabel,
+  type StudioTheme,
+} from '@/lib/studio-glass-theme';
+import { PANEL_STYLE_GLASS } from './PostgameShared';
 
 interface Props {
   data: PostgamePayload | null;
