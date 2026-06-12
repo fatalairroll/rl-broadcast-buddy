@@ -188,136 +188,58 @@ export function PostgameTeamBarRow({
   );
 }
 
-interface BarRowGlassProps extends BarRowProps {
-  isFirst?: boolean;
-  isLast?: boolean;
-}
-
-export function PostgameStatBarGlass({
-  label,
+export function PostgameMiniBarGlass({
   blueValue,
   orangeValue,
-  format = 'number',
-}: BarRowProps) {
+}: {
+  blueValue: number | null | undefined;
+  orangeValue: number | null | undefined;
+}) {
   const blueRaw = blueValue ?? 0;
   const orangeRaw = orangeValue ?? 0;
   const total = blueRaw + orangeRaw;
-  const blueWins = blueRaw > orangeRaw;
-  const orangeWins = orangeRaw > blueRaw;
-  const tie = blueRaw === orangeRaw;
-
   const bluePct = total === 0 ? 50 : (blueRaw / total) * 100;
   const orangePct = 100 - bluePct;
 
-  const leftColor = total === 0
-    ? 'rgba(255,255,255,.55)'
-    : tie || blueWins ? '#fff' : 'rgba(255,255,255,.55)';
-  const rightColor = total === 0
-    ? 'rgba(255,255,255,.55)'
-    : tie || orangeWins ? '#fff' : 'rgba(255,255,255,.55)';
-  const leftShadow = total > 0 && (tie || blueWins) ? '0 0 12px rgba(255,255,255,.4)' : 'none';
-  const rightShadow = total > 0 && (tie || orangeWins) ? '0 0 12px rgba(255,255,255,.4)' : 'none';
-
-  const VALUE_W = 48;
-
   return (
-    <div style={{ width: '100%', height: 44, marginBottom: 10, display: 'flex', flexDirection: 'column' }}>
-      {/* Label above bar */}
-      <div style={{ height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span
-          style={{
-            ...glassLabel,
-            fontSize: 11,
-            letterSpacing: '.24em',
-            textShadow: '0 1px 8px rgba(0,0,0,.6)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {label}
-        </span>
-      </div>
-
-      {/* Values + bar row */}
-      <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-        <span
-          className="tabular-nums"
-          style={{
-            ...glassName,
-            fontSize: 18,
-            width: VALUE_W,
-            textAlign: 'right',
-            color: leftColor,
-            textShadow: leftShadow,
-          }}
-        >
-          {formatValue(blueValue, format)}
-        </span>
-        <div
-          style={{
-            flex: 1,
-            margin: '0 8px',
-            height: 12,
-            position: 'relative',
-            background: 'rgba(8,12,22,.55)',
-            borderTop: '1px solid rgba(255,255,255,.18)',
-            display: 'flex',
-            overflow: 'hidden',
-          }}
-        >
-          {total > 0 ? (
-            <>
-              <div
-                style={{
-                  width: `${bluePct}%`,
-                  background: 'linear-gradient(90deg,#1B6FF0,#00B2FF)',
-                }}
-              />
-              <div
-                style={{
-                  width: `${orangePct}%`,
-                  background: 'linear-gradient(270deg,#EB4B00,#FF8C23)',
-                }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  bottom: 0,
-                  left: `${bluePct}%`,
-                  width: 2,
-                  transform: 'translateX(-50%)',
-                  background: '#fff',
-                }}
-              />
-            </>
-          ) : (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                left: '50%',
-                width: 2,
-                transform: 'translateX(-50%)',
-                background: '#fff',
-              }}
-            />
-          )}
-        </div>
-        <span
-          className="tabular-nums"
-          style={{
-            ...glassName,
-            fontSize: 18,
-            width: VALUE_W,
-            textAlign: 'left',
-            color: rightColor,
-            textShadow: rightShadow,
-          }}
-        >
-          {formatValue(orangeValue, format)}
-        </span>
-      </div>
+    <div
+      style={{
+        width: 88,
+        height: 5,
+        position: 'relative',
+        background: 'rgba(8,12,22,.55)',
+        borderTop: '1px solid rgba(255,255,255,.18)',
+        display: 'flex',
+        overflow: 'hidden',
+      }}
+    >
+      {total > 0 && (
+        <>
+          <div
+            style={{
+              width: `${bluePct}%`,
+              background: 'linear-gradient(90deg,#1B6FF0,#00B2FF)',
+            }}
+          />
+          <div
+            style={{
+              width: `${orangePct}%`,
+              background: 'linear-gradient(270deg,#EB4B00,#FF8C23)',
+            }}
+          />
+        </>
+      )}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: `${bluePct}%`,
+          width: 2,
+          transform: 'translateX(-50%)',
+          background: '#fff',
+        }}
+      />
     </div>
   );
 }
