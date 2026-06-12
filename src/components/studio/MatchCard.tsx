@@ -4,6 +4,23 @@ import type { MatchData, PlayerData, PollResults, TeamData } from '@/types/studi
 import { RankIcon } from './RankIcon';
 import { getRankFromMmr, normalizeRankName, isValidRank } from '@/lib/rank-utils';
 import { isFullyTbdMatch } from '@/lib/studio-match-utils';
+import {
+  type StudioTheme,
+  glassBarBlue,
+  glassBarOrange,
+  glassBarDead,
+  glassChip,
+  glassSpecularSweep,
+  chamferLeft,
+  chamferRight,
+  chamferTag,
+  glassTitleCool,
+  glassTitleWarm,
+  glassName,
+  glassNameDead,
+  glassLabel,
+  glassContentLayer,
+} from '@/lib/studio-glass-theme';
 
 function formatCheckInTime(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -17,6 +34,7 @@ interface MatchCardProps {
   gameMode: string;
   upcomingMatches?: MatchData[];
   pollResults?: PollResults;
+  theme?: StudioTheme;
 }
 
 function getMmrForMode(player: PlayerData, mode: string): number | null {
