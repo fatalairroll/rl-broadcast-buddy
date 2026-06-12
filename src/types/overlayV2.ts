@@ -541,7 +541,7 @@ export function mergeV2Config(partial: unknown): OverlayV2Config {
   if (!(p.scoreboard as any)?.position && (p.scoreboard as any)?.topOffset != null) {
     sb.position = { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -540 + (p.scoreboard as any).topOffset };
   }
-  sb.coverWidth = sb.coverWidth ?? 620;
+  sb.coverWidth = sb.coverWidth ?? 736;
   sb.coverHeight = sb.coverHeight ?? 104;
   const tm = { ...defaultOverlayV2Config.timer, ...(p.timer ?? {}) } as TimerStyle;
   tm.boxOffsetX = tm.boxOffsetX ?? 0;
