@@ -189,7 +189,6 @@ export function GlassPlayerCard({
             <CardBody
               display={display}
               goal={inGoalState ? activeGoal : null}
-              transitionDuration={config.general.transitionDuration ?? 350}
             />
             {/* Shards */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 4, paddingRight: 6 }}>
@@ -207,11 +206,9 @@ export function GlassPlayerCard({
 function CardBody({
   display,
   goal,
-  transitionDuration,
 }: {
   display: DisplayPlayer;
   goal: GoalEvent | null;
-  transitionDuration: number;
 }) {
   const hasRank = !!display.rank;
   const inGoal = !!goal;
@@ -334,6 +331,3 @@ function CardBody({
     </div>
   );
 }
-
-// silence unused import warning when transitionDuration isn't read in JSX yet
-export const __glassCardKeepImports = { GOAL_SWAP_MS };
