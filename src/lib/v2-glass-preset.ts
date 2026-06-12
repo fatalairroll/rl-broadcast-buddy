@@ -2,12 +2,14 @@ import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2'
 import type { OverlayV2Preset } from '@/hooks/useOverlayV2Config';
 
 export const GLASS_PRESET_NAME = 'GLASS OVERLAY';
+export const GLASS_PRESET_VERSION = 3;
 
 export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
   ...defaultOverlayV2Config,
   scoreboard: {
     ...defaultOverlayV2Config.scoreboard,
-    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: 0 },
+    // anchorV:'top' + offsetY:-540 → top edge sits at y=0 (canvas top).
+    position: { anchorH: 'center', anchorV: 'top', offsetX: 0, offsetY: -540 },
     coverWidth: 620,
     coverHeight: 104,
   },
@@ -26,12 +28,14 @@ export const GLASS_OVERLAY_CONFIG: OverlayV2Config = {
     ...defaultOverlayV2Config.playerCard,
     position: { anchorH: 'left', anchorV: 'bottom', offsetX: 24, offsetY: 64 },
   },
-  general: { ...defaultOverlayV2Config.general, theme: 'glass' },
+  general: { ...defaultOverlayV2Config.general, theme: 'glass', presetVersion: GLASS_PRESET_VERSION },
 };
 
 /**
- * Insert the GLASS OVERLAY preset once (by name) if it's not yet in the DB.
- * Idempotent — safe to call on every Creator mount.
+ * Ensure the systemowy GLASS OVERLAY preset is present AND up to date.
+ * - missing → create
+ * - present with older general.presetVersion (or missing) → overwrite config in place
+ * User presets/scenes with other names are never touched.
  */
 export async function ensureGlassPreset(
   presets: OverlayV2Preset[],
@@ -40,11 +44,25 @@ export async function ensureGlassPreset(
     config: OverlayV2Config,
     description?: string,
   ) => Promise<{ data: OverlayV2Preset | null; error: unknown }>,
+  updatePreset?: (
+    id: string,
+    updates: { name?: string; description?: string | null; config?: OverlayV2Config },
+  ) => Promise<{ error: unknown }>,
 ): Promise<void> {
-  if (presets.some((p) => p.name === GLASS_PRESET_NAME)) return;
-  await createPreset(
-    GLASS_PRESET_NAME,
-    GLASS_OVERLAY_CONFIG,
-    'Preset szklanego HUD-a (sharp-glass) zsynchronizowany ze Studio.',
-  );
+  const existing = presets.find((p) => p.name === GLASS_PRESET_NAME);
+  if (!existing) {
+    await createPreset(
+      GLASS_PRESET_NAME,
+      GLASS_OVERLAY_CONFIG,
+      'Preset szklanego HUD-a (sharp-glass) zsynchronizowany ze Studio.',
+    );
+    return;
+  }
+  if (!updatePreset) return;
+  const currentVersion = existing.config.general?.presetVersion ?? 0;
+  if (currentVersion >= GLASS_PRESET_VERSION) return;
+  await updatePreset(existing.id, {
+    config: GLASS_OVERLAY_CONFIG,
+    description: 'Preset szklanego HUD-a (sharp-glass) zsynchronizowany ze Studio.',
+  });
 }

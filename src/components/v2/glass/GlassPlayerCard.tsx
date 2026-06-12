@@ -192,6 +192,9 @@ export function GlassPlayerCard({
             <CardBody
               display={display}
               goal={inGoalState ? activeGoal : null}
+              rankSize={config.playerCard.rankIconSize ?? 30}
+              rankOx={config.playerCard.rankOffsetX ?? 0}
+              rankOy={config.playerCard.rankOffsetY ?? 0}
             />
             {/* Shards */}
             <div style={{ display: 'flex', justifyContent: 'flex-start', gap: 4, marginTop: 4, paddingLeft: 2 }}>
@@ -209,9 +212,15 @@ export function GlassPlayerCard({
 function CardBody({
   display,
   goal,
+  rankSize,
+  rankOx,
+  rankOy,
 }: {
   display: DisplayPlayer;
   goal: GoalEvent | null;
+  rankSize: number;
+  rankOx: number;
+  rankOy: number;
 }) {
   const hasRank = !!display.rank;
   const inGoal = !!goal;
@@ -266,8 +275,8 @@ function CardBody({
                   key="rank"
                   src={rankIconSrc}
                   alt={display.rank ?? ''}
-                  width={30}
-                  height={30}
+                  width={rankSize}
+                  height={rankSize}
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -276,7 +285,7 @@ function CardBody({
                     position: 'absolute',
                     top: '50%',
                     left: '50%',
-                    transform: 'translate(-50%, -50%)',
+                    transform: `translate(calc(-50% + ${rankOx}px), calc(-50% + ${rankOy}px))`,
                     objectFit: 'contain',
                   }}
                   draggable={false}
