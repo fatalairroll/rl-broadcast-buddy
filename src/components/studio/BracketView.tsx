@@ -114,6 +114,7 @@ export function BracketView({
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const maxScrollRef = useRef(0);
   const scrollGenerationRef = useRef(0);
+  const panGenerationRef = useRef(0);
   const [lines, setLines] = useState<LineData[]>([]);
 
   const poolMatches = useMemo(() => {
@@ -243,6 +244,7 @@ export function BracketView({
   }, [measureOverflow]);
 
   useEffect(() => {
+    if (isGlass) return;
     if (!enableAutoScroll) return;
     const outer = outerRef.current;
     if (!outer) return;
@@ -320,8 +322,111 @@ export function BracketView({
 
   useEffect(() => {
     scrollGenerationRef.current += 1;
+    panGenerationRef.current += 1;
     if (outerRef.current) outerRef.current.scrollTop = 0;
+    if (containerRef.current) containerRef.current.style.transform = 'translateY(0px)';
   }, [startIdx, selectedPoolId]);
+
+  // Glass: vertical auto-pan via translateY (does not interfere with horizontal round window)
+  useEffect(() => {
+    if (!isGlass) return;
+    const outer = outerRef.current;
+    const container = containerRef.current;
+    if (!outer || !container) return;
+
+    const myGen = panGenerationRef.current;
+    let rafId = 0;
+    let running = true;
+    let phase: 'pause-top' | 'down' | 'pause-bottom' | 'up' = 'pause-top';
+    let phaseStart: number | null = null;
+    const INITIAL_DELAY = 2000;
+    const initialDelayUntil = performance.now() + INITIAL_DELAY;
+
+    const ease = (t: number, durationMs: number): number => {
+      const EASE_MS = 400;
+      if (durationMs <= 2 * EASE_MS) {
+        return t * t * (3 - 2 * t);
+      }
+      const elapsedMs = t * durationMs;
+      if (elapsedMs < EASE_MS) {
+        const p = elapsedMs / EASE_MS;
+        return (p * p) * (EASE_MS / durationMs) * 0.5;
+      }
+      if (elapsedMs > durationMs - EASE_MS) {
+        const p = (durationMs - elapsedMs) / EASE_MS;
+        return 1 - (p * p) * (EASE_MS / durationMs) * 0.5;
+      }
+      const linStart = (EASE_MS / durationMs) * 0.5;
+      const linEnd = 1 - (EASE_MS / durationMs) * 0.5;
+      return linStart + (linEnd - linStart) * ((elapsedMs - EASE_MS) / (durationMs - 2 * EASE_MS));
+    };
+
+    const step = (timestamp: number) => {
+      if (!running) return;
+      if (panGenerationRef.current !== myGen) {
+        running = false;
+        return;
+      }
+
+      if (timestamp < initialDelayUntil) {
+        container.style.transform = 'translateY(0px)';
+        rafId = requestAnimationFrame(step);
+        return;
+      }
+
+      const overhang = container.offsetHeight - outer.clientHeight;
+      if (overhang <= 0) {
+        container.style.transform = 'translateY(0px)';
+        phase = 'pause-top';
+        phaseStart = timestamp;
+        rafId = requestAnimationFrame(step);
+        return;
+      }
+
+      if (phaseStart === null) phaseStart = timestamp;
+      const elapsed = timestamp - phaseStart;
+      const travelMs = (overhang / PAN_SPEED_PX_S) * 1000;
+
+      if (phase === 'pause-top') {
+        container.style.transform = 'translateY(0px)';
+        if (elapsed >= 3000) {
+          phase = 'down';
+          phaseStart = timestamp;
+        }
+      } else if (phase === 'down') {
+        const t = Math.min(elapsed / travelMs, 1);
+        const y = -overhang * ease(t, travelMs);
+        container.style.transform = `translateY(${y}px)`;
+        if (t >= 1) {
+          phase = 'pause-bottom';
+          phaseStart = timestamp;
+        }
+      } else if (phase === 'pause-bottom') {
+        container.style.transform = `translateY(${-overhang}px)`;
+        if (elapsed >= 3000) {
+          phase = 'up';
+          phaseStart = timestamp;
+        }
+      } else {
+        const t = Math.min(elapsed / travelMs, 1);
+        const y = -overhang * (1 - ease(t, travelMs));
+        container.style.transform = `translateY(${y}px)`;
+        if (t >= 1) {
+          phase = 'pause-top';
+          phaseStart = timestamp;
+        }
+      }
+
+      rafId = requestAnimationFrame(step);
+    };
+
+    rafId = requestAnimationFrame(step);
+    return () => {
+      running = false;
+      cancelAnimationFrame(rafId);
+      if (container) container.style.transform = 'translateY(0px)';
+    };
+  }, [isGlass, startIdx, selectedPoolId, visibleRounds]);
 
   const setMatchRef = useCallback((matchId: string, el: HTMLDivElement | null) => {
     if (el) {
