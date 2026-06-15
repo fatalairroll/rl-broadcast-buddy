@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -16,7 +17,7 @@ import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { fetchTournaments } from '@/lib/mmrivals-api';
 import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
 import { autoPair, flattenMatchPlayers, type PairingMap } from '@/lib/player-matching';
-import { suggestMatches, applyMatchFromBracket } from '@/lib/match-suggestion';
+import { suggestMatches, applyMatchFromBracket, isFullConfidenceMatch } from '@/lib/match-suggestion';
 import type { Tournament, MatchData } from '@/types/studio';
 import { useToast } from '@/hooks/use-toast';
 
@@ -96,6 +97,65 @@ export function MmrivalsMatchPicker() {
 
   const pairings: PairingMap = (session?.player_pairings ?? {}) as PairingMap;
 
+  const autoApplyEnabled = session?.match_auto_apply_enabled !== false;
+  const lastAutoAppliedMatchIdRef = useRef<string | null>(null);
+  const [autoAppliedDisplayId, setAutoAppliedDisplayId] = useState<string | null>(null);
+
+  // Reset auto-apply memory when match is unlinked or tournament changes.
+  useEffect(() => {
+    if (!session?.mmr_match_id) {
+      lastAutoAppliedMatchIdRef.current = null;
+      setAutoAppliedDisplayId(null);
+    }
+  }, [session?.mmr_match_id]);
+  useEffect(() => {
+    lastAutoAppliedMatchIdRef.current = null;
+    setAutoAppliedDisplayId(null);
+  }, [tournamentId]);
+
+  // 100%-confidence auto-apply effect.
+  useEffect(() => {
+    if (!session) return;
+    if (!autoApplyEnabled) return;
+    if (session.mmr_match_id) return;
+    if (!tournamentId || suggestions.length === 0) return;
+
+    const top = suggestions[0];
+    const ok = isFullConfidenceMatch({
+      suggestions,
+      top,
+      tournamentMode,
+      livePlayerNames: debouncedLiveNames,
+    });
+    if (!ok) {
+      if (lastAutoAppliedMatchIdRef.current) {
+        lastAutoAppliedMatchIdRef.current = null;
+      }
+      return;
+    }
+    if (lastAutoAppliedMatchIdRef.current === top.match.match_id) return;
+
+    applyMatchFromBracket(
+      top.match,
+      debouncedLiveNames,
+      session,
+      updateSession,
+      toast,
+      { toastTitle: 'Auto: przypisano mecz' },
+    );
+    setSelectedRound(top.match.round_index ?? null);
+    lastAutoAppliedMatchIdRef.current = top.match.match_id;
+    setAutoAppliedDisplayId(top.match.match_id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    suggestions,
+    debouncedLiveNames,
+    session?.mmr_match_id,
+    session?.match_auto_apply_enabled,
+    tournamentId,
+    tournamentMode,
+  ]);
+
   const handleSelectTournament = (id: string) => {
     updateSession({
       mmr_tournament_id: id,
@@ -155,11 +215,20 @@ export function MmrivalsMatchPicker() {
     <Card>
       <CardHeader className="pb-3 flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base">MMRivals</CardTitle>
-        {currentMatch && (
-          <Button size="sm" variant="ghost" onClick={handleUnlink}>
-            <Unlink2 className="mr-1 h-3 w-3" /> Odepnij
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+            <Switch
+              checked={autoApplyEnabled}
+              onCheckedChange={(v) => updateSession({ match_auto_apply_enabled: v })}
+            />
+            Auto (100%)
+          </label>
+          {currentMatch && (
+            <Button size="sm" variant="ghost" onClick={handleUnlink}>
+              <Unlink2 className="mr-1 h-3 w-3" /> Odepnij
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {/* Tournament */}
@@ -284,6 +353,13 @@ export function MmrivalsMatchPicker() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Auto-applied badge (only when a match is set AND we auto-applied it). */}
+        {session?.mmr_match_id && autoAppliedDisplayId === session.mmr_match_id && (
+          <p className="text-[10px] text-muted-foreground italic">
+            Przypisano automatycznie — możesz zmienić ręcznie.
+          </p>
+        )}
 
         {/* Pairings */}
         {currentMatch && (

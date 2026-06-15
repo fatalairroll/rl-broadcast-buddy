@@ -56,6 +56,62 @@ function countMatchedPlayers(livePlayerNames: string[], match: MatchData): numbe
   return matched;
 }
 
+/**
+ * Like countMatchedPlayers, but counts only exact (score === 0) matches.
+ */
+export function countExactMatches(livePlayerNames: string[], match: MatchData): number {
+  const candidates = flattenMatchPlayers(match);
+  if (candidates.length === 0) return 0;
+  const proposals: Array<{ name: string; discord_id: string; score: number }> = [];
+  for (const name of livePlayerNames) {
+    const m = findBestMatch(name, candidates);
+    if (m && m.score === 0) {
+      proposals.push({ name, discord_id: m.candidate.discord_id, score: m.score });
+    }
+  }
+  const usedDiscord = new Set<string>();
+  const usedName = new Set<string>();
+  let matched = 0;
+  for (const p of proposals) {
+    if (usedDiscord.has(p.discord_id)) continue;
+    if (usedName.has(p.name)) continue;
+    usedDiscord.add(p.discord_id);
+    usedName.add(p.name);
+    matched += 1;
+  }
+  return matched;
+}
+
+/** Local copy (independent of tournament-roster.ts). 3v3→6, 2v2→4, 1v1→2. */
+export function minPlayersForMode(mode: string | undefined | null): number {
+  const m = (mode ?? '').toLowerCase();
+  if (m.includes('3v3')) return 6;
+  if (m.includes('2v2')) return 4;
+  if (m.includes('1v1')) return 2;
+  return 2;
+}
+
+/**
+ * 100% confidence: exactly 1 suggestion, full bracket roster present in lobby,
+ * all matches are exact (no fuzzy), meets min players for the tournament mode.
+ */
+export function isFullConfidenceMatch(args: {
+  suggestions: MatchSuggestion[];
+  top: MatchSuggestion;
+  tournamentMode?: string;
+  livePlayerNames: string[];
+}): boolean {
+  const { suggestions, top, tournamentMode, livePlayerNames } = args;
+  if (suggestions.length !== 1) return false;
+  const rosterSize = flattenMatchPlayers(top.match).length;
+  if (rosterSize === 0) return false;
+  if (top.matchedPlayers !== rosterSize) return false;
+  if (top.matchedPlayers < minPlayersForMode(tournamentMode)) return false;
+  const exact = countExactMatches(livePlayerNames, top.match);
+  if (exact !== top.matchedPlayers) return false;
+  return true;
+}
+
 export function suggestMatches(args: SuggestArgs): MatchSuggestion[] {
   const { livePlayerNames, matches, tournamentMode, limit } = args;
   if (!livePlayerNames || livePlayerNames.length === 0) return [];
@@ -128,6 +184,7 @@ export function applyMatchFromBracket(
   session: BroadcastSession | null,
   updateSession: (u: Partial<BroadcastSession>) => void,
   toast: ToastFn,
+  opts?: { toastTitle?: string },
 ): void {
   const newPairings = autoPair(liveNames, flattenMatchPlayers(m));
   updateSession({
@@ -142,7 +199,7 @@ export function applyMatchFromBracket(
     player_pairings: newPairings,
   });
   toast({
-    title: 'Wczytano mecz z MMRivals',
+    title: opts?.toastTitle ?? 'Wczytano mecz z MMRivals',
     description: `${m.team_a?.name ?? '?'} vs ${m.team_b?.name ?? '?'} — sparowano ${Object.keys(newPairings).length}/${liveNames.length} graczy`,
   });
 }
