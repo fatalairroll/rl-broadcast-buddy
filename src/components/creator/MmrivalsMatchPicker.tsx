@@ -224,6 +224,11 @@ export function MmrivalsMatchPicker() {
             <p className="text-[10px] text-muted-foreground">
               Nie ten? Wybierz ręcznie poniżej.
             </p>
+            {suggestions.length > 1 && suggestions[0].matchedPlayers < 2 && (
+              <p className="text-[10px] text-amber-500">
+                Niska pewność — sprawdź ręcznie.
+              </p>
+            )}
           </div>
         )}
 
