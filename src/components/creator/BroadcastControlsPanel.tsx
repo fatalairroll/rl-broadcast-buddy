@@ -15,6 +15,8 @@ import { useBroadcast } from '@/hooks/useBroadcast';
 import type { SeriesType } from '@/types/broadcast';
 import { MmrivalsMatchPicker } from './MmrivalsMatchPicker';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
+import { useSeriesAutoTracker } from '@/hooks/useSeriesAutoTracker';
 
 const seriesOptions: { value: SeriesType; label: string }[] = [
   { value: 'bo1', label: 'BO1' },
@@ -24,6 +26,7 @@ const seriesOptions: { value: SeriesType; label: string }[] = [
 ];
 
 export function BroadcastControlsPanel() {
+  useSeriesAutoTracker();
   const {
     session,
     updateSession,
@@ -121,6 +124,16 @@ export function BroadcastControlsPanel() {
             <Button size="sm" variant="outline" className="w-full" onClick={resetSeriesScore}>
               <RotateCcw className="mr-2 h-3 w-3" /> Reset serii (0:0)
             </Button>
+            <div className="flex items-center justify-between rounded bg-secondary/40 px-2 py-1.5">
+              <Label className="text-xs cursor-pointer" htmlFor="series-auto-toggle">
+                Auto-seria (BO)
+              </Label>
+              <Switch
+                id="series-auto-toggle"
+                checked={session.series_auto_enabled !== false}
+                onCheckedChange={(v) => updateSession({ series_auto_enabled: v })}
+              />
+            </div>
           </div>
 
           {/* Series format */}
