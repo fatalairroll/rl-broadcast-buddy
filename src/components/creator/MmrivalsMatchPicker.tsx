@@ -16,7 +16,7 @@ import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { fetchTournaments } from '@/lib/mmrivals-api';
 import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
 import { autoPair, flattenMatchPlayers, type PairingMap } from '@/lib/player-matching';
-import { suggestMatches, bestOfToSeriesType } from '@/lib/match-suggestion';
+import { suggestMatches, applyMatchFromBracket } from '@/lib/match-suggestion';
 import type { Tournament, MatchData } from '@/types/studio';
 import { useToast } from '@/hooks/use-toast';
 
@@ -114,40 +114,12 @@ export function MmrivalsMatchPicker() {
   const handleSelectMatch = (id: string) => {
     const m = findMatchById(matches, id);
     if (!m) return;
-    const newPairings = autoPair(liveNames, flattenMatchPlayers(m));
-    updateSession({
-      mmr_match_id: m.match_id,
-      mmr_team_a_id: m.team_a?.team_id ?? null,
-      mmr_team_b_id: m.team_b?.team_id ?? null,
-      team_a_name: m.team_a?.name ?? session?.team_a_name,
-      team_b_name: m.team_b?.name ?? session?.team_b_name,
-      player_pairings: newPairings,
-    });
-    toast({
-      title: 'Wczytano mecz z MMRivals',
-      description: `Sparowano ${Object.keys(newPairings).length} z ${liveNames.length} graczy`,
-    });
+    applyMatchFromBracket(m, liveNames, session, updateSession, toast);
   };
 
   const applySuggestion = (m: MatchData) => {
-    const newPairings = autoPair(debouncedLiveNames, flattenMatchPlayers(m));
-    const seriesType = bestOfToSeriesType(m.best_of);
-    updateSession({
-      mmr_match_id: m.match_id,
-      mmr_team_a_id: m.team_a?.team_id ?? null,
-      mmr_team_b_id: m.team_b?.team_id ?? null,
-      team_a_name: m.team_a?.name ?? session?.team_a_name,
-      team_b_name: m.team_b?.name ?? session?.team_b_name,
-      series_type: seriesType,
-      team_a_series_score: m.score_a ?? 0,
-      team_b_series_score: m.score_b ?? 0,
-      player_pairings: newPairings,
-    });
+    applyMatchFromBracket(m, debouncedLiveNames, session, updateSession, toast);
     setSelectedRound(m.round_index ?? null);
-    toast({
-      title: 'Zastosowano sugestię',
-      description: `${m.team_a?.name ?? '?'} vs ${m.team_b?.name ?? '?'} — ${Object.keys(newPairings).length}/${debouncedLiveNames.length} sparowano`,
-    });
   };
 
   const handleAutoPair = () => {
