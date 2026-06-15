@@ -45,6 +45,7 @@ export type Database = {
           name: string
           overlay_v2_preset_id: string | null
           player_pairings: Json
+          series_auto_enabled: boolean
           series_type: string | null
           team_a_color: string | null
           team_a_game_score: number | null
@@ -72,6 +73,7 @@ export type Database = {
           name?: string
           overlay_v2_preset_id?: string | null
           player_pairings?: Json
+          series_auto_enabled?: boolean
           series_type?: string | null
           team_a_color?: string | null
           team_a_game_score?: number | null
@@ -99,6 +101,7 @@ export type Database = {
           name?: string
           overlay_v2_preset_id?: string | null
           player_pairings?: Json
+          series_auto_enabled?: boolean
           series_type?: string | null
           team_a_color?: string | null
           team_a_game_score?: number | null

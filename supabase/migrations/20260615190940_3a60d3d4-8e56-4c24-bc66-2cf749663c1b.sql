@@ -1,0 +1,1 @@
+ALTER TABLE public.broadcast_sessions ADD COLUMN IF NOT EXISTS series_auto_enabled boolean NOT NULL DEFAULT true;
