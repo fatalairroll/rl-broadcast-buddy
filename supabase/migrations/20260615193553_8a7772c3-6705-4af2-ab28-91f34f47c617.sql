@@ -1,0 +1,1 @@
+ALTER TABLE public.broadcast_sessions ADD COLUMN IF NOT EXISTS match_auto_apply_enabled boolean NOT NULL DEFAULT true;

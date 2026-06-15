@@ -38,6 +38,7 @@ export type Database = {
           created_by: string | null
           id: string
           is_active: boolean | null
+          match_auto_apply_enabled: boolean
           mmr_match_id: string | null
           mmr_team_a_id: string | null
           mmr_team_b_id: string | null
@@ -66,6 +67,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_active?: boolean | null
+          match_auto_apply_enabled?: boolean
           mmr_match_id?: string | null
           mmr_team_a_id?: string | null
           mmr_team_b_id?: string | null
@@ -94,6 +96,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_active?: boolean | null
+          match_auto_apply_enabled?: boolean
           mmr_match_id?: string | null
           mmr_team_a_id?: string | null
           mmr_team_b_id?: string | null
