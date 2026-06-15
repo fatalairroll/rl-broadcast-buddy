@@ -1,6 +1,6 @@
 import type { MatchData } from '@/types/studio';
-import type { SeriesType } from '@/types/broadcast';
-import { findBestMatch, flattenMatchPlayers } from './player-matching';
+import type { BroadcastSession, SeriesType } from '@/types/broadcast';
+import { autoPair, findBestMatch, flattenMatchPlayers } from './player-matching';
 
 export interface MatchSuggestion {
   match: MatchData;
@@ -114,4 +114,35 @@ export function bestOfToSeriesType(bestOf: number | null | undefined): SeriesTyp
     default:
       return 'bo3';
   }
+}
+
+export type ToastFn = (opts: { title: string; description?: string }) => unknown;
+
+/**
+ * Single source of truth for applying an MMRivals bracket match to the
+ * broadcast session — used by both manual selection and suggestion apply.
+ */
+export function applyMatchFromBracket(
+  m: MatchData,
+  liveNames: string[],
+  session: BroadcastSession | null,
+  updateSession: (u: Partial<BroadcastSession>) => void,
+  toast: ToastFn,
+): void {
+  const newPairings = autoPair(liveNames, flattenMatchPlayers(m));
+  updateSession({
+    mmr_match_id: m.match_id,
+    mmr_team_a_id: m.team_a?.team_id ?? null,
+    mmr_team_b_id: m.team_b?.team_id ?? null,
+    team_a_name: m.team_a?.name ?? session?.team_a_name,
+    team_b_name: m.team_b?.name ?? session?.team_b_name,
+    series_type: bestOfToSeriesType(m.best_of),
+    team_a_series_score: m.score_a ?? 0,
+    team_b_series_score: m.score_b ?? 0,
+    player_pairings: newPairings,
+  });
+  toast({
+    title: 'Wczytano mecz z MMRivals',
+    description: `${m.team_a?.name ?? '?'} vs ${m.team_b?.name ?? '?'} — sparowano ${Object.keys(newPairings).length}/${liveNames.length} graczy`,
+  });
 }
