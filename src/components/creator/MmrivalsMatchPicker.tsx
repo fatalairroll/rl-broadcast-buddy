@@ -10,12 +10,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, RefreshCw, Wand2, Unlink2 } from 'lucide-react';
+import { Loader2, RefreshCw, Wand2, Unlink2, Sparkles } from 'lucide-react';
 import { useBroadcast } from '@/hooks/useBroadcast';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { fetchTournaments } from '@/lib/mmrivals-api';
 import { useMmrivalsBracket, findMatchById } from '@/hooks/useMmrivalsMatchData';
 import { autoPair, flattenMatchPlayers, type PairingMap } from '@/lib/player-matching';
+import { suggestMatches, bestOfToSeriesType } from '@/lib/match-suggestion';
 import type { Tournament, MatchData } from '@/types/studio';
 import { useToast } from '@/hooks/use-toast';
 
@@ -66,6 +67,33 @@ export function MmrivalsMatchPicker() {
   const candidates = useMemo(() => flattenMatchPlayers(currentMatch), [currentMatch]);
   const liveNames = useMemo(() => live.players.map((p) => p.player_name), [live.players]);
 
+  // Debounce 500ms for live lobby player names (suggestions only).
+  const [debouncedLiveNames, setDebouncedLiveNames] = useState<string[]>(liveNames);
+  useEffect(() => {
+    const sorted = [...liveNames].sort();
+    const prevSorted = [...debouncedLiveNames].sort();
+    if (sorted.join('|') === prevSorted.join('|')) return;
+    const t = setTimeout(() => setDebouncedLiveNames(liveNames), 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveNames]);
+
+  const tournamentMode = useMemo(
+    () => tournaments.find((t) => t.tournament_id === tournamentId)?.mode,
+    [tournaments, tournamentId],
+  );
+
+  const suggestions = useMemo(
+    () =>
+      suggestMatches({
+        livePlayerNames: debouncedLiveNames,
+        matches,
+        tournamentMode,
+        limit: 3,
+      }),
+    [debouncedLiveNames, matches, tournamentMode],
+  );
+
   const pairings: PairingMap = (session?.player_pairings ?? {}) as PairingMap;
 
   const handleSelectTournament = (id: string) => {
@@ -98,6 +126,27 @@ export function MmrivalsMatchPicker() {
     toast({
       title: 'Wczytano mecz z MMRivals',
       description: `Sparowano ${Object.keys(newPairings).length} z ${liveNames.length} graczy`,
+    });
+  };
+
+  const applySuggestion = (m: MatchData) => {
+    const newPairings = autoPair(debouncedLiveNames, flattenMatchPlayers(m));
+    const seriesType = bestOfToSeriesType(m.best_of);
+    updateSession({
+      mmr_match_id: m.match_id,
+      mmr_team_a_id: m.team_a?.team_id ?? null,
+      mmr_team_b_id: m.team_b?.team_id ?? null,
+      team_a_name: m.team_a?.name ?? session?.team_a_name,
+      team_b_name: m.team_b?.name ?? session?.team_b_name,
+      series_type: seriesType,
+      team_a_series_score: m.score_a ?? 0,
+      team_b_series_score: m.score_b ?? 0,
+      player_pairings: newPairings,
+    });
+    setSelectedRound(m.round_index ?? null);
+    toast({
+      title: 'Zastosowano sugestię',
+      description: `${m.team_a?.name ?? '?'} vs ${m.team_b?.name ?? '?'} — ${Object.keys(newPairings).length}/${debouncedLiveNames.length} sparowano`,
     });
   };
 
@@ -161,6 +210,50 @@ export function MmrivalsMatchPicker() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Suggestions */}
+        {tournamentId && !matchId && suggestions.length > 0 && (
+          <div className="space-y-1.5 rounded-md border border-primary/30 bg-primary/5 p-2">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 text-primary" />
+              <Label className="text-xs">Sugestia meczu</Label>
+            </div>
+            <div className="space-y-1">
+              {suggestions.map((s, i) => {
+                const m = s.match;
+                const aName = m.team_a?.name ?? '?';
+                const bName = m.team_b?.name ?? '?';
+                const meta = `R${(m.round_index ?? 0) + 1} · M${(m.match_index ?? 0) + 1} · BO${m.best_of} · ${m.state}`;
+                return (
+                  <div
+                    key={m.match_id}
+                    className="flex items-center gap-2 rounded bg-background/60 p-1.5"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium truncate">
+                        {aName} <span className="opacity-60">vs</span> {bName}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground truncate">
+                        {meta} · {s.matchedPlayers}/{s.totalLiveNames} graczy
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={i === 0 ? 'default' : 'ghost'}
+                      className="h-7 px-2 text-xs shrink-0"
+                      onClick={() => applySuggestion(m)}
+                    >
+                      Zastosuj
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Nie ten? Wybierz ręcznie poniżej.
+            </p>
+          </div>
+        )}
 
         {/* Round */}
         <div className="space-y-1">
