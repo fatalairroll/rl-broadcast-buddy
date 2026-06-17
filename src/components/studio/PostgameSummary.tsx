@@ -18,6 +18,19 @@ import {
   glassLabel,
   type StudioTheme,
 } from '@/lib/studio-glass-theme';
+import {
+  NB_ACID,
+  NB_BLUE,
+  NB_BORDER,
+  NB_BORDER_THIN,
+  NB_FONT,
+  NB_INK,
+  NB_MONO,
+  NB_ORANGE,
+  NB_WHITE,
+  nbShadowSmall,
+  nbShadowTiny,
+} from '@/lib/studio-neobrutal-theme';
 
 interface Props {
   data: PostgamePayload | null;
@@ -227,6 +240,8 @@ export function PostgameSummary({ data, state, theme = 'standard' }: Props) {
 
       {theme === 'sharp-glass' ? (
         <GlassGridView data={data} bluePlayers={bluePlayers} orangePlayers={orangePlayers} />
+      ) : theme === 'neobrutal' ? (
+        <NbGridView data={data} bluePlayers={bluePlayers} orangePlayers={orangePlayers} />
       ) : (
         <PostgameGlassPanel
           className="w-full"
