@@ -1,71 +1,63 @@
-# Plan: 3 fazy porządków UI (rev 2)
+# FAZA 5 — Dorównanie kreatora do funkcji dashboardu
 
-## FAZA 1 — Sprzątanie nawigacji
+Cel: po tej fazie `/creator` pokrywa 100% funkcji `/dashboard`. Dashboard zostaje nietknięty i działa równolegle.
 
-**`src/App.tsx`**
-- Trasa `/` → `<Navigate to="/dashboard" replace />` (import z `react-router-dom`).
-- Usunąć import `Index` (plik `src/pages/Index.tsx` zostaje na dysku nieużywany — bez ryzyka).
+## Uwagi do dwóch sygnałów
 
-**`src/pages/Dashboard.tsx`**
-- Usunąć przycisk "Overlay" z `<nav>` w nagłówku (ten z `window.open('/v2/overlay', '_blank')`).
-- Posprzątać nieużywane importy (`Radio`, `ExternalLink` jeśli już nigdzie indziej w pliku).
+1. **Przycisk „Overlay" w nagłówku kreatora zostaje.** W przeciwieństwie do dashboardu (gdzie był redundantny i usunięto go w Fazie 1), w kreatorze otwiera `/v2/overlay` w nowej karcie — jest to praktyczne źródło URL-a do wklejenia w OBS. Inna rola, zostawiamy. Nowe akcje (`RelayStatus`, link `Relay`) dokładamy obok niego w prawym pasku.
 
-Trasy `/v2/overlay`, `/creator`, `/studio`, `/admin`, `/relay` — bez zmian.
+2. **`createSession` — domyślna nazwa „Nowa transmisja" tylko jako fallback.** Skoro pole nazwy sesji i tak dodajemy w panelu (2b), przycisk „Utwórz nową transmisję" przyjmuje lokalny stan nazwy z input-a obok („Nazwa nowej transmisji", placeholder „np. Finał – RLCS"). Jeśli pole puste → fallback `'Nowa transmisja'`. Po sukcesie czyścimy lokalny input. Brak dodatkowego kroku „utworzyłem → teraz zmień nazwę".
 
----
+## Zmiany w plikach
 
-## FAZA 2 — Klucz streamera w localStorage
+### 1. `src/pages/Creator.tsx` — nagłówek
+- Dodać `<RelayStatus />` w prawym pasku akcji (po lewej od `Tabs` Mock/Live lub przed `Overlay`), import z `@/components/dashboard/RelayStatus`.
+- Dodać przycisk `Relay` (ikona `Settings`) obok przycisku `Overlay` → `navigate('/relay')`.
+- Przycisk `Overlay` zostaje (vide uwaga 1). Reszta layoutu bez zmian. Przycisk powrotu `Dashboard` także zostaje (wygaszanie to inna faza).
 
-Lokalizacja: `src/pages/Studio.tsx`, stan `streamerKey` (input "Klucz streamera (do URL)", ~linia 211-219), trafia do `/studio/render?key=...`.
+### 2. `src/components/creator/BroadcastControlsPanel.tsx` — rozbudowa
+Wszystkie operacje przez istniejący `useBroadcast` (`updateSession`, `createSession`, `resetGameScore`). Ręczne pola nazw zostają.
 
-**`src/pages/Studio.tsx`**
-- Stała `STREAMER_KEY_LS = 'rlbroadcast.toolKey'`.
-- `useState(() => localStorage.getItem(STREAMER_KEY_LS) ?? '')`.
-- `useEffect` zapisujący `streamerKey` (pusty → `removeItem`).
-- Pole klucza w `<Collapsible>` (już dostępny w `@/components/ui/collapsible`):
-  - `defaultOpen={!storedKey}` (otwarte gdy jeszcze pusto, zwinięte gdy jest zapisany).
-  - Trigger: "Zmień klucz" + małe "Klucz zapisany ✓" obok (bez ujawniania wartości).
-  - W środku input + `Button variant="ghost" size="sm"` "Wyczyść zapisany klucz" → `setStreamerKey(''); localStorage.removeItem(...)`.
-- Logika autoryzacji / budowania `renderUrl` — nietknięta.
+a) **Brak sesji** — zastąpić obecny komunikat „Utwórz w Dashboardzie" mini-formularzem:
+```
+<Input value={newSessionName} onChange=... placeholder="np. Finał – RLCS" />
+<Button onClick={handleCreate}><Plus/> Utwórz nową transmisję</Button>
+```
+gdzie:
+```
+const handleCreate = async () => {
+  const name = newSessionName.trim() || 'Nowa transmisja';
+  const { error } = await createSession(name);
+  if (error) toast({ variant:'destructive', title:'Błąd', description: error.message });
+  else { toast({ title:'Utworzono sesję' }); setNewSessionName(''); }
+};
+```
+Wymaga wyciągnięcia `createSession` i `resetGameScore` z `useBroadcast()` w komponencie.
 
----
+b) **Nazwa sesji/rundy** — nowe pole na górze pierwszej karty (przed nazwami drużyn), wzorzec lokalnego mirrora identyczny jak dla `nameA/nameB` (zapis na `onBlur` → `updateSession({ name })`). Placeholder „np. Finał – RLCS".
 
-## FAZA 3 — Status relaya w nagłówku (3 stany)
+c) **Kolor i logo drużyn** — pod każdym `Input` nazwy dodać:
+  - Color picker (port wzorca z `TeamEditor.tsx:78-124`: `Popover` + `colorPresets` + `Input type="color"` + hex input). Wywołuje `updateSession({ team_a_color | team_b_color })`. Stała `colorPresets` lokalnie w pliku panelu.
+  - Pole `Input` URL logo (port z `TeamEditor.tsx:126-149`) z miniaturką po prawej, `onBlur` → `updateSession({ team_a_logo | team_b_logo })`. Lokalny mirror w `useState` analogicznie do nazw.
 
-### Miejsce wskaźnika
-Sprawdzone: `Dashboard.tsx` i `Creator.tsx` mają **odrębne** nagłówki — nie ma jednego wspólnego `AppHeader`. Zgodnie z uwagą użytkownika nie tworzymy teraz nowego komponentu nagłówka; `RelayStatus` ląduje w nagłówku `Dashboard.tsx`. Notatka na przyszłość (do późniejszej konsolidacji UI): gdy powstanie wspólny `AppHeader`, przenieść `RelayStatus` raz na zawsze tam — nie powielać w każdym nagłówku.
+d) **Reset wyniku gry** — w grupie przycisków akcji dodać przycisk „Reset gry (0:0)" wywołujący `resetGameScore` (z `useBroadcast`), z `confirm` opcjonalnym.
 
-### `src/components/dashboard/RelayStatus.tsx` (rozszerzenie)
-- `lastPing` w `useRef` + `tick` co 1 s wymuszający re-render (żeby kolor zmieniał się sam wraz z upływem czasu, bez nowych pingów).
-- 3 stany na podstawie `age = now - lastPing`:
-  - `age < 10_000 ms` → zielony "Relay aktywny".
-  - `age < 30_000 ms` → żółty "Relay — brak danych Xs" (X = `Math.floor(age/1000)`).
-  - `age ≥ 30_000` lub `lastPing == null` → czerwony "Brak relaya".
-- Klasy: zielony jak teraz; żółty `bg-amber-500/20 text-amber-400 border-amber-500/30`; czerwony `bg-red-500/20 text-red-400 border-red-500/30`.
-- Skompaktować padding/typo (ma mieścić się obok przycisków nav).
+e) **`clearManualData`** — zostawiamy bez zmian (nie czyści koloru ani logo świadomie; logo czyścimy pustym inputem → blur → `null`).
 
-### `src/pages/Dashboard.tsx`
-- Wstawić `<RelayStatus />` w `<nav>` nagłówka (przed przyciskami).
-
-### `src/components/dashboard/MatchControls.tsx`
-- Usunąć render `<RelayStatus />` z `CardHeader` (i import) — żeby nie dublować.
-
-### Heartbeat w skrypcie relay (Python)
-Skrypt w `src/pages/Relay.tsx` ma już `heartbeat_loop`. Sprawdzić podczas implementacji, czy wysyła `supabase.channel('rl_broadcast_room').send({type:'broadcast', event:'RELAY_PING', payload:{timestamp: ...}})` co `HEARTBEAT_S`.
-- **Jeśli tak** — nic nie zmieniać.
-- **Jeśli nie** — dodać wysyłkę.
-
-W obu przypadkach na końcu wdrożenia jasno zaraportować użytkownikowi:
-- "Skryptu relay nie trzeba wymieniać — heartbeat już działa." **lub**
-- "Skrypt relay zmieniony — pobierz nową wersję z `/relay` i uruchom ponownie na maszynie z grą; inaczej wskaźnik będzie czerwony mimo działającego relaya."
-
----
+### 3. Brak innych zmian
+- `useBroadcast`, `BroadcastSession`, schema, `useTeams`, pola `team_a_id`/`team_b_id` — nietknięte.
+- Dashboard (`src/pages/Dashboard.tsx`, `src/components/dashboard/*`) — nietknięty.
+- `RelayStatus` — osadzony, nie przepisywany.
+- GLASS OVERLAY, `OverlayV2`, `useSeriesAutoTracker`, `applyMatchFromBracket` — bez zmian.
+- Redirecty Auth/`App.tsx` do `/dashboard` — nietknięte (osobna faza wygaszenia).
 
 ## Definition of Done
 
-- `/` → instant redirect do `/dashboard`.
-- Brak przycisku "Overlay" w nagłówku Dashboardu; `/v2/overlay` nadal działa po wpisaniu URL.
-- Klucz streamera trzymany w localStorage, autouzupełniany, pole pod "Zmień klucz" z "Klucz zapisany ✓" i przyciskiem "Wyczyść".
-- Wskaźnik relaya w nagłówku Dashboardu: zielony < 10 s, żółty < 30 s, czerwony ≥ 30 s lub brak; reakcja w < 30 s od zatrzymania/startu relaya.
-- Końcowy komunikat wdrożenia jednoznacznie mówi, czy trzeba wymienić skrypt relay.
-- TS/lint czysto. Render overlayów, preset GLASS, Studio render, Creator, Admin, `useSeriesAutoTracker`, RankClash — nietknięte.
+- [ ] Z `/creator` można utworzyć sesję (z nazwą z pola lub fallback) bez wchodzenia w `/dashboard`.
+- [ ] Kolor drużyn, URL logo, reset gry, nazwa sesji — działają w kreatorze.
+- [ ] `RelayStatus` widoczny w nagłówku kreatora; przycisk `Relay` prowadzi do `/relay`; `Overlay` zachowany.
+- [ ] Ręczne nazwy drużyn nadal działają.
+- [ ] `useTeams` i `team_a/b_id` bez zmian (grep potwierdza).
+- [ ] Dashboard w pełni działa równolegle.
+- [ ] E2E: utwórz sesję w kreatorze → ustaw drużyny/kolory/logo/serię → `/v2/overlay` pokazuje poprawne dane.
+- [ ] GLASS OVERLAY niezmieniony, TS/lint czysto.
