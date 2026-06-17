@@ -14,6 +14,16 @@ import {
   glassLabel,
   glassContentLayer,
 } from '@/lib/studio-glass-theme';
+import {
+  NB_ACID,
+  NB_BLUE,
+  NB_BORDER,
+  NB_FONT,
+  NB_INK,
+  NB_ORANGE,
+  NB_WHITE,
+  nbShadow,
+} from '@/lib/studio-neobrutal-theme';
 
 interface Props {
   teamNames: { blue: string; orange: string };
@@ -44,6 +54,9 @@ export function PostgameScoreboardHeader({
 }: Props) {
   if (theme === 'sharp-glass') {
     return <GlassHeader teamNames={teamNames} blueScore={blueScore} orangeScore={orangeScore} />;
+  }
+  if (theme === 'neobrutal') {
+    return <NbHeader teamNames={teamNames} blueScore={blueScore} orangeScore={orangeScore} />;
   }
   return (
     <div className="select-none" style={{ width: TOTAL_W }}>
