@@ -5,6 +5,7 @@ import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
 import { TeamNameV2 } from '@/components/v2/TeamNameV2';
 import { V2GlassStage } from '@/components/v2/glass/V2GlassStage';
 import { V2Y2kStage } from '@/components/v2/y2k/V2Y2kStage';
+import { V2NeobrutalStage } from '@/components/v2/neobrutal/V2NeobrutalStage';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
 import { useBroadcast } from '@/hooks/useBroadcast';
@@ -55,6 +56,7 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
 
   const isGlass = config.general.theme === 'glass';
   const isY2k = config.general.theme === 'y2k';
+  const isNeobrutal = config.general.theme === 'neobrutal';
 
   return (
     <ScoreboardBoundsProvider>
@@ -100,6 +102,20 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
           />
         ) : isY2k ? (
           <V2Y2kStage
+            config={config}
+            match={match}
+            blue={blue}
+            orange={orange}
+            activePlayer={activePlayer}
+            activeRegistry={activeRegistry}
+            registryMap={registryMap}
+            series={series}
+            blueName={blueName}
+            orangeName={orangeName}
+            mmrOverride={mmrOverride}
+          />
+        ) : isNeobrutal ? (
+          <V2NeobrutalStage
             config={config}
             match={match}
             blue={blue}
