@@ -74,9 +74,7 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           textAlign: side === 'blue' ? 'left' : 'right',
-          mixBlendMode: 'difference',
-          color2: undefined as never,
-        } as CSSProperties}
+        }}
       >
         {player.player_name}
       </div>
@@ -89,7 +87,7 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
             fontWeight: 700,
             fontSize: 9,
             color: NB_INK,
-            background: NB_WHITE_INK_BG,
+          background: '#FFFFFF',
             padding: '1px 4px',
             border: '1px solid #111',
             marginLeft: side === 'blue' ? 6 : 0,
@@ -118,9 +116,6 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
     </div>
   );
 }
-
-// Tiny white pill background used for LOW etykieta.
-const NB_WHITE_INK_BG = '#FFFFFF';
 
 export function NbBoostStack({ players, side }: Props) {
   return (
