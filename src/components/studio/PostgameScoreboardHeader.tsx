@@ -216,3 +216,75 @@ function GlassHeader({
 }
 
 export default PostgameScoreboardHeader;
+
+function NbHeader({
+  teamNames,
+  blueScore,
+  orangeScore,
+}: {
+  teamNames: { blue: string; orange: string };
+  blueScore: number;
+  orangeScore: number;
+}) {
+  const blueWon = blueScore > orangeScore;
+  const orangeWon = orangeScore > blueScore;
+  const H = 90;
+  const NAME_W = 360;
+  const SCORE_W = 110;
+
+  const teamCell = (name: string, bg: string): React.CSSProperties => ({
+    width: NAME_W,
+    height: H,
+    background: bg,
+    border: NB_BORDER,
+    boxShadow: nbShadow,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '0 18px',
+    fontFamily: NB_FONT,
+    fontWeight: 900,
+    fontSize: 38,
+    color: NB_WHITE,
+    textTransform: 'uppercase',
+    letterSpacing: '-.01em',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  });
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'stretch' }}>
+      <div style={teamCell(teamNames.blue, NB_BLUE)}>{teamNames.blue}</div>
+      <div
+        style={{
+          width: SCORE_W,
+          height: H,
+          background: NB_ACID,
+          border: NB_BORDER,
+          borderLeft: 'none',
+          borderRight: 'none',
+          boxShadow: nbShadow,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: NB_FONT,
+          fontWeight: 900,
+          fontSize: 46,
+          color: NB_INK,
+          zIndex: 2,
+          position: 'relative',
+        }}
+      >
+        <span className="tabular-nums" style={{ color: blueWon ? NB_INK : '#888' }}>
+          {blueScore}
+        </span>
+        <span style={{ margin: '0 8px', opacity: 0.45 }}>:</span>
+        <span className="tabular-nums" style={{ color: orangeWon ? NB_INK : '#888' }}>
+          {orangeScore}
+        </span>
+      </div>
+      <div style={teamCell(teamNames.orange, NB_ORANGE)}>{teamNames.orange}</div>
+    </div>
+  );
+}
