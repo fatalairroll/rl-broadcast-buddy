@@ -23,6 +23,20 @@ import {
   glassLabel,
   glassContentLayer,
 } from '@/lib/studio-glass-theme';
+import {
+  NB_ACID,
+  NB_BLUE,
+  NB_BORDER,
+  NB_BORDER_THIN,
+  NB_DIM,
+  NB_FONT,
+  NB_INK,
+  NB_MONO,
+  NB_ORANGE,
+  NB_WHITE,
+  nbShadow,
+  nbShadowSmall,
+} from '@/lib/studio-neobrutal-theme';
 
 function formatCheckInTime(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -603,6 +617,16 @@ export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults, 
   const activePollKey = `Runda ${match.round_index} Mecz ${match.match_index ?? '?'}`;
   const activePollPct = pollResults?.[activePollKey];
 
+  if (theme === 'neobrutal') {
+    return (
+      <NbMatchView
+        match={match}
+        upcomingMatches={upcomingMatches}
+        pollResults={pollResults}
+      />
+    );
+  }
+
   return (
     <motion.div
       layout
@@ -659,6 +683,248 @@ export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults, 
 
       {/* Upcoming matches queue */}
       <UpcomingQueue matches={upcomingMatches} pollResults={pollResults} theme={theme} />
+    </motion.div>
+  );
+}
+
+/* ───────────────────── NEO-BRUTALISM ───────────────────── */
+
+function formatMatchTime(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function NbRow({
+  match,
+  active,
+  pollPct,
+}: {
+  match: MatchData;
+  active?: boolean;
+  pollPct?: number;
+}) {
+  const H = active ? 84 : 60;
+  const nameFs = active ? 28 : 20;
+  const seedFs = active ? 26 : 18;
+  const vsFs = active ? 22 : 16;
+  const teamA = match.team_a?.name ?? 'TBD';
+  const teamB = match.team_b?.name ?? 'TBD';
+  const seedA = match.team_a?.seed;
+  const seedB = match.team_b?.seed;
+  const time = formatMatchTime(match.scheduled_at);
+
+  const nameCell = (
+    name: string,
+    align: 'left' | 'right',
+    accent: string,
+    isTbd: boolean,
+  ): React.CSSProperties => ({
+    flex: 1,
+    minWidth: 0,
+    height: '100%',
+    background: NB_WHITE,
+    border: NB_BORDER,
+    borderRight: 'none',
+    borderLeft: align === 'left' ? 'none' : NB_BORDER,
+    borderBottom: `8px solid ${accent}`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: align === 'left' ? 'flex-start' : 'flex-end',
+    padding: '0 18px',
+    fontFamily: NB_FONT,
+    fontWeight: 900,
+    fontSize: nameFs,
+    textTransform: 'uppercase',
+    color: isTbd ? NB_DIM : NB_INK,
+    letterSpacing: '-.01em',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  });
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        height: H,
+        boxShadow: active ? nbShadow : nbShadowSmall,
+        marginBottom: active ? 24 : 12,
+      }}
+    >
+      {/* Seed A */}
+      <div
+        style={{
+          width: H,
+          background: NB_INK,
+          border: NB_BORDER,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: NB_ACID,
+          fontFamily: NB_FONT,
+          fontWeight: 900,
+          fontSize: seedFs,
+        }}
+      >
+        {seedA ?? '·'}
+      </div>
+      {/* Name A */}
+      <div style={nameCell(teamA, 'right', NB_BLUE, !match.team_a)}>{teamA}</div>
+      {/* VS */}
+      <div
+        style={{
+          width: active ? 72 : 56,
+          background: NB_ACID,
+          border: NB_BORDER,
+          borderLeft: 'none',
+          borderRight: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: NB_FONT,
+          fontWeight: 900,
+          fontSize: vsFs,
+          color: NB_INK,
+        }}
+      >
+        <span>VS</span>
+        {pollPct != null && (
+          <span
+            style={{
+              fontFamily: NB_MONO,
+              fontSize: 9,
+              letterSpacing: '.1em',
+              marginTop: 2,
+            }}
+          >
+            {pollPct}%
+          </span>
+        )}
+      </div>
+      {/* Name B */}
+      <div style={nameCell(teamB, 'left', NB_ORANGE, !match.team_b)}>{teamB}</div>
+      {/* Seed B */}
+      <div
+        style={{
+          width: H,
+          background: NB_INK,
+          border: NB_BORDER,
+          borderLeft: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: NB_ACID,
+          fontFamily: NB_FONT,
+          fontWeight: 900,
+          fontSize: seedFs,
+        }}
+      >
+        {seedB ?? '·'}
+      </div>
+      {/* Time */}
+      <div
+        style={{
+          minWidth: active ? 168 : 130,
+          background: NB_INK,
+          border: NB_BORDER,
+          borderLeft: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: NB_WHITE,
+          padding: '0 14px',
+        }}
+      >
+        <span
+          style={{
+            fontFamily: NB_FONT,
+            fontWeight: 900,
+            fontSize: active ? 26 : 20,
+            lineHeight: 1,
+          }}
+        >
+          {time}
+        </span>
+        <span
+          style={{
+            fontFamily: NB_MONO,
+            fontSize: 9,
+            letterSpacing: '.16em',
+            color: NB_ACID,
+            marginTop: 3,
+            textTransform: 'uppercase',
+          }}
+        >
+          R{match.round_index}
+          {match.match_index != null ? ` · M${match.match_index}` : ''} · BO{match.best_of}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function NbMatchView({
+  match,
+  upcomingMatches,
+  pollResults,
+}: {
+  match: MatchData;
+  upcomingMatches: MatchData[];
+  pollResults?: PollResults;
+}) {
+  const visibleUpcoming = upcomingMatches.filter((m) => !isFullyTbdMatch(m));
+  const activeKey = `Runda ${match.round_index} Mecz ${match.match_index ?? '?'}`;
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -16 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+      style={{ width: '100%', maxWidth: 1280 }}
+    >
+      <NbRow match={match} active pollPct={pollResults?.[activeKey]} />
+      {visibleUpcoming.length > 0 && (
+        <div
+          style={{
+            fontFamily: NB_MONO,
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '.22em',
+            textTransform: 'uppercase',
+            color: NB_INK,
+            border: NB_BORDER_THIN,
+            display: 'inline-block',
+            padding: '2px 10px',
+            background: NB_WHITE,
+            marginBottom: 14,
+          }}
+        >
+          Następne
+        </div>
+      )}
+      <AnimatePresence mode="popLayout">
+        {visibleUpcoming.map((m) => {
+          const key = `Runda ${m.round_index} Mecz ${m.match_index ?? '?'}`;
+          return (
+            <motion.div
+              key={m.match_id}
+              layout
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              <NbRow match={m} pollPct={pollResults?.[key]} />
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
     </motion.div>
   );
 }

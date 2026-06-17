@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
@@ -8,6 +8,7 @@ import { BracketView } from '@/components/studio/BracketView';
 import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
 import { PostgameSummary } from '@/components/studio/PostgameSummary';
 import { StudioContentFrame } from '@/components/studio/StudioContentFrame';
+import { NeobrutalScene, type NeobrutalViewKey } from '@/components/studio/NeobrutalScene';
 import { STUDIO_RECENT_OFFSET_TOP } from '@/lib/studio-layout';
 import { usePostgameRelay } from '@/hooks/usePostgameRelay';
 import { selectablePools } from '@/lib/pool-utils';
@@ -32,8 +33,14 @@ export default function StudioRender() {
   const count = Number(params.get('count') ?? '3');
   const key = params.get('key') ?? '';
   const urlPool = params.get('pool_id') ?? '';
+  const themeParam = params.get('theme');
   const theme: StudioTheme =
-    params.get('theme') === 'glass' ? 'sharp-glass' : 'standard';
+    themeParam === 'glass'
+      ? 'sharp-glass'
+      : themeParam === 'neobrutal'
+        ? 'neobrutal'
+        : 'standard';
+  const isNeobrutal = theme === 'neobrutal';
 
   const authorized = key === VALID_KEY;
 
@@ -184,6 +191,17 @@ export default function StudioRender() {
   const upcomingMatches = queue.slice(1);
   const obs = !!params.get('obs');
 
+  const wrap = (view: NeobrutalViewKey, content: ReactNode) => {
+    if (isNeobrutal) {
+      return (
+        <NeobrutalScene view={view} tournamentName={tournament?.name}>
+          {content}
+        </NeobrutalScene>
+      );
+    }
+    return <StudioContentFrame obs={obs}>{content}</StudioContentFrame>;
+  };
+
   return (
     <div className="min-h-screen" style={{ background: 'transparent' }}>
       {/* Sidebar — hidden from OBS via ?obs=1 param, visible only in browser */}
@@ -268,58 +286,56 @@ export default function StudioRender() {
         </div>
       )}
 
-      {/* Content — unified frame for all modes */}
-      {isPostgame ? (
-        <StudioContentFrame obs={obs}>
-          <PostgameSummary
-            data={postgame}
-            state={{ postgame, connected: pgConnected, error: pgError }}
-            theme={theme}
-          />
-        </StudioContentFrame>
-      ) : mode === 'bracket' ? (
-        <StudioContentFrame obs={obs}>
-          <BracketView
-            matches={matches}
-            pools={pools}
-            usePools={usePools}
-            selectedPoolId={bracketPoolId || null}
-            onPoolChange={setBracketPoolId}
-            obs={obs}
-            theme={theme}
-          />
-        </StudioContentFrame>
-      ) : mode === 'recent' ? (
-        <StudioContentFrame obs={obs}>
-          <div style={{ marginTop: STUDIO_RECENT_OFFSET_TOP, width: '100%' }}>
-            <RecentMatchesTable matches={matches} theme={theme} />
-          </div>
-        </StudioContentFrame>
-      ) : (
-        <StudioContentFrame obs={obs}>
-          <div className="flex flex-col gap-4">
-            <AnimatePresence mode="wait">
-              {activeMatch && (
-                <motion.div
-                  key={activeMatch.match_id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <MatchCard
-                    match={activeMatch}
-                    gameMode={gameMode}
-                    upcomingMatches={upcomingMatches}
-                    pollResults={Object.keys(pollResults).length > 0 ? pollResults : undefined}
-                    theme={theme}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </StudioContentFrame>
-      )}
+      {/* Content — wrapped per theme */}
+      {isPostgame
+        ? wrap('postgame', (
+            <PostgameSummary
+              data={postgame}
+              state={{ postgame, connected: pgConnected, error: pgError }}
+              theme={theme}
+            />
+          ))
+        : mode === 'bracket'
+          ? wrap('bracket', (
+              <BracketView
+                matches={matches}
+                pools={pools}
+                usePools={usePools}
+                selectedPoolId={bracketPoolId || null}
+                onPoolChange={setBracketPoolId}
+                obs={obs}
+                theme={theme}
+              />
+            ))
+          : mode === 'recent'
+            ? wrap('results', (
+                <div style={{ marginTop: isNeobrutal ? 0 : STUDIO_RECENT_OFFSET_TOP, width: '100%' }}>
+                  <RecentMatchesTable matches={matches} theme={theme} />
+                </div>
+              ))
+            : wrap('next', (
+                <div className="flex flex-col gap-4">
+                  <AnimatePresence mode="wait">
+                    {activeMatch && (
+                      <motion.div
+                        key={activeMatch.match_id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <MatchCard
+                          match={activeMatch}
+                          gameMode={gameMode}
+                          upcomingMatches={upcomingMatches}
+                          pollResults={Object.keys(pollResults).length > 0 ? pollResults : undefined}
+                          theme={theme}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
     </div>
   );
 }

@@ -22,6 +22,19 @@ import {
   BRACKET_TOP_OFFSET,
   PAN_SPEED_PX_S,
 } from '@/lib/studio-glass-theme';
+import {
+  NB_ACID,
+  NB_BLUE,
+  NB_BORDER,
+  NB_BORDER_THIN,
+  NB_DIM,
+  NB_FONT,
+  NB_INK,
+  NB_MONO,
+  NB_ORANGE,
+  NB_WHITE,
+  nbShadowSmall,
+} from '@/lib/studio-neobrutal-theme';
 
 function CheckInDot({ team }: { team: TeamData | null }) {
   if (!team) return null;
@@ -110,9 +123,15 @@ export function BracketView({
   theme = 'standard',
 }: BracketViewProps) {
   const isGlass = theme === 'sharp-glass';
-  const SKEW = isGlass ? 0 : STD_SKEW;
-  const UNSKEW = isGlass ? 0 : STD_UNSKEW;
-  const cardH = isGlass ? GLASS_ROW_H * 2 + GLASS_ROW_GAP : MATCH_HEIGHT;
+  const isNeobrutal = theme === 'neobrutal';
+  const isFlat = isGlass || isNeobrutal;
+  const SKEW = isFlat ? 0 : STD_SKEW;
+  const UNSKEW = isFlat ? 0 : STD_UNSKEW;
+  const cardH = isGlass
+    ? GLASS_ROW_H * 2 + GLASS_ROW_GAP
+    : isNeobrutal
+      ? GLASS_ROW_H * 2 + GLASS_ROW_GAP + 6
+      : MATCH_HEIGHT;
   const outerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -517,7 +536,24 @@ export function BracketView({
 
           return (
             <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ minWidth: CARD_WIDTH }}>
-              {isGlass ? (
+              {isNeobrutal ? (
+                <div
+                  style={{
+                    padding: '3px 10px',
+                    background: NB_ACID,
+                    border: NB_BORDER_THIN,
+                    fontFamily: NB_MONO,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '.18em',
+                    color: NB_INK,
+                    textTransform: 'uppercase',
+                    marginBottom: 8,
+                  }}
+                >
+                  R{roundIdx}{boInfo}
+                </div>
+              ) : isGlass ? (
                 <div
                   className="px-3 py-1 relative"
                   style={{ ...glassBarDead, ...chamferTag }}
@@ -576,8 +612,8 @@ export function BracketView({
                 key={line.id}
                 d={line.d}
                 fill="none"
-                stroke={isGlass ? GLASS_LINE_COLOR : STD_LINE_COLOR}
-                strokeWidth={LINE_WIDTH}
+                stroke={isNeobrutal ? NB_INK : isGlass ? GLASS_LINE_COLOR : STD_LINE_COLOR}
+                strokeWidth={isNeobrutal ? 3 : LINE_WIDTH}
               />
             ))}
           </svg>
@@ -646,6 +682,97 @@ function BracketMatchCard({
   const bWon = isFinished && match.winner_team_id === match.team_b?.team_id;
   const showCheckIn = match.state === 'scheduled';
   const isGlass = theme === 'sharp-glass';
+  const isNeobrutal = theme === 'neobrutal';
+
+  if (isNeobrutal) {
+    const aIsTbd = !match.team_a;
+    const bIsTbd = !match.team_b;
+    const aName = match.team_a?.name ?? 'TBD';
+    const bName = match.team_b?.name ?? 'TBD';
+    const rowH = (GLASS_ROW_H * 2 + GLASS_ROW_GAP + 6 - 3) / 2;
+
+    const nameStyle = (won: boolean, otherWon: boolean, tbd: boolean): React.CSSProperties => ({
+      flex: 1,
+      minWidth: 0,
+      display: 'flex',
+      alignItems: 'center',
+      padding: '0 10px',
+      fontFamily: NB_FONT,
+      fontWeight: 800,
+      fontSize: 13,
+      textTransform: 'uppercase',
+      color: tbd || otherWon ? NB_DIM : NB_INK,
+      background: won ? NB_ACID : NB_WHITE,
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    });
+    const scoreStyle = (won: boolean): React.CSSProperties => ({
+      width: 36,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: NB_FONT,
+      fontWeight: 900,
+      fontSize: 18,
+      color: won ? NB_INK : NB_DIM,
+      background: won ? NB_ACID : NB_WHITE,
+      borderLeft: NB_BORDER_THIN,
+    });
+
+    return (
+      <div
+        ref={refCallback}
+        style={{
+          width: CARD_WIDTH,
+          background: NB_WHITE,
+          border: NB_BORDER,
+          boxShadow: nbShadowSmall,
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        {/* Row A */}
+        <div style={{ display: 'flex', height: rowH, borderLeft: `6px solid ${NB_BLUE}` }}>
+          <div style={nameStyle(aWon, bWon, aIsTbd)}>{aName}</div>
+          <div style={scoreStyle(aWon)}>{match.score_a ?? 0}</div>
+        </div>
+        {/* Row B */}
+        <div
+          style={{
+            display: 'flex',
+            height: rowH,
+            borderLeft: `6px solid ${NB_ORANGE}`,
+            borderTop: '3px solid #111',
+          }}
+        >
+          <div style={nameStyle(bWon, aWon, bIsTbd)}>{bName}</div>
+          <div style={scoreStyle(bWon)}>{match.score_b ?? 0}</div>
+        </div>
+        {isLive && (
+          <div
+            style={{
+              position: 'absolute',
+              top: -10,
+              right: -10,
+              padding: '2px 8px',
+              background: NB_INK,
+              color: NB_ACID,
+              fontFamily: NB_MONO,
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '.18em',
+              border: NB_BORDER_THIN,
+            }}
+          >
+            LIVE
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (isGlass) {
     const aIsTbd = !match.team_a;

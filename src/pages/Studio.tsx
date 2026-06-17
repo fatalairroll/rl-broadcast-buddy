@@ -100,6 +100,8 @@ export default function Studio() {
     }
     if (theme === 'sharp-glass') {
       params.set('theme', 'glass');
+    } else if (theme === 'neobrutal') {
+      params.set('theme', 'neobrutal');
     }
     return `${window.location.origin}/studio/render?${params.toString()}`;
   })();
@@ -181,6 +183,7 @@ export default function Studio() {
                   <SelectContent>
                     <SelectItem value="standard">Standard</SelectItem>
                     <SelectItem value="sharp-glass">Sharp Liquid Glass</SelectItem>
+                    <SelectItem value="neobrutal">Neo-Brutalism</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
