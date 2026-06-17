@@ -337,3 +337,159 @@ export function RecentMatchesTable({ matches, theme = 'standard' }: RecentMatche
     </div>
   );
 }
+
+/* ─────────────────── NEO-BRUTALISM ─────────────────── */
+
+const NB_ROW_H = 62;
+const NB_ROW_GAP = 14;
+
+function NbRecentMatchesTable({ matches }: { matches: MatchData[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [maxRows, setMaxRows] = useState<number>(matches.length);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const availableH = el.clientHeight;
+      const n = Math.max(1, Math.floor((availableH + NB_ROW_GAP) / (NB_ROW_H + NB_ROW_GAP)));
+      setMaxRows(n);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (containerRef.current) ro.observe(containerRef.current);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
+  if (matches.length === 0) {
+    return (
+      <div
+        style={{
+          fontFamily: NB_FONT,
+          fontWeight: 800,
+          fontSize: 22,
+          color: NB_DIM,
+          padding: 32,
+          textAlign: 'center',
+        }}
+      >
+        Brak zakończonych meczów
+      </div>
+    );
+  }
+
+  const visible = matches.slice(0, maxRows * 2);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
+        height: 'calc(100vh - 220px)',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gridAutoRows: NB_ROW_H,
+        columnGap: NB_ROW_GAP,
+        rowGap: NB_ROW_GAP,
+        alignContent: 'start',
+      }}
+    >
+      <AnimatePresence mode="popLayout">
+        {visible.map((m, i) => (
+          <NbRecentRow key={m.match_id} match={m} index={i} />
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function NbRecentRow({ match, index }: { match: MatchData; index: number }) {
+  const aWon = match.winner_team_id === match.team_a?.team_id;
+  const bWon = match.winner_team_id === match.team_b?.team_id;
+  const aName = match.team_a?.name ?? 'TBD';
+  const bName = match.team_b?.name ?? 'TBD';
+
+  const sideStyle = (won: boolean, otherWon: boolean): React.CSSProperties => ({
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 14px',
+    fontFamily: NB_FONT,
+    fontWeight: 800,
+    fontSize: 21,
+    textTransform: 'uppercase',
+    color: otherWon ? NB_DIM : NB_INK,
+    background: won ? NB_ACID : NB_WHITE,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    letterSpacing: '-.01em',
+  });
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: -30 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 30 }}
+      transition={{ duration: 0.35, delay: index * 0.04, ease: 'easeOut' }}
+      style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        height: NB_ROW_H,
+        border: NB_BORDER,
+        boxShadow: nbShadowSmall,
+      }}
+    >
+      <div style={{ ...sideStyle(aWon, bWon), justifyContent: 'flex-start' }}>{aName}</div>
+      <div
+        style={{
+          minWidth: 110,
+          background: NB_INK,
+          color: NB_WHITE,
+          borderLeft: NB_BORDER,
+          borderRight: NB_BORDER,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          className="tabular-nums"
+          style={{
+            fontFamily: NB_FONT,
+            fontWeight: 900,
+            fontSize: 26,
+            lineHeight: 1,
+          }}
+        >
+          <span style={{ color: aWon ? NB_ACID : NB_WHITE }}>{match.score_a}</span>
+          <span style={{ opacity: 0.5, margin: '0 6px' }}>:</span>
+          <span style={{ color: bWon ? NB_ACID : NB_WHITE }}>{match.score_b}</span>
+        </div>
+        <div
+          style={{
+            fontFamily: NB_MONO,
+            fontSize: 9,
+            letterSpacing: '.18em',
+            color: 'rgba(255,255,255,.6)',
+            marginTop: 3,
+            textTransform: 'uppercase',
+          }}
+        >
+          R{match.round_index}
+          {match.match_index != null ? ` M${match.match_index}` : ''}
+        </div>
+      </div>
+      <div style={{ ...sideStyle(bWon, aWon), justifyContent: 'flex-end', textAlign: 'right' }}>
+        {bName}
+      </div>
+    </motion.div>
+  );
+}
