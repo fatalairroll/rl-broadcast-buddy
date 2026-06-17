@@ -295,7 +295,7 @@ export const V2_ELEMENT_LABELS: Record<V2EditableElement, string> = {
   seriesScore: 'Wynik serii (BO)',
   teamNameBlue: 'Nazwa drużyny niebieskiej',
   teamNameOrange: 'Nazwa drużyny pomarańczowej',
-  boostGauge: 'Wskaźnik boosta (gauge, Glass)',
+  boostGauge: 'Wskaźnik boosta (gauge)',
   general: 'Ogólne',
 };
 

@@ -6,6 +6,7 @@ import { useGoalEventDetector } from '@/hooks/useGoalEventDetector';
 import { Y2kScorebar } from './Y2kScorebar';
 import { Y2kBoostStack } from './Y2kBoostStack';
 import { Y2kPlayerCard } from './Y2kPlayerCard';
+import { Y2kBoostGauge } from './Y2kBoostGauge';
 
 interface Props {
   config: OverlayV2Config;
@@ -68,6 +69,9 @@ export function V2Y2kStage({
           orangeName={orangeName}
           goal={goal}
         />
+      )}
+      {config.boostGauge.visible && (
+        <Y2kBoostGauge config={config} activePlayer={activePlayer} />
       )}
     </>
   );

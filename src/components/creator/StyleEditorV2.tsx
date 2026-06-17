@@ -301,7 +301,7 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
           />
         )}
 
-        {element === 'boostGauge' && config.general.theme === 'glass' && (
+        {element === 'boostGauge' && (config.general.theme === 'glass' || isY2k) && (
           <>
             <Toggle label="Widoczny" value={config.boostGauge.visible} onChange={(v) => update('boostGauge', { visible: v })} />
             <PositionEditor value={config.boostGauge.position} onChange={(p) => update('boostGauge', { position: p })} />
@@ -310,11 +310,12 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <p className="text-[10px] text-muted-foreground leading-snug">
               Pierścień pokazuje boost aktywnego gracza. Kolor wg drużyny; &lt; 10 czerwony, = 100 złoty.
             </p>
+            {isY2k && y2kLockedNotice}
           </>
         )}
-        {element === 'boostGauge' && config.general.theme !== 'glass' && (
+        {element === 'boostGauge' && config.general.theme !== 'glass' && !isY2k && (
           <p className="text-xs text-muted-foreground leading-snug">
-            Wskaźnik boosta (gauge) jest dostępny wyłącznie dla motywu <b>Glass</b>.
+            Wskaźnik boosta (gauge) jest dostępny dla motywów <b>Glass</b> i <b>Y2K CHROME</b>.
             Zmień motyw w sekcji „Ogólne", aby go skonfigurować i wyświetlić w overlay.
           </p>
         )}
