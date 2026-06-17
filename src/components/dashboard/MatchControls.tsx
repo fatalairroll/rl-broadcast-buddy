@@ -10,7 +10,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { RefreshCw, Send, ArrowLeftRight } from 'lucide-react';
-import { RelayStatus } from './RelayStatus';
 import type { BroadcastSession, SeriesType } from '@/types/broadcast';
 
 interface MatchControlsProps {
@@ -54,10 +53,7 @@ export function MatchControls({
   return (
     <Card className="glass-panel">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Kontrola meczu</CardTitle>
-          <RelayStatus />
-        </div>
+        <CardTitle className="text-lg">Kontrola meczu</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Match Name */}

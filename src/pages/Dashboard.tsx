@@ -16,9 +16,7 @@ import {
   Palette,
   Users,
   Loader2,
-  ExternalLink,
   Plus,
-  Radio,
   UserCog,
 } from 'lucide-react';
 
@@ -113,15 +111,7 @@ export default function Dashboard() {
           </div>
 
           <nav className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => window.open('/v2/overlay', '_blank')}
-            >
-              <Radio className="mr-2 h-4 w-4" />
-              Overlay
-              <ExternalLink className="ml-1 h-3 w-3" />
-            </Button>
+            <RelayStatus />
             <Button variant="ghost" size="sm" onClick={() => navigate('/studio')}>
               <Monitor className="mr-2 h-4 w-4" />
               Studio

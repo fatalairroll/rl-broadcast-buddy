@@ -1,55 +1,71 @@
-## Krok 1b — auto-przypisanie meczu przy 100% pewności (rev 2)
+# Plan: 3 fazy porządków UI (rev 2)
 
-### 1. Migracja DB
+## FAZA 1 — Sprzątanie nawigacji
 
-```sql
-ALTER TABLE public.broadcast_sessions
-  ADD COLUMN IF NOT EXISTS match_auto_apply_enabled boolean NOT NULL DEFAULT true;
-```
+**`src/App.tsx`**
+- Trasa `/` → `<Navigate to="/dashboard" replace />` (import z `react-router-dom`).
+- Usunąć import `Index` (plik `src/pages/Index.tsx` zostaje na dysku nieużywany — bez ryzyka).
 
-### 2. Typy — `src/types/broadcast.ts`
+**`src/pages/Dashboard.tsx`**
+- Usunąć przycisk "Overlay" z `<nav>` w nagłówku (ten z `window.open('/v2/overlay', '_blank')`).
+- Posprzątać nieużywane importy (`Radio`, `ExternalLink` jeśli już nigdzie indziej w pliku).
 
-Dodać `match_auto_apply_enabled?: boolean` do `BroadcastSession`.
+Trasy `/v2/overlay`, `/creator`, `/studio`, `/admin`, `/relay` — bez zmian.
 
-### 3. `src/lib/match-suggestion.ts`
+---
 
-- **Lokalny** `minPlayersForMode(mode?: string): number` (niezależny od `tournament-roster.ts`): `3v3 → 6`, `2v2 → 4`, `1v1 → 2`, default `2`.
-- Rozszerzyć `applyMatchFromBracket(..., opts?: { toastTitle?: string })`. Default tytuł: `'Wczytano mecz z MMRivals'`.
-- Dodać `countExactMatches(livePlayerNames, match)`: jak `countMatchedPlayers`, ale akceptuje tylko proposals ze `score === 0` (twarde dopasowania).
-- Dodać `isFullConfidenceMatch({ suggestions, top, tournamentMode, livePlayerNames })`:
-  - `suggestions.length === 1`
-  - `top.matchedPlayers === flattenMatchPlayers(top.match).length` (pełny roster z drabinki w lobby)
-  - `top.matchedPlayers >= minPlayersForMode(tournamentMode)`
-  - `countExactMatches(livePlayerNames, top.match) === top.matchedPlayers` (wszystkie dopasowania exact, żadnego fuzzy)
+## FAZA 2 — Klucz streamera w localStorage
 
-### 4. `src/components/creator/MmrivalsMatchPicker.tsx`
+Lokalizacja: `src/pages/Studio.tsx`, stan `streamerKey` (input "Klucz streamera (do URL)", ~linia 211-219), trafia do `/studio/render?key=...`.
 
-- Import `Switch` z `@/components/ui/switch`, `isFullConfidenceMatch`.
-- W nagłówku karty obok tytułu „MMRivals" mały `Switch` + label **„Auto (100%)"**; `checked = session?.match_auto_apply_enabled !== false`; `onCheckedChange(v) => updateSession({ match_auto_apply_enabled: v })`. „Odepnij" zostaje obok.
-- `lastAutoAppliedMatchIdRef = useRef<string | null>(null)`.
-- `useEffect` na `[suggestions, debouncedLiveNames, session?.mmr_match_id, session?.match_auto_apply_enabled, tournamentId, tournamentMode]`:
-  - guards: brak sesji, toggle OFF, `mmr_match_id` ustawione, brak `tournamentId`, brak sugestii → return.
-  - `top = suggestions[0]`; jeśli `!isFullConfidenceMatch({ suggestions, top, tournamentMode, livePlayerNames: debouncedLiveNames })` → jeżeli ref niepusty, wyzeruj (lobby się rozpadło) i return.
-  - jeśli `lastAutoAppliedMatchIdRef.current === top.match.match_id` → return.
-  - `applyMatchFromBracket(top.match, debouncedLiveNames, session, updateSession, toast, { toastTitle: 'Auto: przypisano mecz' })`.
-  - `setSelectedRound(top.match.round_index ?? null)`.
-  - `lastAutoAppliedMatchIdRef.current = top.match.match_id`.
-- Reset `lastAutoAppliedMatchIdRef`:
-  - `useEffect([session?.mmr_match_id])` → gdy `null`, wyzeruj.
-  - `useEffect([tournamentId])` → wyzeruj.
-- **Badge „Przypisano automatycznie — możesz zmienić ręcznie"**: pokazywany gdy `session?.mmr_match_id` **jest ustawione** ORAZ `lastAutoAppliedMatchIdRef.current === session.mmr_match_id`. Umiejscowienie: pod sekcją „Mecz" (pod dropdown), nad sekcją „Parowanie graczy". Aby ref wymusił re-render, lustrzane `useState<string | null>` (`autoAppliedDisplayId`) aktualizowane razem z refem.
+**`src/pages/Studio.tsx`**
+- Stała `STREAMER_KEY_LS = 'rlbroadcast.toolKey'`.
+- `useState(() => localStorage.getItem(STREAMER_KEY_LS) ?? '')`.
+- `useEffect` zapisujący `streamerKey` (pusty → `removeItem`).
+- Pole klucza w `<Collapsible>` (już dostępny w `@/components/ui/collapsible`):
+  - `defaultOpen={!storedKey}` (otwarte gdy jeszcze pusto, zwinięte gdy jest zapisany).
+  - Trigger: "Zmień klucz" + małe "Klucz zapisany ✓" obok (bez ujawniania wartości).
+  - W środku input + `Button variant="ghost" size="sm"` "Wyczyść zapisany klucz" → `setStreamerKey(''); localStorage.removeItem(...)`.
+- Logika autoryzacji / budowania `renderUrl` — nietknięta.
 
-### 5. Pliki nietykane
+---
 
-- `BroadcastControlsPanel.tsx` — toggle jest w pickerze.
-- `useSeriesAutoTracker.ts`, `tournament-roster.ts`, `player-matching.ts`, Relay, Studio, RankClash, overlay-data.
+## FAZA 3 — Status relaya w nagłówku (3 stany)
 
-### 6. DoD
+### Miejsce wskaźnika
+Sprawdzone: `Dashboard.tsx` i `Creator.tsx` mają **odrębne** nagłówki — nie ma jednego wspólnego `AppHeader`. Zgodnie z uwagą użytkownika nie tworzymy teraz nowego komponentu nagłówka; `RelayStatus` ląduje w nagłówku `Dashboard.tsx`. Notatka na przyszłość (do późniejszej konsolidacji UI): gdy powstanie wspólny `AppHeader`, przenieść `RelayStatus` raz na zawsze tam — nie powielać w każdym nagłówku.
 
-- 2v2 (4/4 exact w lobby, 1 kandydat) → auto-apply BO + seria z drabinki, bez klika.
-- 2 kandydaci LUB choć 1 fuzzy match → tylko sugestie + ręczne „Zastosuj".
-- Komentator extra w lobby nie blokuje.
-- Toggle OFF → wyłącznie ręcznie.
-- „Odepnij" → po spełnieniu warunków znów auto-apply.
-- Badge widoczny tylko gdy mecz jest auto-przypisany (`mmr_match_id` ustawione), nigdy w sekcji sugestii.
-- TS/lint czysto.
+### `src/components/dashboard/RelayStatus.tsx` (rozszerzenie)
+- `lastPing` w `useRef` + `tick` co 1 s wymuszający re-render (żeby kolor zmieniał się sam wraz z upływem czasu, bez nowych pingów).
+- 3 stany na podstawie `age = now - lastPing`:
+  - `age < 10_000 ms` → zielony "Relay aktywny".
+  - `age < 30_000 ms` → żółty "Relay — brak danych Xs" (X = `Math.floor(age/1000)`).
+  - `age ≥ 30_000` lub `lastPing == null` → czerwony "Brak relaya".
+- Klasy: zielony jak teraz; żółty `bg-amber-500/20 text-amber-400 border-amber-500/30`; czerwony `bg-red-500/20 text-red-400 border-red-500/30`.
+- Skompaktować padding/typo (ma mieścić się obok przycisków nav).
+
+### `src/pages/Dashboard.tsx`
+- Wstawić `<RelayStatus />` w `<nav>` nagłówka (przed przyciskami).
+
+### `src/components/dashboard/MatchControls.tsx`
+- Usunąć render `<RelayStatus />` z `CardHeader` (i import) — żeby nie dublować.
+
+### Heartbeat w skrypcie relay (Python)
+Skrypt w `src/pages/Relay.tsx` ma już `heartbeat_loop`. Sprawdzić podczas implementacji, czy wysyła `supabase.channel('rl_broadcast_room').send({type:'broadcast', event:'RELAY_PING', payload:{timestamp: ...}})` co `HEARTBEAT_S`.
+- **Jeśli tak** — nic nie zmieniać.
+- **Jeśli nie** — dodać wysyłkę.
+
+W obu przypadkach na końcu wdrożenia jasno zaraportować użytkownikowi:
+- "Skryptu relay nie trzeba wymieniać — heartbeat już działa." **lub**
+- "Skrypt relay zmieniony — pobierz nową wersję z `/relay` i uruchom ponownie na maszynie z grą; inaczej wskaźnik będzie czerwony mimo działającego relaya."
+
+---
+
+## Definition of Done
+
+- `/` → instant redirect do `/dashboard`.
+- Brak przycisku "Overlay" w nagłówku Dashboardu; `/v2/overlay` nadal działa po wpisaniu URL.
+- Klucz streamera trzymany w localStorage, autouzupełniany, pole pod "Zmień klucz" z "Klucz zapisany ✓" i przyciskiem "Wyczyść".
+- Wskaźnik relaya w nagłówku Dashboardu: zielony < 10 s, żółty < 30 s, czerwony ≥ 30 s lub brak; reakcja w < 30 s od zatrzymania/startu relaya.
+- Końcowy komunikat wdrożenia jednoznacznie mówi, czy trzeba wymienić skrypt relay.
+- TS/lint czysto. Render overlayów, preset GLASS, Studio render, Creator, Admin, `useSeriesAutoTracker`, RankClash — nietknięte.
