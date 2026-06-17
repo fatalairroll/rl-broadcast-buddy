@@ -1,60 +1,77 @@
-## Cel
-Dodać DRUGI motyw overlay v2 — **"Y2K CHROME"** — jako niezależny preset obok GLASS OVERLAY. Hardcodowany styl, ruchome tylko pozycje/rozmiary scoreboardu, boosta i rangi. GLASS i standard nietknięte.
+# ANEKS do planu "Y2K CHROME" — Y2kBoostGauge
 
-## 1. Typy i tokeny
+Rozszerza wdrożony preset Y2K CHROME o okrągły wskaźnik boosta śledzonego gracza. Analogiczny do `GlassBoostGauge`, ale w materiale Y2K (chrom). Reszta planu Y2K bez zmian.
 
-**`src/types/overlayV2.ts`**
-- Linia 200: `theme: 'standard' | 'glass'` → `'standard' | 'glass' | 'y2k'`. `mergeV2Config` bez zmian (defaults pozostają `'standard'`).
+## 1. Nowy komponent — `src/components/v2/y2k/Y2kBoostGauge.tsx`
 
-**`src/lib/y2k-theme.ts`** (nowy) — paleta (`Y2K_BLUE`, `Y2K_ORANGE`, `Y2K_CHROME` fioletowy, `Y2K_TXT`, `Y2K_DIM`, `Y2K_LINE`), gradienty chrome (`chromeBlue`/`chromeOrange`/`chromeSilver` — jasny szczyt → nasycony środek → ciemny → jasny dół), tła `y2kCoreBg`/`y2kPanelBg`, `y2kBorder`, `y2kGlow`/`y2kGlowSoft`, fonty `Y2K_FONT='Archivo'`/`Y2K_MONO='JetBrains Mono'`, cienie tekstu (`y2kNameShadow`, `y2kChromeTextShadow`, `y2kScoreShadow`), `y2kScanlines` (CSSProperties; aplikowane WEWNĄTRZ paneli, nie pełnoekranowo).
+Wzorowany 1:1 na `src/components/v2/glass/GlassBoostGauge.tsx` — ta sama logika danych, props, pozycjonowanie. Różnica wyłącznie wizualna.
 
-**Fonty** — `index.html`: dodać Google Fonts `Archivo` (600–900) i `JetBrains Mono` (500,700) jeśli brak.
+**Props:** `config: OverlayV2Config`, `activePlayer: PlayerLive | null`.
 
-## 2. Komponenty (`src/components/v2/y2k/`)
+**Logika (identyczna z glass):**
+- Brak `activePlayer` → ukryty (AnimatePresence, fade 150 ms).
+- `side = activePlayer.team_num === 1 ? 'orange' : 'blue'` (zgodnie z konwencją glass: team_num 0=blue, 1=orange — patrz `GlassBoostGauge`).
+- `boost = clamp(0,100, round(activePlayer.boost))`, `size = config.boostGauge.size ?? 230`.
+- Pozycjonowanie przez `positionToStyle(config.boostGauge.position)`.
 
-Wszystkie reużywają tych samych danych/hooków co GLASS (`useGoalEventDetector`, `positionToStyle`, `RankIcon`, `mmrOverride`, `activeCameraTarget`).
+**Wygląd (tokeny z `src/lib/y2k-theme.ts`):**
+- **Obudowa (tarcza):** `borderRadius: '50%'`, tło `linear-gradient(180deg,#2a3550,#10141f,#1a2236)`, `border: y2kBorder`, `boxShadow: '0 0 30px rgba(91,141,239,.3), inset 0 2px 3px rgba(255,255,255,.35), inset 0 -10px 20px rgba(0,0,10,.5)'`. (Nie używamy `y2kCoreBg` — chcemy bardziej niebieskawy chrome niż domyślny core panel.)
+- **Pierścień postępu (SVG, `transform: rotate(-90deg)`):**
+  - tor: `stroke: rgba(180,200,255,.12)`, `strokeWidth: 7`, `r = size/2 - 13`.
+  - wypełnienie: `strokeDasharray = C`, `strokeDashoffset = C*(1 - boost/100)`, `strokeLinecap: 'round'`, `transition: stroke-dashoffset .12s linear`.
+  - gradient chrome wg strony (pionowy `linearGradient`):
+    - `gauge-y2k-blue`: `#cfe3ff` → `#5B8DEF` → `#3460c8`
+    - `gauge-y2k-orange`: `#ffe0cc` → `#FF6B35` → `#c84e20`
+    - `gauge-y2k-critical`: `#ffd0c0` → `#FF5E3A` → `#c8281a`
+- **Kropkowana skala (detal Y2K):** drugi okrąg `r = size/2 - 5`, `strokeWidth: 1`, `strokeDasharray: '2 7'`, kolor `rgba(196,181,253,.2)`.
+- **Środek:**
+  - cyfra: `Y2K_FONT`, `fontWeight: 900`, `fontSize: size*0.30`, kolor wg stanu, `textShadow: y2kScoreShadow` (lub stanowy glow).
+  - pod nią `BOOST`: `Y2K_MONO`, `fontSize: Math.max(10, size*0.053)`, kolor `Y2K_CHROME`, `textShadow: y2kChromeTextShadow`, `marginTop: 4`.
 
-- **`Y2kScorebar.tsx`** — pozycjonowany przez `positionToStyle(config.scoreboard.position)`, wymiary z `coverWidth`/`coverHeight`. Układ poziomy `[chrome-blue: nazwa A][core: wynik A | zegar + GM/BO mono | wynik B][chrome-orange: nazwa B]`. Schodkowy font nazwy: `len≤14→27px, ≤20→23px, ≤25→19px`, ellipsis dla >25. Wynik prowadzącego biały + `y2kScoreShadow`, przegrywającego `rgba(255,255,255,.35)`; remis → oba z glow. Zegar w `Y2K_CHROME` z `y2kChromeTextShadow`. Rogi `0 0 8px 8px` (górne proste). **Brak pigułek serii, brak "BO5//", brak "MATCH POINT".**
-- **`Y2kBoostStack.tsx`** — wzór `GlassBoostPanel`, paski `chromeBlue`/`chromeOrange`, liczba boostu biała + `y2kScoreShadow`. Lustrzaność stron jak w istniejących.
-- **`Y2kPlayerCard.tsx`** — lewy dół, `y2kPanelBg`, box rangi w `chromeSilver` z `<RankIcon>`. **Offset rangi (`rankOffsetX/Y`) aplikowany przez margines/wrapper, NIE przez `transform` na elemencie animowanym framer-motion** (lekcja z fixu glass — swap GOL nadpisuje transform). Pod nazwą `{ranga} · {mmr} MMR`. Swap ranga↔GOL (`useGoalEventDetector`, translateY/opacity 180 ms). Brak rangi → panel bez boxa.
-- **`V2Y2kStage.tsx`** — kompozytor o tych samych propsach co `V2GlassStage`. Boost przez `positionToStyle(config.boostBar.positionLeft/Right)`. Bez boost gauge w tej iteracji. **Scanlines aplikowane tylko WEWNĄTRZ paneli (overflow:hidden)** — scena OBS pozostaje transparentna poza panelami.
+**Stany:**
+- `boost < 10`: pierścień `gauge-y2k-critical`, cyfra `#FF8A6B` + `textShadow: '0 0 16px rgba(255,90,50,.7), 0 2px 0 rgba(0,0,0,.55)'`, obudowa `boxShadow: '0 0 30px rgba(255,90,60,.35), inset 0 2px 3px rgba(255,255,255,.35), inset 0 -10px 20px rgba(0,0,10,.5)'`.
+- `boost === 100`: cyfra `#FFD9A0` + `textShadow: '0 0 18px rgba(255,180,90,.8), 0 2px 0 rgba(0,0,0,.55)'`, pierścień pełny w kolorze drużyny (bez krytycznego).
+- W przeciwnym razie: cyfra biała + `y2kScoreShadow`.
 
-## 3. Wybór motywu w renderze
+## 2. Integracja — `src/components/v2/y2k/V2Y2kStage.tsx`
 
-**`src/pages/OverlayV2.tsx`** i **`src/components/creator/V2Preview.tsx`** — obok `isGlass` dodać `isY2k = config.general.theme === 'y2k'`. Trójdrożny render: `isGlass → V2GlassStage`, `isY2k → V2Y2kStage`, else → standard. Reszta (skala, mock/live, mmrOverride, `ScoreboardBoundsProvider`) bez zmian.
+Import `Y2kBoostGauge`. Po pozostałych elementach dodać:
+```tsx
+{config.boostGauge.visible && (
+  <Y2kBoostGauge config={config} activePlayer={activePlayer} />
+)}
+```
 
-## 4. Ruchome elementy (przez ISTNIEJĄCE pola configu)
+## 3. Preset — `src/lib/v2-y2k-preset.ts`
 
-Y2K czyta i honoruje:
-- `scoreboard.position` + `coverWidth/coverHeight` — pozycja i rozmiar belki.
-- `boostBar.positionLeft/positionRight` — pozycja boosta (lewa/prawa strona).
-- `playerCard.rankIconSize/rankOffsetX/rankOffsetY` — rozmiar i offset rangi.
+Zmienić `boostGauge` z `visible:false` na:
+```ts
+boostGauge: {
+  ...defaultOverlayV2Config.boostGauge,
+  visible: true,
+  size: 230,
+  position: { anchorH: 'right', anchorV: 'bottom', offsetX: -936, offsetY: 424 },
+},
+```
+(Wartości domyślne jak w glass — prawy dolny róg, ~100 px nad dołem; offsetX ujemny dla anchorH:'right' żeby przesunąć w stronę środka. Dostroić wizualnie po wdrożeniu, aby zakrywał natywny wskaźnik RL przy 1920×1080.)
 
-**`src/components/creator/StyleEditorV2.tsx`** — gdy `config.general.theme === 'y2k'`, w sekcjach `scoreboard`/`boostBar`/`playerCard` pokazywać TYLKO kontrolki pozycji/rozmiaru wymienione wyżej; ukryć kolory, skew, opacity, font, gradient. Sekcje `seriesScore`, `teamNameBlue/Orange` ukryte dla y2k.
+**Podbić `Y2K_PRESET_VERSION` z 1 → 2** — bez bumpa `ensureY2kPreset` nie nadpisze istniejącego wiersza w DB.
 
-## 5. Preset
+## 4. Kontrolki w kreatorze — `src/components/creator/StyleEditorV2.tsx`
 
-**`src/lib/v2-y2k-preset.ts`** (nowy) — `Y2K_PRESET_NAME = 'Y2K CHROME'`, `Y2K_PRESET_VERSION = 1`. `Y2K_OVERLAY_CONFIG` na bazie `defaultOverlayV2Config`:
-- `general.theme = 'y2k'`, `general.presetVersion = 1`.
-- `scoreboard`: domyślnie top:0/center, `coverWidth:740`, `coverHeight:76` — **wartości offsetów wyliczone tak, by pierwszy rząd pikseli belki był w y=0 (patrz §7 DoD pkt walidacji)**.
-- `boostBar`: domyślnie boczne, **dostrojone** tak, by przy pierwszym otwarciu boost siedział przy lewej/prawej krawędzi obszaru gry (a nie wisiał w środku ani nie wystawał poza 1920×1080). Punkt wyjścia: pozycje glass (±942, -340); jeśli geometria paneli Y2K się różni, skorygować offsety w finalnym presecie.
-- `playerCard.position`: anchor left/bottom, offset 24/64.
-- `seriesScore.visible:false`, `teamNameBlue.visible:false`, `teamNameOrange.visible:false`, `boostGauge.visible:false`. (Per-preset, nie globalne — nie wpływa na standard/glass; zweryfikować po wdrożeniu przełączaniem motywów w kreatorze.)
-- `ensureY2kPreset(presets, createPreset, updatePreset)` — analog `ensureGlassPreset`: tworzy jeśli brak, nadpisuje gdy `presetVersion < Y2K_PRESET_VERSION`. Bump wersji wymagany przy każdej zmianie configu.
+W sekcji `boostGauge` rozszerzyć warunek renderowania kontrolek (widoczność, slider rozmiaru, pozycja) z `isGlass` na `isGlass || isY2k`. Pozostałe stylistyczne pola (kolory itp.) — gdy są — pozostają ukryte dla y2k zgodnie z wcześniejszą regułą.
 
-**`src/pages/Creator.tsx`** — w istniejącym `useEffect` bootstrapu dorzucić `ensureY2kPreset(...)` obok `ensureGlassPreset(...)` (jeden flag `presetsEnsured`).
+## 5. Czego NIE ruszać
 
-## 6. Czego NIE ruszać
-GLASS OVERLAY (`v2/glass/*`, `v2-glass-preset.ts`, `studio-glass-theme.ts`); studio i jego overlaye; dane (`game_state`/relay, `BroadcastSession`, `useBroadcast`, `useGoalEventDetector`, `activeCameraTarget`, MMRIVALS, `useActivePlayerMmrInfo`); standard v2; `/studio/render`; transparentność OBS; `ScoreboardBoundsProvider`/skalowanie sceny; resolver `positionToStyle` (semantyka anchor pozostaje bez zmian).
+`GlassBoostGauge` i glass; typ `boostGauge` w `src/types/overlayV2.ts` (reużycie pola); dane (`activeCameraTarget`, `useLiveStatsV2`); standard v2; resolver pozycji; transparentność OBS.
 
-## 7. DoD
-- Typ `'y2k'`, preset "Y2K CHROME" dostępny na liście kreatora (ensure + bump działa).
-- `/v2/overlay` z `theme:'y2k'` renderuje Y2kStage; glass i standard bez regresji.
-- **Scorebar Y2K — twardy pomiar geometrii**: po włączeniu presetu Y2K w preview 1920×1080 (lub `/v2/overlay` rozciągniętym na 1920×1080) zmierzyć w DevTools `getBoundingClientRect().top` korzenia scorebara. Wartość MUSI być `0` (z dokładnością do <1 px po zaokrągleniu transformu). Jeśli `positionToStyle` przy anchorV:'top' daje top edge = `540+offsetY`, to dla offsetY=-540 wychodzi 0 niezależnie od `coverHeight` — ale to ZWERYFIKOWAĆ pomiarem, nie założyć. Jeśli pomiar wskaże inną wartość, skorygować offsetY w preset configu (NIE łatać resolvera ani komponentu).
-- **Boost — sensowny default**: po pierwszym wczytaniu presetu Y2K boost lewy i prawy siedzą przy krawędziach obszaru gry, symetrycznie, nie zachodzą na scorebar i nie wystają poza 1920×1080. Wartości w preset configu mają być dostrojone (mierzone w preview), nie placeholdery „do uzupełnienia".
-- Nazwa drużyny do 25 znaków mieści się w pasku (schodkowy font + ellipsis dla >25); brak pigułek serii, brak "BO5//", brak "MATCH POINT".
-- Karta zawodnika: ranga z `RankIcon`, swap ranga↔GOL działa, brak rangi → panel bez boxa. Offset rangi (X/Y) i rozmiar działają zarówno PRZED jak i PO swapie GOL (offset poza transformem motion — zweryfikować, że po triggerze gola ranga nie wraca do (0,0)).
-- Boost: pozycja przesuwalna w kreatorze; scorebar: pozycja + cover edytowalne; pola koloru/skew/opacity/fontu dla y2k ukryte w `StyleEditorV2`.
-- `teamNameBlue/Orange.visible:false` w presecie Y2K nie wpływa na inne presety (standard/glass) — przełączyć motyw tam i z powrotem; nazwy drużyn w standardzie nadal renderowane.
-- Scanlines tylko wewnątrz paneli; scena OBS transparentna poza elementami (sprawdzić `/v2/overlay` na czarnym tle OBS — żadnego pełnoekranowego wzoru).
-- TS/lint czysto.
+## 6. DoD
+
+- [ ] `Y2kBoostGauge` renderuje się w `theme:'y2k'` gdy `boostGauge.visible`.
+- [ ] Okrągły, chromowany; pierścień gradientowy wg strony gracza; kropkowana skala fioletowego chromu widoczna.
+- [ ] Stany `<10` (czerwony pierścień + cyfra) i `=100` (złota cyfra) działają.
+- [ ] Boost pochodzi z gracza wskazanego przez `activeCameraTarget`; brak gracza → fade-out 150 ms.
+- [ ] Domyślnie prawy dolny róg, 230 px; przy domyślnych wartościach zakrywa natywny wskaźnik RL (weryfikacja na 1920×1080).
+- [ ] Pozycja i rozmiar edytowalne w `StyleEditorV2` dla y2k (sekcja `boostGauge` widoczna).
+- [ ] `Y2K_PRESET_VERSION` podbity (1 → 2); istniejący wiersz presetu w DB zaktualizowany przez `ensureY2kPreset`/`updatePreset`.
+- [ ] Glass i standard bez regresji; TS/lint czysto.
