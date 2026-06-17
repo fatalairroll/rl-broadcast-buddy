@@ -1,63 +1,86 @@
-# FAZA 5 — Dorównanie kreatora do funkcji dashboardu
+## FAZA 6 — Wspólny TopNav + wygaszenie dashboardu
 
-Cel: po tej fazie `/creator` pokrywa 100% funkcji `/dashboard`. Dashboard zostaje nietknięty i działa równolegle.
+### 1. `src/components/layout/TopNav.tsx` (nowy)
 
-## Uwagi do dwóch sygnałów
+Sticky pasek (`border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50`):
+- Po lewej: **logo `Gamepad2` + "RL Broadcast"** (świadomie zostawione dla spójności wizualnej — pozycja 0, nieklikalna lub link do `/creator`).
+- Zakładki przez `NavLink` (`src/components/NavLink.tsx`) z `activeClassName` (podświetlenie aktywnej trasy — np. `bg-secondary text-foreground`):
+  - Kreator → `/creator`
+  - Studio → `/studio`
+  - Admin → `/admin`
+  - Gracze (v2) → `/v2/admin/players`
+  - Relay → `/relay`
+- Po prawej: `<RelayStatus />`, przycisk **Overlay** (`window.open('/v2/overlay', '_blank')`), przycisk **Wyloguj** (`signOut` + `navigate('/auth')`) — wymagany, bo z dashboardu znika dotychczasowe miejsce wylogowania.
 
-1. **Przycisk „Overlay" w nagłówku kreatora zostaje.** W przeciwieństwie do dashboardu (gdzie był redundantny i usunięto go w Fazie 1), w kreatorze otwiera `/v2/overlay` w nowej karcie — jest to praktyczne źródło URL-a do wklejenia w OBS. Inna rola, zostawiamy. Nowe akcje (`RelayStatus`, link `Relay`) dokładamy obok niego w prawym pasku.
+Świadomie: pasek ma 7 elementów akcji (logo + 5 zakładek + Overlay/Wyloguj + RelayStatus). Jeśli za gęsto — łatwy do późniejszego przycięcia, decyzja zostawiona na po wdrożeniu.
 
-2. **`createSession` — domyślna nazwa „Nowa transmisja" tylko jako fallback.** Skoro pole nazwy sesji i tak dodajemy w panelu (2b), przycisk „Utwórz nową transmisję" przyjmuje lokalny stan nazwy z input-a obok („Nazwa nowej transmisji", placeholder „np. Finał – RLCS"). Jeśli pole puste → fallback `'Nowa transmisja'`. Po sukcesie czyścimy lokalny input. Brak dodatkowego kroku „utworzyłem → teraz zmień nazwę".
+### 2. `src/components/layout/OperatorLayout.tsx` (nowy)
 
-## Zmiany w plikach
-
-### 1. `src/pages/Creator.tsx` — nagłówek
-- Dodać `<RelayStatus />` w prawym pasku akcji (po lewej od `Tabs` Mock/Live lub przed `Overlay`), import z `@/components/dashboard/RelayStatus`.
-- Dodać przycisk `Relay` (ikona `Settings`) obok przycisku `Overlay` → `navigate('/relay')`.
-- Przycisk `Overlay` zostaje (vide uwaga 1). Reszta layoutu bez zmian. Przycisk powrotu `Dashboard` także zostaje (wygaszanie to inna faza).
-
-### 2. `src/components/creator/BroadcastControlsPanel.tsx` — rozbudowa
-Wszystkie operacje przez istniejący `useBroadcast` (`updateSession`, `createSession`, `resetGameScore`). Ręczne pola nazw zostają.
-
-a) **Brak sesji** — zastąpić obecny komunikat „Utwórz w Dashboardzie" mini-formularzem:
+```text
+<TopNav />
+<Outlet />
 ```
-<Input value={newSessionName} onChange=... placeholder="np. Finał – RLCS" />
-<Button onClick={handleCreate}><Plus/> Utwórz nową transmisję</Button>
+
+W `src/App.tsx` owija trasy operatorskie:
+
+```text
+<Route element={<OperatorLayout />}>
+  <Route path="/creator" element={<Creator />} />
+  <Route path="/studio" element={<Studio />} />
+  <Route path="/admin" element={<Admin />} />
+  <Route path="/relay" element={<Relay />} />
+  <Route path="/v2/admin/players" element={<PlayersRegistryAdmin />} />
+</Route>
 ```
-gdzie:
-```
-const handleCreate = async () => {
-  const name = newSessionName.trim() || 'Nowa transmisja';
-  const { error } = await createSession(name);
-  if (error) toast({ variant:'destructive', title:'Błąd', description: error.message });
-  else { toast({ title:'Utworzono sesję' }); setNewSessionName(''); }
-};
-```
-Wymaga wyciągnięcia `createSession` i `resetGameScore` z `useBroadcast()` w komponencie.
 
-b) **Nazwa sesji/rundy** — nowe pole na górze pierwszej karty (przed nazwami drużyn), wzorzec lokalnego mirrora identyczny jak dla `nameA/nameB` (zapis na `onBlur` → `updateSession({ name })`). Placeholder „np. Finał – RLCS".
+Poza layoutem (czyste, bez TopNav): `/auth`, `/studio/render`, `/v2/overlay`.
 
-c) **Kolor i logo drużyn** — pod każdym `Input` nazwy dodać:
-  - Color picker (port wzorca z `TeamEditor.tsx:78-124`: `Popover` + `colorPresets` + `Input type="color"` + hex input). Wywołuje `updateSession({ team_a_color | team_b_color })`. Stała `colorPresets` lokalnie w pliku panelu.
-  - Pole `Input` URL logo (port z `TeamEditor.tsx:126-149`) z miniaturką po prawej, `onBlur` → `updateSession({ team_a_logo | team_b_logo })`. Lokalny mirror w `useState` analogicznie do nazw.
+### 3. `src/App.tsx` — redirecty i sprzątanie
 
-d) **Reset wyniku gry** — w grupie przycisków akcji dodać przycisk „Reset gry (0:0)" wywołujący `resetGameScore` (z `useBroadcast`), z `confirm` opcjonalnym.
+- `/` → `<Navigate to="/creator" replace />`
+- `/dashboard` → `<Navigate to="/creator" replace />` (trasa zostaje jako redirect, brak 404 ze starych linków)
+- Usunąć import `Dashboard`.
 
-e) **`clearManualData`** — zostawiamy bez zmian (nie czyści koloru ani logo świadomie; logo czyścimy pustym inputem → blur → `null`).
+### 4. `src/pages/Creator.tsx` — przebudowa nagłówka
 
-### 3. Brak innych zmian
-- `useBroadcast`, `BroadcastSession`, schema, `useTeams`, pola `team_a_id`/`team_b_id` — nietknięte.
-- Dashboard (`src/pages/Dashboard.tsx`, `src/components/dashboard/*`) — nietknięty.
-- `RelayStatus` — osadzony, nie przepisywany.
-- GLASS OVERLAY, `OverlayV2`, `useSeriesAutoTracker`, `applyMatchFromBracket` — bez zmian.
-- Redirecty Auth/`App.tsx` do `/dashboard` — nietknięte (osobna faza wygaszenia).
+- USUNĄĆ cały lokalny `<header>` (Dashboard/Overlay/Relay, tytuł, `RelayStatus`, Tabs Mock/Live) — zastąpi go `TopNav`.
+- Switcher **Mock/Live** (`Tabs` z `previewMode/setPreviewMode`) przenieść do `<main>`, nad `<V2Preview />`; logika bez zmian.
+- Wskaźnik "• niezapisane zmiany" przenieść nad Mock/Live lub do panelu presetów (lewa kolumna).
 
-## Definition of Done
+### 5. Aktualizacja celów nawigacji (`/dashboard` → `/creator`)
 
-- [ ] Z `/creator` można utworzyć sesję (z nazwą z pola lub fallback) bez wchodzenia w `/dashboard`.
-- [ ] Kolor drużyn, URL logo, reset gry, nazwa sesji — działają w kreatorze.
-- [ ] `RelayStatus` widoczny w nagłówku kreatora; przycisk `Relay` prowadzi do `/relay`; `Overlay` zachowany.
-- [ ] Ręczne nazwy drużyn nadal działają.
-- [ ] `useTeams` i `team_a/b_id` bez zmian (grep potwierdza).
-- [ ] Dashboard w pełni działa równolegle.
-- [ ] E2E: utwórz sesję w kreatorze → ustaw drużyny/kolory/logo/serię → `/v2/overlay` pokazuje poprawne dane.
-- [ ] GLASS OVERLAY niezmieniony, TS/lint czysto.
+- `src/pages/Auth.tsx:29`, `:68` — po login/signup → `/creator`.
+- `src/pages/Relay.tsx:1509` — przycisk powrotu → `/creator`.
+- `src/pages/Admin.tsx:202` — przycisk powrotu → `/creator`. Zakomentowany guard na linii 80 — podmienić tekst dla porządku.
+- `src/pages/PlayersRegistryAdmin.tsx:126` — `<Link to="/dashboard">` → `/creator`.
+- Komentarz w `Relay.tsx:1028` (treść skryptu) zostaje.
+
+### 6. Usunięcie plików dashboardu — z asekuracją
+
+Wstępny grep dał: `Dashboard.tsx` (tylko import w App), `MatchControls.tsx` (tylko Dashboard), `TeamEditor.tsx` (tylko Dashboard). Faza 5 portowała wzorzec color pickera/logo do `BroadcastControlsPanel`, więc `TeamEditor` nie powinien być importowany w kreatorze — ale weryfikujemy **przed** `rm`:
+
+Procedura — w jednym kroku, w tej kolejności:
+
+1. Usunąć trasę i import `Dashboard` z `App.tsx` (sekcja 3).
+2. `rg -n "from.*dashboard/Dashboard|from.*pages/Dashboard"` → musi zwrócić 0.
+3. `rg -n "from.*dashboard/MatchControls"` → musi zwrócić 0.
+4. `rg -n "from.*dashboard/TeamEditor"` → musi zwrócić 0. **Jeśli zwróci ≥1 — TeamEditor zostaje, raportuję i nie usuwam.**
+5. Dopiero potem `rm`:
+   - `src/pages/Dashboard.tsx`
+   - `src/components/dashboard/MatchControls.tsx`
+   - `src/components/dashboard/TeamEditor.tsx` (warunkowo)
+6. `src/components/dashboard/RelayStatus.tsx` **ZOSTAJE** — używany przez `TopNav`. Bez przenoszenia pliku.
+7. Po `rm` — sprawdzić output buildu; jeśli czerwone, przywrócić ostatni problematyczny plik.
+
+### 7. Weryfikacja końcowa
+
+- `rg "to=\"/dashboard\"|navigate\\('/dashboard'\\)"` → 0 (poza redirect w `App.tsx`).
+- Build/TS czysto.
+- Wizualnie: TopNav na `/creator`, `/studio`, `/admin`, `/v2/admin/players`, `/relay`; brak na `/studio/render`, `/v2/overlay`, `/auth`.
+- `/v2/overlay` i `/studio/render` renderują się identycznie (źródła OBS nienaruszone).
+- Switcher Mock/Live działa w treści kreatora.
+- Aktywna zakładka wyróżniona wg trasy.
+
+### Czego NIE ruszam
+
+GLASS OVERLAY, `OverlayV2`, `StudioRender`, `BroadcastSession`/`useBroadcast`, `useTeams`, `team_a/b_id`, `useSeriesAutoTracker`, `BroadcastControlsPanel`, struktura `/admin`, `/relay`, `/studio`.
