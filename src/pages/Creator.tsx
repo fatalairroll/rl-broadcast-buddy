@@ -9,15 +9,11 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft,
   Save,
   Plus,
   Trash2,
   Star,
-  Monitor,
-  ExternalLink,
   RotateCcw,
-  Settings,
 } from 'lucide-react';
 import {
   defaultOverlayV2Config,
@@ -30,10 +26,8 @@ import { ElementListV2 } from '@/components/creator/ElementListV2';
 import { StyleEditorV2 } from '@/components/creator/StyleEditorV2';
 import { V2Preview } from '@/components/creator/V2Preview';
 import { BroadcastControlsPanel } from '@/components/creator/BroadcastControlsPanel';
-import { RelayStatus } from '@/components/dashboard/RelayStatus';
 
 export default function Creator() {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const { presets, createPreset, updatePreset, deletePreset, setDefault } = useV2Presets();
 
@@ -130,46 +124,16 @@ export default function Creator() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container flex items-center justify-between h-14">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Dashboard
-            </Button>
-            <h1 className="text-lg font-bold">Kreator Overlay V2</h1>
-            {dirty && <span className="text-xs text-amber-500">• niezapisane zmiany</span>}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <RelayStatus />
-            <Tabs value={previewMode} onValueChange={(v) => setPreviewMode(v as 'mock' | 'live')}>
-              <TabsList>
-                <TabsTrigger value="mock">Mock</TabsTrigger>
-                <TabsTrigger value="live">Live</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button variant="ghost" size="sm" onClick={() => window.open('/v2/overlay', '_blank')}>
-              <Monitor className="mr-2 h-4 w-4" />
-              Overlay
-              <ExternalLink className="ml-1 h-3 w-3" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/relay')}>
-              <Settings className="mr-2 h-4 w-4" />
-              Relay
-            </Button>
-          </div>
-        </div>
-      </header>
-
+    <div className="flex-1 flex flex-col min-h-0">
       <div className="flex-1 flex overflow-hidden">
         {/* Left column: presets + elements */}
         <aside className="w-72 border-r border-border bg-card/30 overflow-y-auto p-4 space-y-4 shrink-0">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Preset</CardTitle>
+              <CardTitle className="text-sm flex items-center justify-between gap-2">
+                <span>Preset</span>
+                {dirty && <span className="text-xs font-normal text-amber-500">• niezapisane zmiany</span>}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <Select value={selectedId ?? ''} onValueChange={handleLoad}>
@@ -225,6 +189,14 @@ export default function Creator() {
 
         {/* Center: live preview */}
         <main className="flex-1 overflow-auto p-6 bg-grid-pattern flex flex-col items-center gap-6">
+          <div className="flex items-center gap-3">
+            <Tabs value={previewMode} onValueChange={(v) => setPreviewMode(v as 'mock' | 'live')}>
+              <TabsList>
+                <TabsTrigger value="mock">Mock</TabsTrigger>
+                <TabsTrigger value="live">Live</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           <div className="border border-border shadow-2xl">
             <V2Preview config={config} mode={previewMode} scale={0.5} />
           </div>
