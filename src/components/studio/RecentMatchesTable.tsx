@@ -19,6 +19,17 @@ import {
   glassLabel,
   glassContentLayer,
 } from '@/lib/studio-glass-theme';
+import {
+  NB_ACID,
+  NB_BORDER,
+  NB_BORDER_THIN,
+  NB_DIM,
+  NB_FONT,
+  NB_INK,
+  NB_MONO,
+  NB_WHITE,
+  nbShadowSmall,
+} from '@/lib/studio-neobrutal-theme';
 
 interface RecentMatchesTableProps {
   matches: MatchData[];
@@ -262,6 +273,12 @@ function MatchRow({
 
 export function RecentMatchesTable({ matches, theme = 'standard' }: RecentMatchesTableProps) {
   const isGlass = theme === 'sharp-glass';
+  const isNeobrutal = theme === 'neobrutal';
+
+  if (isNeobrutal) {
+    return <NbRecentMatchesTable matches={matches} />;
+  }
+
   const skew = isGlass ? 0 : STD_SKEW;
   const unskew = isGlass ? 0 : STD_UNSKEW;
   const containerRef = useRef<HTMLDivElement>(null);
