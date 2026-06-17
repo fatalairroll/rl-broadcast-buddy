@@ -26,7 +26,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/dashboard');
+      navigate('/creator');
     }
   }, [user, navigate]);
 
@@ -65,7 +65,7 @@ export default function Auth() {
           : error.message,
       });
     } else {
-      navigate('/dashboard');
+      navigate('/creator');
     }
   };
 

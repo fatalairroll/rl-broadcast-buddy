@@ -123,10 +123,10 @@ export default function PlayersRegistryAdmin() {
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link to="/dashboard">
+            <Link to="/creator">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Dashboard
+                Kreator
               </Button>
             </Link>
             <h1 className="text-3xl font-black uppercase tracking-tight">

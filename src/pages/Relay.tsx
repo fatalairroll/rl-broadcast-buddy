@@ -1506,7 +1506,7 @@ export default function Relay() {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/creator')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <Gamepad2 className="h-6 w-6 text-primary" />
