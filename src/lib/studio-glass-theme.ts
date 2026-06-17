@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-export type StudioTheme = 'standard' | 'sharp-glass';
+export type StudioTheme = 'standard' | 'sharp-glass' | 'neobrutal';
 
 /* ── Kolory bazowe ── */
 export const GLASS_BLUE_FROM = 'rgba(0,175,255,.48)';
