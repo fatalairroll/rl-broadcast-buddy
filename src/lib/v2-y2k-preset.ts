@@ -2,7 +2,7 @@ import { defaultOverlayV2Config, type OverlayV2Config } from '@/types/overlayV2'
 import type { OverlayV2Preset } from '@/hooks/useOverlayV2Config';
 
 export const Y2K_PRESET_NAME = 'Y2K CHROME';
-export const Y2K_PRESET_VERSION = 1;
+export const Y2K_PRESET_VERSION = 2;
 
 export const Y2K_OVERLAY_CONFIG: OverlayV2Config = {
   ...defaultOverlayV2Config,
@@ -31,7 +31,12 @@ export const Y2K_OVERLAY_CONFIG: OverlayV2Config = {
     rankOffsetX: 0,
     rankOffsetY: 0,
   },
-  boostGauge: { ...defaultOverlayV2Config.boostGauge, visible: false },
+  boostGauge: {
+    ...defaultOverlayV2Config.boostGauge,
+    visible: true,
+    size: 230,
+    position: { anchorH: 'right', anchorV: 'bottom', offsetX: -936, offsetY: 424 },
+  },
   general: { ...defaultOverlayV2Config.general, theme: 'y2k', presetVersion: Y2K_PRESET_VERSION },
 };
 
