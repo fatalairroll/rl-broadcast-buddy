@@ -17,6 +17,7 @@ import {
   Monitor,
   ExternalLink,
   RotateCcw,
+  Settings,
 } from 'lucide-react';
 import {
   defaultOverlayV2Config,
@@ -29,6 +30,7 @@ import { ElementListV2 } from '@/components/creator/ElementListV2';
 import { StyleEditorV2 } from '@/components/creator/StyleEditorV2';
 import { V2Preview } from '@/components/creator/V2Preview';
 import { BroadcastControlsPanel } from '@/components/creator/BroadcastControlsPanel';
+import { RelayStatus } from '@/components/dashboard/RelayStatus';
 
 export default function Creator() {
   const navigate = useNavigate();
@@ -142,6 +144,7 @@ export default function Creator() {
           </div>
 
           <div className="flex items-center gap-2">
+            <RelayStatus />
             <Tabs value={previewMode} onValueChange={(v) => setPreviewMode(v as 'mock' | 'live')}>
               <TabsList>
                 <TabsTrigger value="mock">Mock</TabsTrigger>
@@ -152,6 +155,10 @@ export default function Creator() {
               <Monitor className="mr-2 h-4 w-4" />
               Overlay
               <ExternalLink className="ml-1 h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/relay')}>
+              <Settings className="mr-2 h-4 w-4" />
+              Relay
             </Button>
           </div>
         </div>
