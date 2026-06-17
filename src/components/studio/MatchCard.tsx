@@ -23,6 +23,20 @@ import {
   glassLabel,
   glassContentLayer,
 } from '@/lib/studio-glass-theme';
+import {
+  NB_ACID,
+  NB_BLUE,
+  NB_BORDER,
+  NB_BORDER_THIN,
+  NB_DIM,
+  NB_FONT,
+  NB_INK,
+  NB_MONO,
+  NB_ORANGE,
+  NB_WHITE,
+  nbShadow,
+  nbShadowSmall,
+} from '@/lib/studio-neobrutal-theme';
 
 function formatCheckInTime(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -602,6 +616,16 @@ function HeaderPanel({ roundIndex, matchIndex, bestOf, theme = 'standard' }: { r
 export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults, theme = 'standard' }: MatchCardProps) {
   const activePollKey = `Runda ${match.round_index} Mecz ${match.match_index ?? '?'}`;
   const activePollPct = pollResults?.[activePollKey];
+
+  if (theme === 'neobrutal') {
+    return (
+      <NbMatchView
+        match={match}
+        upcomingMatches={upcomingMatches}
+        pollResults={pollResults}
+      />
+    );
+  }
 
   return (
     <motion.div
