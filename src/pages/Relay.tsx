@@ -59,6 +59,14 @@ except Exception as e:
         f"Szczegol: {e}"
     )
 
+try:
+    import requests  # type: ignore
+except Exception as e:
+    raise SystemExit(
+        "Brakuje pakietu 'requests'. Uruchom: pip install requests\\n"
+        f"Szczegol: {e}"
+    )
+
 # === KONFIGURACJA (wstrzykiwana przez Lovable) ===
 SUPABASE_URL = '${SUPABASE_URL}'
 SUPABASE_ANON_KEY = '${SUPABASE_ANON_KEY}'
@@ -1016,6 +1024,30 @@ def db_worker_loop() -> None:
 def heartbeat_loop() -> None:
     while True:
         time.sleep(HEARTBEAT_S)
+        # Broadcast RELAY_PING do Supabase Realtime — odbiera <RelayStatus />
+        # w aplikacji (kanal rl_broadcast_room). Pozwala dashboardowi pokazac
+        # ze relay zyje, nawet gdy nie ma jeszcze danych z RL.
+        try:
+            requests.post(
+                f"{SUPABASE_URL}/realtime/v1/api/broadcast",
+                headers={
+                    "Content-Type": "application/json",
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+                },
+                json={
+                    "messages": [{
+                        "topic": "rl_broadcast_room",
+                        "event": "RELAY_PING",
+                        "payload": {"timestamp": int(time.time() * 1000)},
+                        "private": False,
+                    }]
+                },
+                timeout=2.0,
+            )
+        except Exception as _ping_err:
+            # nie blokujemy heartbeatu, jak nie ma sieci to overlay sam zczerwienieje
+            pass
         with state_lock:
             mode = stats["mode"]
             no_data_for = (time.time() - last_event_at) if last_event_at else None
