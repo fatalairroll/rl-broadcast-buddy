@@ -32,6 +32,14 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
     onChange({ ...config, [key]: { ...config[key], ...patch } });
   const { session } = useBroadcast();
   const overrides = useRegistryOverrides(session);
+  const isY2k = config.general.theme === 'y2k';
+
+  // For Y2K: lock all design fields (hardcoded look). Only position/size editable.
+  const y2kLockedNotice = (
+    <p className="text-[10px] text-muted-foreground leading-snug">
+      Motyw Y2K CHROME ma styl hardcodowany. Edytowalne są tylko pozycja i rozmiar.
+    </p>
+  );
 
   return (
     <Card>
@@ -39,7 +47,17 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
         <CardTitle className="text-base">{V2_ELEMENT_LABELS[element]}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
-        {element === 'scoreboard' && (
+        {element === 'scoreboard' && isY2k && (
+          <>
+            <Toggle label="Widoczny" value={config.scoreboard.visible} onChange={(v) => update('scoreboard', { visible: v })} />
+            <PositionEditor value={config.scoreboard.position} onChange={(p) => update('scoreboard', { position: p })} />
+            <Separator />
+            <SliderInput label="Szerokość belki" value={config.scoreboard.coverWidth ?? 740} onValueChange={(v) => update('scoreboard', { coverWidth: v })} min={400} max={1600} unit="px" />
+            <SliderInput label="Wysokość belki" value={config.scoreboard.coverHeight ?? 76} onValueChange={(v) => update('scoreboard', { coverHeight: v })} min={48} max={200} unit="px" />
+            {y2kLockedNotice}
+          </>
+        )}
+        {element === 'scoreboard' && !isY2k && (
           <>
             <Toggle label="Widoczny" value={config.scoreboard.visible} onChange={(v) => update('scoreboard', { visible: v })} />
             <PositionEditor value={config.scoreboard.position} onChange={(p) => update('scoreboard', { position: p })} />
@@ -92,7 +110,18 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
           </>
         )}
 
-        {element === 'boostBar' && (
+        {element === 'boostBar' && isY2k && (
+          <>
+            <Toggle label="Widoczne" value={config.boostBar.visible} onChange={(v) => update('boostBar', { visible: v })} />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja lewy stack</h4>
+            <PositionEditor value={config.boostBar.positionLeft} onChange={(p) => update('boostBar', { positionLeft: p })} />
+            <Separator />
+            <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja prawy stack</h4>
+            <PositionEditor value={config.boostBar.positionRight} onChange={(p) => update('boostBar', { positionRight: p })} />
+            {y2kLockedNotice}
+          </>
+        )}
+        {element === 'boostBar' && !isY2k && (
           <>
             <Toggle label="Widoczne" value={config.boostBar.visible} onChange={(v) => update('boostBar', { visible: v })} />
             <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja lewy stack</h4>
@@ -141,7 +170,18 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
           </>
         )}
 
-        {element === 'playerCard' && (
+        {element === 'playerCard' && isY2k && (
+          <>
+            <Toggle label="Widoczna" value={config.playerCard.visible} onChange={(v) => update('playerCard', { visible: v })} />
+            <PositionEditor value={config.playerCard.position} onChange={(p) => update('playerCard', { position: p })} />
+            <Separator />
+            <SliderInput label="Rozmiar ikony rangi" value={config.playerCard.rankIconSize ?? 48} onValueChange={(v) => update('playerCard', { rankIconSize: v })} min={16} max={120} unit="px" />
+            <SliderInput label="Ranga - offset X" value={config.playerCard.rankOffsetX ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetX: v })} min={-100} max={100} unit="px" />
+            <SliderInput label="Ranga - offset Y" value={config.playerCard.rankOffsetY ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetY: v })} min={-100} max={100} unit="px" />
+            {y2kLockedNotice}
+          </>
+        )}
+        {element === 'playerCard' && !isY2k && (
           <>
             <Toggle label="Widoczna" value={config.playerCard.visible} onChange={(v) => update('playerCard', { visible: v })} />
             <PositionEditor value={config.playerCard.position} onChange={(p) => update('playerCard', { position: p })} />

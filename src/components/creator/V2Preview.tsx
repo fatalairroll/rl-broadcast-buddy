@@ -4,6 +4,7 @@ import { PlayerCardV2 } from '@/components/v2/PlayerCardV2';
 import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
 import { TeamNameV2 } from '@/components/v2/TeamNameV2';
 import { V2GlassStage } from '@/components/v2/glass/V2GlassStage';
+import { V2Y2kStage } from '@/components/v2/y2k/V2Y2kStage';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useBroadcastSeries } from '@/hooks/useBroadcastSeries';
 import { useBroadcast } from '@/hooks/useBroadcast';
@@ -53,6 +54,7 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
   const orangeName = useMock ? 'TEAM ORANGE' : (session?.team_b_name ?? '');
 
   const isGlass = config.general.theme === 'glass';
+  const isY2k = config.general.theme === 'y2k';
 
   return (
     <ScoreboardBoundsProvider>
@@ -84,6 +86,20 @@ export function V2Preview({ config, mode, scale = 0.5 }: Props) {
         >
         {isGlass ? (
           <V2GlassStage
+            config={config}
+            match={match}
+            blue={blue}
+            orange={orange}
+            activePlayer={activePlayer}
+            activeRegistry={activeRegistry}
+            registryMap={registryMap}
+            series={series}
+            blueName={blueName}
+            orangeName={orangeName}
+            mmrOverride={mmrOverride}
+          />
+        ) : isY2k ? (
+          <V2Y2kStage
             config={config}
             match={match}
             blue={blue}

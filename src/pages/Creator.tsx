@@ -21,6 +21,7 @@ import {
 } from '@/types/overlayV2';
 import { useV2Presets } from '@/hooks/useOverlayV2Config';
 import { ensureGlassPreset } from '@/lib/v2-glass-preset';
+import { ensureY2kPreset } from '@/lib/v2-y2k-preset';
 import { ElementListV2 } from '@/components/creator/ElementListV2';
 import { StyleEditorV2 } from '@/components/creator/StyleEditorV2';
 import { V2Preview } from '@/components/creator/V2Preview';
@@ -37,13 +38,14 @@ export default function Creator() {
   const [previewMode, setPreviewMode] = useState<'mock' | 'live'>('mock');
   const [dirty, setDirty] = useState(false);
 
-  // Bootstrap GLASS OVERLAY preset once if missing.
-  const [glassEnsured, setGlassEnsured] = useState(false);
+  // Bootstrap systemowe presety (GLASS, Y2K) once if missing.
+  const [presetsEnsured, setPresetsEnsured] = useState(false);
   useEffect(() => {
-    if (glassEnsured || presets.length === 0) return;
-    setGlassEnsured(true);
+    if (presetsEnsured || presets.length === 0) return;
+    setPresetsEnsured(true);
     ensureGlassPreset(presets, createPreset, updatePreset);
-  }, [presets, createPreset, glassEnsured]);
+    ensureY2kPreset(presets, createPreset, updatePreset);
+  }, [presets, createPreset, updatePreset, presetsEnsured]);
 
   // Load default preset on mount
   useEffect(() => {
