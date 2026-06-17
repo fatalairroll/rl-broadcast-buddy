@@ -197,7 +197,7 @@ export interface GeneralV2Style {
   animationsEnabled: boolean;
   transitionDuration: number; // ms
   globalScale: number;        // 0.5..2.0
-  theme: 'standard' | 'glass' | 'y2k';
+  theme: 'standard' | 'glass' | 'y2k' | 'neobrutal';
   /** Bumped by system presets (e.g. GLASS OVERLAY) to force re-seed on schema changes. */
   presetVersion?: number;
 }
