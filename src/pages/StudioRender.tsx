@@ -8,6 +8,7 @@ import { BracketView } from '@/components/studio/BracketView';
 import { RecentMatchesTable } from '@/components/studio/RecentMatchesTable';
 import { PostgameSummary } from '@/components/studio/PostgameSummary';
 import { StudioContentFrame } from '@/components/studio/StudioContentFrame';
+import { NeobrutalScene, type NeobrutalViewKey } from '@/components/studio/NeobrutalScene';
 import { STUDIO_RECENT_OFFSET_TOP } from '@/lib/studio-layout';
 import { usePostgameRelay } from '@/hooks/usePostgameRelay';
 import { selectablePools } from '@/lib/pool-utils';
@@ -32,8 +33,14 @@ export default function StudioRender() {
   const count = Number(params.get('count') ?? '3');
   const key = params.get('key') ?? '';
   const urlPool = params.get('pool_id') ?? '';
+  const themeParam = params.get('theme');
   const theme: StudioTheme =
-    params.get('theme') === 'glass' ? 'sharp-glass' : 'standard';
+    themeParam === 'glass'
+      ? 'sharp-glass'
+      : themeParam === 'neobrutal'
+        ? 'neobrutal'
+        : 'standard';
+  const isNeobrutal = theme === 'neobrutal';
 
   const authorized = key === VALID_KEY;
 
@@ -183,6 +190,17 @@ export default function StudioRender() {
   const activeMatch = queue[0];
   const upcomingMatches = queue.slice(1);
   const obs = !!params.get('obs');
+
+  const wrap = (view: NeobrutalViewKey, content: ReactNode) => {
+    if (isNeobrutal) {
+      return (
+        <NeobrutalScene view={view} tournamentName={tournament?.name}>
+          {content}
+        </NeobrutalScene>
+      );
+    }
+    return <StudioContentFrame obs={obs}>{content}</StudioContentFrame>;
+  };
 
   return (
     <div className="min-h-screen" style={{ background: 'transparent' }}>
