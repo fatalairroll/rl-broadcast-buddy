@@ -22,6 +22,7 @@ import {
 import { useV2Presets } from '@/hooks/useOverlayV2Config';
 import { ensureGlassPreset } from '@/lib/v2-glass-preset';
 import { ensureY2kPreset } from '@/lib/v2-y2k-preset';
+import { ensureNeobrutalPreset } from '@/lib/v2-neobrutal-preset';
 import { ElementListV2 } from '@/components/creator/ElementListV2';
 import { StyleEditorV2 } from '@/components/creator/StyleEditorV2';
 import { V2Preview } from '@/components/creator/V2Preview';
@@ -45,6 +46,7 @@ export default function Creator() {
     setPresetsEnsured(true);
     ensureGlassPreset(presets, createPreset, updatePreset);
     ensureY2kPreset(presets, createPreset, updatePreset);
+    ensureNeobrutalPreset(presets, createPreset, updatePreset);
   }, [presets, createPreset, updatePreset, presetsEnsured]);
 
   // Load default preset on mount

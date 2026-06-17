@@ -33,11 +33,13 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
   const { session } = useBroadcast();
   const overrides = useRegistryOverrides(session);
   const isY2k = config.general.theme === 'y2k';
+  const isNeobrutal = config.general.theme === 'neobrutal';
+  const isLocked = isY2k || isNeobrutal;
 
   // For Y2K: lock all design fields (hardcoded look). Only position/size editable.
-  const y2kLockedNotice = (
+  const lockedNotice = (
     <p className="text-[10px] text-muted-foreground leading-snug">
-      Motyw Y2K CHROME ma styl hardcodowany. Edytowalne są tylko pozycja i rozmiar.
+      {isNeobrutal ? 'Motyw NEO-BRUTALISM' : 'Motyw Y2K CHROME'} ma styl hardcodowany. Edytowalne są tylko pozycja i rozmiar.
     </p>
   );
 
@@ -47,17 +49,17 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
         <CardTitle className="text-base">{V2_ELEMENT_LABELS[element]}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
-        {element === 'scoreboard' && isY2k && (
+        {element === 'scoreboard' && isLocked && (
           <>
             <Toggle label="Widoczny" value={config.scoreboard.visible} onChange={(v) => update('scoreboard', { visible: v })} />
             <PositionEditor value={config.scoreboard.position} onChange={(p) => update('scoreboard', { position: p })} />
             <Separator />
             <SliderInput label="Szerokość belki" value={config.scoreboard.coverWidth ?? 740} onValueChange={(v) => update('scoreboard', { coverWidth: v })} min={400} max={1600} unit="px" />
             <SliderInput label="Wysokość belki" value={config.scoreboard.coverHeight ?? 76} onValueChange={(v) => update('scoreboard', { coverHeight: v })} min={48} max={200} unit="px" />
-            {y2kLockedNotice}
+            {lockedNotice}
           </>
         )}
-        {element === 'scoreboard' && !isY2k && (
+        {element === 'scoreboard' && !isLocked && (
           <>
             <Toggle label="Widoczny" value={config.scoreboard.visible} onChange={(v) => update('scoreboard', { visible: v })} />
             <PositionEditor value={config.scoreboard.position} onChange={(p) => update('scoreboard', { position: p })} />
@@ -110,7 +112,7 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
           </>
         )}
 
-        {element === 'boostBar' && isY2k && (
+        {element === 'boostBar' && isLocked && (
           <>
             <Toggle label="Widoczne" value={config.boostBar.visible} onChange={(v) => update('boostBar', { visible: v })} />
             <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja lewy stack</h4>
@@ -118,10 +120,10 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <Separator />
             <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja prawy stack</h4>
             <PositionEditor value={config.boostBar.positionRight} onChange={(p) => update('boostBar', { positionRight: p })} />
-            {y2kLockedNotice}
+            {lockedNotice}
           </>
         )}
-        {element === 'boostBar' && !isY2k && (
+        {element === 'boostBar' && !isLocked && (
           <>
             <Toggle label="Widoczne" value={config.boostBar.visible} onChange={(v) => update('boostBar', { visible: v })} />
             <h4 className="text-xs uppercase text-muted-foreground tracking-wider">Pozycja lewy stack</h4>
@@ -170,7 +172,7 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
           </>
         )}
 
-        {element === 'playerCard' && isY2k && (
+        {element === 'playerCard' && isLocked && (
           <>
             <Toggle label="Widoczna" value={config.playerCard.visible} onChange={(v) => update('playerCard', { visible: v })} />
             <PositionEditor value={config.playerCard.position} onChange={(p) => update('playerCard', { position: p })} />
@@ -178,10 +180,10 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <SliderInput label="Rozmiar ikony rangi" value={config.playerCard.rankIconSize ?? 48} onValueChange={(v) => update('playerCard', { rankIconSize: v })} min={16} max={120} unit="px" />
             <SliderInput label="Ranga - offset X" value={config.playerCard.rankOffsetX ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetX: v })} min={-100} max={100} unit="px" />
             <SliderInput label="Ranga - offset Y" value={config.playerCard.rankOffsetY ?? 0} onValueChange={(v) => update('playerCard', { rankOffsetY: v })} min={-100} max={100} unit="px" />
-            {y2kLockedNotice}
+            {lockedNotice}
           </>
         )}
-        {element === 'playerCard' && !isY2k && (
+        {element === 'playerCard' && !isLocked && (
           <>
             <Toggle label="Widoczna" value={config.playerCard.visible} onChange={(v) => update('playerCard', { visible: v })} />
             <PositionEditor value={config.playerCard.position} onChange={(p) => update('playerCard', { position: p })} />
@@ -301,7 +303,7 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
           />
         )}
 
-        {element === 'boostGauge' && (config.general.theme === 'glass' || isY2k) && (
+        {element === 'boostGauge' && (config.general.theme === 'glass' || isLocked) && (
           <>
             <Toggle label="Widoczny" value={config.boostGauge.visible} onChange={(v) => update('boostGauge', { visible: v })} />
             <PositionEditor value={config.boostGauge.position} onChange={(p) => update('boostGauge', { position: p })} />
@@ -310,12 +312,12 @@ export function StyleEditorV2({ config, element, onChange }: Props) {
             <p className="text-[10px] text-muted-foreground leading-snug">
               Pierścień pokazuje boost aktywnego gracza. Kolor wg drużyny; &lt; 10 czerwony, = 100 złoty.
             </p>
-            {isY2k && y2kLockedNotice}
+            {isLocked && lockedNotice}
           </>
         )}
-        {element === 'boostGauge' && config.general.theme !== 'glass' && !isY2k && (
+        {element === 'boostGauge' && config.general.theme !== 'glass' && !isLocked && (
           <p className="text-xs text-muted-foreground leading-snug">
-            Wskaźnik boosta (gauge) jest dostępny dla motywów <b>Glass</b> i <b>Y2K CHROME</b>.
+            Wskaźnik boosta (gauge) jest dostępny dla motywów <b>Glass</b>, <b>Y2K CHROME</b> i <b>NEO-BRUTALISM</b>.
             Zmień motyw w sekcji „Ogólne", aby go skonfigurować i wyświetlić w overlay.
           </p>
         )}

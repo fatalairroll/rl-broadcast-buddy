@@ -6,6 +6,7 @@ import { SeriesScoreV2 } from '@/components/v2/SeriesScoreV2';
 import { TeamNameV2 } from '@/components/v2/TeamNameV2';
 import { V2GlassStage } from '@/components/v2/glass/V2GlassStage';
 import { V2Y2kStage } from '@/components/v2/y2k/V2Y2kStage';
+import { V2NeobrutalStage } from '@/components/v2/neobrutal/V2NeobrutalStage';
 import { useLiveStatsV2 } from '@/hooks/useLiveStatsV2';
 import { useActiveV2Config } from '@/hooks/useOverlayV2Config';
 import { useOverlayVisibility } from '@/hooks/useOverlayVisibility';
@@ -36,6 +37,7 @@ export default function OverlayV2() {
   const mmrOverride = useActivePlayerMmrInfo(session, activeMmrMatch, activeCameraTarget);
   const isGlass = config.general.theme === 'glass';
   const isY2k = config.general.theme === 'y2k';
+  const isNeobrutal = config.general.theme === 'neobrutal';
 
   // Transparent body for OBS capture
   useEffect(() => {
@@ -111,6 +113,20 @@ export default function OverlayV2() {
           />
         ) : isY2k ? (
           <V2Y2kStage
+            config={config}
+            match={match}
+            blue={blue}
+            orange={orange}
+            activePlayer={activePlayer}
+            activeRegistry={activeRegistry}
+            registryMap={registryMap}
+            series={series}
+            blueName={session?.team_a_name ?? ''}
+            orangeName={session?.team_b_name ?? ''}
+            mmrOverride={mmrOverride}
+          />
+        ) : isNeobrutal ? (
+          <V2NeobrutalStage
             config={config}
             match={match}
             blue={blue}
