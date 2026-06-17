@@ -14,8 +14,11 @@ import { fetchTournaments, fetchMatches } from '@/lib/mmrivals-api';
 import type { PoolData, Tournament, StudioMode } from '@/types/studio';
 import type { StudioTheme } from '@/lib/studio-glass-theme';
 import { selectablePools, poolTabLabel, isPoolTournament } from '@/lib/pool-utils';
-import { Copy, ExternalLink } from 'lucide-react';
+import { Copy, ExternalLink, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
+const STREAMER_KEY_LS = 'rlbroadcast.toolKey';
 
 export default function Studio() {
   const { toast } = useToast();
@@ -23,7 +26,14 @@ export default function Studio() {
   const [selectedTournament, setSelectedTournament] = useState('');
   const [mode, setMode] = useState<StudioMode>('next_3');
   const [count, setCount] = useState('1');
-  const [streamerKey, setStreamerKey] = useState('');
+  const [streamerKey, setStreamerKey] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem(STREAMER_KEY_LS) ?? '';
+  });
+  const [keyOpen, setKeyOpen] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return !(localStorage.getItem(STREAMER_KEY_LS) ?? '');
+  });
   const [loading, setLoading] = useState(true);
   const [pools, setPools] = useState<PoolData[]>([]);
   const [usePools, setUsePools] = useState(false);
@@ -36,6 +46,11 @@ export default function Studio() {
   useEffect(() => {
     localStorage.setItem('studio.theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (streamerKey) localStorage.setItem(STREAMER_KEY_LS, streamerKey);
+    else localStorage.removeItem(STREAMER_KEY_LS);
+  }, [streamerKey]);
 
   useEffect(() => {
     fetchTournaments()
@@ -209,14 +224,41 @@ export default function Studio() {
               )}
 
               {/* Streamer key */}
-              <div className="space-y-2">
-                <Label>Klucz streamera (do URL)</Label>
-                <Input
-                  value={streamerKey}
-                  onChange={(e) => setStreamerKey(e.target.value)}
-                  placeholder="Wpisz swój klucz autoryzacji"
-                />
-              </div>
+              <Collapsible open={keyOpen} onOpenChange={setKeyOpen} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Klucz streamera (do URL)</Label>
+                  <div className="flex items-center gap-2">
+                    {streamerKey && !keyOpen && (
+                      <span className="text-xs text-green-400">Klucz zapisany ✓</span>
+                    )}
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 px-2">
+                        {keyOpen ? 'Ukryj' : 'Zmień klucz'}
+                        <ChevronDown
+                          className={`ml-1 h-3 w-3 transition-transform ${keyOpen ? 'rotate-180' : ''}`}
+                        />
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                </div>
+                <CollapsibleContent className="space-y-2">
+                  <Input
+                    value={streamerKey}
+                    onChange={(e) => setStreamerKey(e.target.value)}
+                    placeholder="Wpisz swój klucz autoryzacji"
+                  />
+                  {streamerKey && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setStreamerKey('')}
+                      className="h-7 text-xs text-muted-foreground"
+                    >
+                      Wyczyść zapisany klucz
+                    </Button>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* OBS link */}
               {renderUrl && (
