@@ -512,3 +512,141 @@ function GlassStatRow({
 }
 
 export default PostgameSummary;
+
+/* ─────────────────── NEO-BRUTALISM ─────────────────── */
+
+function NbGridView({
+  data,
+  bluePlayers,
+  orangePlayers,
+}: {
+  data: PostgamePayload;
+  bluePlayers: PostgamePlayer[];
+  orangePlayers: PostgamePlayer[];
+}) {
+  return (
+    <div style={{ width: '100%', marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {ROWS.map((row) => {
+        const aVal = row.team(data, 'blue');
+        const bVal = row.team(data, 'orange');
+        const aWins = (aVal ?? 0) > (bVal ?? 0);
+        const bWins = (bVal ?? 0) > (aVal ?? 0);
+
+        const valueCell = (
+          text: string,
+          wins: boolean,
+          accent: string,
+          align: 'left' | 'right',
+        ): CSSProperties => ({
+          flex: 1,
+          minWidth: 0,
+          height: 46,
+          background: wins ? accent : NB_WHITE,
+          border: NB_BORDER,
+          boxShadow: nbShadowTiny,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: align === 'left' ? 'flex-start' : 'flex-end',
+          padding: '0 18px',
+          fontFamily: NB_FONT,
+          fontWeight: 900,
+          fontSize: 24,
+          color: wins ? NB_WHITE : NB_INK,
+        });
+
+        return (
+          <div
+            key={row.label}
+            style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}
+          >
+            <div style={valueCell(formatValue(aVal, row.format), aWins, NB_BLUE, 'right')}>
+              {formatValue(aVal, row.format)}
+            </div>
+            <div
+              style={{
+                minWidth: 260,
+                height: 46,
+                background: '#E8E4DA',
+                border: NB_BORDER,
+                boxShadow: nbShadowTiny,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: NB_MONO,
+                fontWeight: 700,
+                fontSize: 14,
+                color: NB_INK,
+                textTransform: 'uppercase',
+                letterSpacing: '.18em',
+                padding: '0 12px',
+              }}
+            >
+              {row.label}
+            </div>
+            <div style={valueCell(formatValue(bVal, row.format), bWins, NB_ORANGE, 'left')}>
+              {formatValue(bVal, row.format)}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Per-player nicks strip */}
+      <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+        <div style={{ flex: 1, display: 'flex', gap: 6 }}>
+          {bluePlayers.map((p, i) => (
+            <div
+              key={`bp-${i}`}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: '8px 10px',
+                background: NB_WHITE,
+                border: NB_BORDER_THIN,
+                fontFamily: NB_FONT,
+                fontWeight: 800,
+                fontSize: 13,
+                color: NB_INK,
+                textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                borderTop: `4px solid ${NB_BLUE}`,
+              }}
+              title={p.player_name}
+            >
+              {p.player_name}
+            </div>
+          ))}
+        </div>
+        <div style={{ width: 260 }} />
+        <div style={{ flex: 1, display: 'flex', gap: 6 }}>
+          {orangePlayers.map((p, i) => (
+            <div
+              key={`op-${i}`}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: '8px 10px',
+                background: NB_WHITE,
+                border: NB_BORDER_THIN,
+                fontFamily: NB_FONT,
+                fontWeight: 800,
+                fontSize: 13,
+                color: NB_INK,
+                textTransform: 'uppercase',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                borderTop: `4px solid ${NB_ORANGE}`,
+                textAlign: 'right',
+              }}
+              title={p.player_name}
+            >
+              {p.player_name}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
