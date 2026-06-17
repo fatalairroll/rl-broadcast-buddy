@@ -536,7 +536,24 @@ export function BracketView({
 
           return (
             <div key={roundIdx} className="flex flex-col items-center shrink-0" style={{ minWidth: CARD_WIDTH }}>
-              {isGlass ? (
+              {isNeobrutal ? (
+                <div
+                  style={{
+                    padding: '3px 10px',
+                    background: NB_ACID,
+                    border: NB_BORDER_THIN,
+                    fontFamily: NB_MONO,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '.18em',
+                    color: NB_INK,
+                    textTransform: 'uppercase',
+                    marginBottom: 8,
+                  }}
+                >
+                  R{roundIdx}{boInfo}
+                </div>
+              ) : isGlass ? (
                 <div
                   className="px-3 py-1 relative"
                   style={{ ...glassBarDead, ...chamferTag }}
