@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
@@ -286,58 +286,56 @@ export default function StudioRender() {
         </div>
       )}
 
-      {/* Content — unified frame for all modes */}
-      {isPostgame ? (
-        <StudioContentFrame obs={obs}>
-          <PostgameSummary
-            data={postgame}
-            state={{ postgame, connected: pgConnected, error: pgError }}
-            theme={theme}
-          />
-        </StudioContentFrame>
-      ) : mode === 'bracket' ? (
-        <StudioContentFrame obs={obs}>
-          <BracketView
-            matches={matches}
-            pools={pools}
-            usePools={usePools}
-            selectedPoolId={bracketPoolId || null}
-            onPoolChange={setBracketPoolId}
-            obs={obs}
-            theme={theme}
-          />
-        </StudioContentFrame>
-      ) : mode === 'recent' ? (
-        <StudioContentFrame obs={obs}>
-          <div style={{ marginTop: STUDIO_RECENT_OFFSET_TOP, width: '100%' }}>
-            <RecentMatchesTable matches={matches} theme={theme} />
-          </div>
-        </StudioContentFrame>
-      ) : (
-        <StudioContentFrame obs={obs}>
-          <div className="flex flex-col gap-4">
-            <AnimatePresence mode="wait">
-              {activeMatch && (
-                <motion.div
-                  key={activeMatch.match_id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <MatchCard
-                    match={activeMatch}
-                    gameMode={gameMode}
-                    upcomingMatches={upcomingMatches}
-                    pollResults={Object.keys(pollResults).length > 0 ? pollResults : undefined}
-                    theme={theme}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </StudioContentFrame>
-      )}
+      {/* Content — wrapped per theme */}
+      {isPostgame
+        ? wrap('postgame', (
+            <PostgameSummary
+              data={postgame}
+              state={{ postgame, connected: pgConnected, error: pgError }}
+              theme={theme}
+            />
+          ))
+        : mode === 'bracket'
+          ? wrap('bracket', (
+              <BracketView
+                matches={matches}
+                pools={pools}
+                usePools={usePools}
+                selectedPoolId={bracketPoolId || null}
+                onPoolChange={setBracketPoolId}
+                obs={obs}
+                theme={theme}
+              />
+            ))
+          : mode === 'recent'
+            ? wrap('results', (
+                <div style={{ marginTop: isNeobrutal ? 0 : STUDIO_RECENT_OFFSET_TOP, width: '100%' }}>
+                  <RecentMatchesTable matches={matches} theme={theme} />
+                </div>
+              ))
+            : wrap('next', (
+                <div className="flex flex-col gap-4">
+                  <AnimatePresence mode="wait">
+                    {activeMatch && (
+                      <motion.div
+                        key={activeMatch.match_id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        <MatchCard
+                          match={activeMatch}
+                          gameMode={gameMode}
+                          upcomingMatches={upcomingMatches}
+                          pollResults={Object.keys(pollResults).length > 0 ? pollResults : undefined}
+                          theme={theme}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
     </div>
   );
 }
