@@ -682,6 +682,97 @@ function BracketMatchCard({
   const bWon = isFinished && match.winner_team_id === match.team_b?.team_id;
   const showCheckIn = match.state === 'scheduled';
   const isGlass = theme === 'sharp-glass';
+  const isNeobrutal = theme === 'neobrutal';
+
+  if (isNeobrutal) {
+    const aIsTbd = !match.team_a;
+    const bIsTbd = !match.team_b;
+    const aName = match.team_a?.name ?? 'TBD';
+    const bName = match.team_b?.name ?? 'TBD';
+    const rowH = (GLASS_ROW_H * 2 + GLASS_ROW_GAP + 6 - 3) / 2;
+
+    const nameStyle = (won: boolean, otherWon: boolean, tbd: boolean): React.CSSProperties => ({
+      flex: 1,
+      minWidth: 0,
+      display: 'flex',
+      alignItems: 'center',
+      padding: '0 10px',
+      fontFamily: NB_FONT,
+      fontWeight: 800,
+      fontSize: 13,
+      textTransform: 'uppercase',
+      color: tbd || otherWon ? NB_DIM : NB_INK,
+      background: won ? NB_ACID : NB_WHITE,
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    });
+    const scoreStyle = (won: boolean): React.CSSProperties => ({
+      width: 36,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: NB_FONT,
+      fontWeight: 900,
+      fontSize: 18,
+      color: won ? NB_INK : NB_DIM,
+      background: won ? NB_ACID : NB_WHITE,
+      borderLeft: NB_BORDER_THIN,
+    });
+
+    return (
+      <div
+        ref={refCallback}
+        style={{
+          width: CARD_WIDTH,
+          background: NB_WHITE,
+          border: NB_BORDER,
+          boxShadow: nbShadowSmall,
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        {/* Row A */}
+        <div style={{ display: 'flex', height: rowH, borderLeft: `6px solid ${NB_BLUE}` }}>
+          <div style={nameStyle(aWon, bWon, aIsTbd)}>{aName}</div>
+          <div style={scoreStyle(aWon)}>{match.score_a ?? 0}</div>
+        </div>
+        {/* Row B */}
+        <div
+          style={{
+            display: 'flex',
+            height: rowH,
+            borderLeft: `6px solid ${NB_ORANGE}`,
+            borderTop: '3px solid #111',
+          }}
+        >
+          <div style={nameStyle(bWon, aWon, bIsTbd)}>{bName}</div>
+          <div style={scoreStyle(bWon)}>{match.score_b ?? 0}</div>
+        </div>
+        {isLive && (
+          <div
+            style={{
+              position: 'absolute',
+              top: -10,
+              right: -10,
+              padding: '2px 8px',
+              background: NB_INK,
+              color: NB_ACID,
+              fontFamily: NB_MONO,
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: '.18em',
+              border: NB_BORDER_THIN,
+            }}
+          >
+            LIVE
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (isGlass) {
     const aIsTbd = !match.team_a;
