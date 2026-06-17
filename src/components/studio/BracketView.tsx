@@ -22,6 +22,19 @@ import {
   BRACKET_TOP_OFFSET,
   PAN_SPEED_PX_S,
 } from '@/lib/studio-glass-theme';
+import {
+  NB_ACID,
+  NB_BLUE,
+  NB_BORDER,
+  NB_BORDER_THIN,
+  NB_DIM,
+  NB_FONT,
+  NB_INK,
+  NB_MONO,
+  NB_ORANGE,
+  NB_WHITE,
+  nbShadowSmall,
+} from '@/lib/studio-neobrutal-theme';
 
 function CheckInDot({ team }: { team: TeamData | null }) {
   if (!team) return null;
@@ -110,9 +123,15 @@ export function BracketView({
   theme = 'standard',
 }: BracketViewProps) {
   const isGlass = theme === 'sharp-glass';
-  const SKEW = isGlass ? 0 : STD_SKEW;
-  const UNSKEW = isGlass ? 0 : STD_UNSKEW;
-  const cardH = isGlass ? GLASS_ROW_H * 2 + GLASS_ROW_GAP : MATCH_HEIGHT;
+  const isNeobrutal = theme === 'neobrutal';
+  const isFlat = isGlass || isNeobrutal;
+  const SKEW = isFlat ? 0 : STD_SKEW;
+  const UNSKEW = isFlat ? 0 : STD_UNSKEW;
+  const cardH = isGlass
+    ? GLASS_ROW_H * 2 + GLASS_ROW_GAP
+    : isNeobrutal
+      ? GLASS_ROW_H * 2 + GLASS_ROW_GAP + 6
+      : MATCH_HEIGHT;
   const outerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const matchRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -576,8 +595,8 @@ export function BracketView({
                 key={line.id}
                 d={line.d}
                 fill="none"
-                stroke={isGlass ? GLASS_LINE_COLOR : STD_LINE_COLOR}
-                strokeWidth={LINE_WIDTH}
+                stroke={isNeobrutal ? NB_INK : isGlass ? GLASS_LINE_COLOR : STD_LINE_COLOR}
+                strokeWidth={isNeobrutal ? 3 : LINE_WIDTH}
               />
             ))}
           </svg>
