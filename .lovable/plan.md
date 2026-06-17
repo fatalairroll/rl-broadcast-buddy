@@ -1,63 +1,91 @@
-# PLAN: preset "NEO-BRUTALISM" — overlay v2
+## Phase 10 — Motyw "NEO-BRUTALISM" dla STUDIA (4 widoki)
 
-Trzeci, niezależny motyw obok GLASS i Y2K. Płaskie bloki, grube czarne obrysy, twarde przesunięte cienie. Zero gradientów/blura/glow. GLASS i Y2K nietknięte.
+Dodaje trzeci motyw studia (`neobrutal`) obok `standard` i `sharp-glass`. Wszystkie 4 widoki (`next_3`, `recent`, `bracket`, `postgame`) dostają płaską, brutalistyczną warstwę wizualną. Logika danych i overlay meczowy v2 — nietknięte.
 
-## 1. Typy i tokeny
+### 1. Typ motywu i tokeny
 
-**`src/types/overlayV2.ts`** — `theme: 'standard' | 'glass' | 'y2k'` → `... | 'neobrutal'`. `mergeV2Config` bez zmian. Etykietę boostGauge zostawić ogólną.
+**`src/types/studio.ts`** — rozszerzyć `StudioTheme`:
+```ts
+export type StudioTheme = 'standard' | 'sharp-glass' | 'neobrutal';
+```
 
-**`src/lib/neobrutal-theme.ts`** (nowy) — paleta (`NB_BLUE='#2547FF'`, `NB_ORANGE='#FF5A1F'`, `NB_ACID='#D4FF3F'`, `NB_INK='#111'`, `NB_PAPER='#E8E4DA'`, `NB_WHITE='#fff'`), `NB_BORDER='3px solid #111'`, `NB_BORDER_THIN='2px solid #111'`, `nbShadow='6px 6px 0 #111'`, `nbShadowSmall='4px 4px 0 #111'`, fonty `NB_FONT='Archivo'` (700–900), `NB_MONO='JetBrains Mono'`, bloki `nbBlockPaper/Acid/Blue/Orange` (background + border + boxShadow). **Żadnych gradientów, blura, backdrop-filter, glow.**
+**`src/lib/studio-neobrutal-theme.ts`** (nowy) — tokeny wzorem `studio-glass-theme.ts`:
+- Kolory: `NB_BLUE=#2547FF`, `NB_ORANGE=#FF5A1F`, `NB_ACID=#D4FF3F`, `NB_INK=#111`, `NB_PAPER=#E8E4DA`, `NB_WHITE=#fff`, `NB_DIM=#999`.
+- Obrysy: `NB_BORDER='3px solid #111'`, `NB_BORDER_THIN='2px solid #111'`.
+- Cienie: `nbShadow='6px 6px 0 #111'`, `nbShadowSmall='5px 5px 0 #111'`.
+- Fonty: `NB_FONT="'Archivo', sans-serif"`, `NB_MONO="'JetBrains Mono', monospace"`.
+- `nbSceneBg` — pełne tło `NB_PAPER` + siatka blueprint 48×48 z `rgba(17,17,17,.04)`.
+- `nbBlock`, `nbBlockAcid` — bloki bazowe (white/acid + border + shadow).
+- ZERO gradientów, blura, backdrop-filter, glow.
 
-**Fonty** — Archivo i JetBrains Mono już są w `index.html` od Y2K; brak zmian.
+Fonty Archivo + JetBrains Mono — dodane już w fazie y2k/neobrutal overlay; sprawdzić `index.html`, w razie czego dorzucić preload.
 
-## 2. Komponenty (`src/components/v2/neobrutal/`)
+### 2. Aktywacja motywu
 
-Reużycie hooków/utili: `useGoalEventDetector`, `positionToStyle`, `RankIcon`, `activeCameraTarget`, `useActivePlayerMmrInfo`.
+**`src/pages/Studio.tsx`** — w Select "Motyw graficzny" dodać opcję `Neo-Brutalism` → wartość `neobrutal`. `renderUrl` już propaguje `theme`.
 
-- **`NbScorebar.tsx`** — pozycjonowany przez `positionToStyle(config.scoreboard.position)`, domyślnie 760×78 (z `coverWidth`/`coverHeight`). Układ: `[blok NB_BLUE: nazwa A][blok NB_ACID: wynik A | biały blok zegara | wynik B][blok NB_ORANGE: nazwa B]`. Bloki nakładają się obrysami (`margin: 0 -3px` na środkowym, `zIndex:2`). Nazwy: NB_FONT 900, biały tekst, 28 px, UPPERCASE, `letter-spacing:-.02em`. Schodkowy font dla nazwy: `≤14→28, ≤20→23, ≤25→18`, `overflow:hidden`, `text-overflow:ellipsis`, `white-space:nowrap`, bloki nazw ≥250 px. Wynik: NB_FONT 900, 40 px, czarny prowadzącego, `#888` przegrywającego. Zegar: biały podblok z obrysem, czarne cyfry; pod zegarem `GM{n} · BO{x}` w NB_MONO 8 px. Górna krawędź belki na `y=0`. **Brak pigułek serii, brak "BO5//", brak "MATCH POINT".**
-- **`NbBoostStack.tsx`** — wiersz = `nbBlockPaper` (jasny + obrys), nazwa NB_FONT 800 czarna + liczba boostu czarna 900. Pasek wypełnienia: płaski blok koloru drużyny (NB_BLUE/NB_ORANGE) z czarnym obrysem, rośnie od wewnętrznej krawędzi. Stany: `<10` → pasek NB_ORANGE + mała etykieta "LOW"; `=100` → pasek NB_ACID. Lustrzaność stron.
-- **`NbPlayerCard.tsx`** — lewy dół, `nbBlockPaper`. Box rangi: kwadrat NB_ACID + obrys, `RankIcon` w środku, rozmiar/offset przez `rankIconSize`/`rankOffsetX/Y` przez margines/wrapper (NIE transform na elemencie motion). Nazwa NB_FONT 900 czarna 24 px UPPERCASE. Pod: `{ranga} · {mmr} MMR` w NB_MONO kolor NB_ORANGE. Swap ranga↔"GOL!" (blok NB_ACID, tekst czarny 900) przez `useGoalEventDetector`. Brak rangi → bez kwadratu.
-- **`NbBoostGauge.tsx`** — koło `NB_PAPER` + `NB_BORDER` + `nbShadow`. SVG `rotate(-90deg)`: tor `stroke:rgba(17,17,17,.15)`, `strokeWidth:10`, `r=size/2-16`; wypełnienie **płaski kolor** drużyny (NB_BLUE/NB_ORANGE), `strokeLinecap:'butt'`, `transition:stroke-dashoffset .12s linear`. Środek: cyfra NB_FONT 900 czarna `size*0.32`; `BOOST` w NB_MONO czarne `size*0.05`. Stany: `<10` → pierścień NB_ORANGE; `=100` → pierścień NB_ACID. Bez glow.
-- **`V2NeobrutalStage.tsx`** — kompozytor o tych samych propsach co `V2GlassStage`/`V2Y2kStage`. Stage bez własnego tła. Każdy blok niesie własne wypełnienie. `{config.boostGauge.visible && <NbBoostGauge ... />}`.
+**`src/pages/StudioRender.tsx`** — `theme` z URL już parsowany; dołożyć `'neobrutal'` jako kolejną poprawną wartość i przekazać w dół (kontekst/prop tak jak `sharp-glass`).
 
-## 3. Wybór motywu w renderze
+Sidebar operatora — bez zmian wizualnych.
 
-**`src/pages/OverlayV2.tsx`** i **`src/components/creator/V2Preview.tsx`** — dodać `isNeobrutal = config.general.theme === 'neobrutal'`. Czterodrożny render: `isGlass→Glass`, `isY2k→Y2k`, `isNeobrutal→Neobrutal`, else standard. Reszta bez zmian.
+### 3. Wspólne elementy motywu
 
-## 4. Ruchome elementy (istniejące pola configu)
+**`src/components/studio/StudioContentFrame.tsx`** — rozgałęzić wg motywu: gdy `theme === 'neobrutal'`, wrapper dostaje `nbSceneBg` (pełna płachta + siatka). W `standard`/`sharp-glass` zachowanie bez zmian.
 
-Neobrutal czyta: `scoreboard.position` + `coverWidth/coverHeight`, `boostBar.positionLeft/positionRight`, `playerCard.rankIconSize/rankOffsetX/Y`, `boostGauge.visible/size/position`.
+**Nagłówek-sygnatura** (identyczny na 4 widokach, lewy górny róg):
+- Kicker `NB_MONO` 13px, `letterSpacing .24em`: `MMRIVALS · {nazwa turnieju}`.
+- Tytuł `NB_FONT 900` ~58px UPPERCASE, `letterSpacing -.02em`, `NB_INK`. Tytuły per tryb: `Następne mecze`, `Zakończone mecze`, `Drabinka`, `Podsumowanie`.
+- Pasek limonki: `height:10`, `width:160`, `NB_ACID`, `NB_BORDER`, `nbShadowSmall`.
 
-**`src/components/creator/StyleEditorV2.tsx`** — rozszerzyć istniejące warunki `isGlass || isY2k` o `|| isNeobrutal` w sekcjach `scoreboard`/`boostBar`/`playerCard`/`boostGauge`. Dla neobrutal pokazywać TYLKO pozycje/rozmiary; ukryć kolory/skew/opacity/font/gradient. `seriesScore`, `teamNameBlue/Orange` ukryte.
+**Tag widoku** (prawy górny róg): `NB_MONO 11px`, tło `NB_ACID`, `NB_BORDER_THIN`, padding `3px 10px`. Wartości: `STUDIO · NEXT/RESULTS/BRACKET/POSTGAME`.
 
-## 5. Preset
+Implementacja nagłówka+tagu wspólna — nowy helper `src/components/studio/NeobrutalHeader.tsx` używany z każdego widoku.
 
-**`src/lib/v2-neobrutal-preset.ts`** (nowy) — `NEOBRUTAL_PRESET_NAME='NEO-BRUTALISM'`, `NEOBRUTAL_PRESET_VERSION=1`. `NEOBRUTAL_OVERLAY_CONFIG` na bazie `defaultOverlayV2Config`:
-- `general.theme='neobrutal'`, `general.presetVersion=1`.
-- `scoreboard`: `{anchorH:'center', anchorV:'top', offsetX:0, offsetY:-540}`, `coverWidth:760`, `coverHeight:78`. **Zweryfikować pomiarem `getBoundingClientRect().top===0` w DevTools 1920×1080; korekta w offsetY presetu, NIE w resolverze.**
-- `boostBar`: pozycje boczne dostrojone (mierzone w preview, nie placeholdery). Punkt wyjścia: jak glass/y2k (±928/-936, ~middle/top).
-- `playerCard.position`: anchor left/bottom, offset 24/64.
-- `boostGauge: {visible:true, size:230, position:{anchorH:'right', anchorV:'bottom', offsetX:-936, offsetY:424}}` — dostroić, by zakrywał natywny wskaźnik.
-- `seriesScore.visible:false`, `teamNameBlue/Orange.visible:false`, `boostBar.visible:true`, `playerCard.visible:true`.
-- `ensureNeobrutalPreset(presets, createPreset, updatePreset)` — analog `ensureGlassPreset`/`ensureY2kPreset`. Bump wersji wymagany przy każdej zmianie configu.
+### 4. Widoki
 
-**`src/pages/Creator.tsx`** — w bootstrap useEffect dorzucić `ensureNeobrutalPreset(...)` obok `ensureGlassPreset` i `ensureY2kPreset`.
+Każdy komponent dostaje gałąź `theme === 'neobrutal'` obok istniejących. Dane, propsy, animacje framer-motion bez zmian.
 
-## 6. Czego NIE ruszać
+**`MatchCard.tsx` (next_3)** — wiersz ~74px, bloki stykające się (bez gap):
+```
+[seed czarny, limonkowa cyfra 24] [nazwa A biały, NB_FONT 900 30 UPPERCASE, dolny border 8 NB_BLUE]
+[VS limonka, 22] [nazwa B (do prawej), dolny border 8 NB_ORANGE] [czas czarny: godzina biała 22 + format limonka mono 8]
+```
+Ellipsis/nowrap dla długich nazw. Rotacja kolejki bez zmian.
 
-GLASS (`v2/glass/*`, `v2-glass-preset.ts`, `studio-glass-theme.ts`); Y2K (`v2/y2k/*`, `v2-y2k-preset.ts`, `y2k-theme.ts`); studio i jego overlaye; dane (`game_state`/relay, `BroadcastSession`, `useBroadcast`, `useGoalEventDetector`, `activeCameraTarget`, MMRIVALS, `useActivePlayerMmrInfo`, `useLiveStatsV2`); standard v2; `/studio/render`; transparentność OBS; `ScoreboardBoundsProvider`; resolver `positionToStyle`.
+**`RecentMatchesTable.tsx` (recent)** — `grid-template-columns: 1fr 1fr; gap:14px`, wiersze ~62px. ZERO skew. Zwycięzca: tło `NB_ACID`. Przegrany: `NB_DIM`. Wynik: środkowy blok 26px z bocznymi borderami. Slice do dostępnej wysokości (jak w glass) — żeby nic nie obcinało.
 
-## 7. DoD
+**`BracketView.tsx` (bracket)** — kolumny rund (gap:40), mecz = blok dwuwierszowy:
+- Wiersz A: nazwa + wynik prawo; zwycięzca tło `NB_ACID`; lewy border 6px `NB_BLUE`.
+- Wiersz B: jw.; lewy border 6px `NB_ORANGE`; TBD → `NB_DIM`.
+- Blok: `NB_BORDER + nbShadowSmall`. Wiersze rozdzielone `border-top: 3px`.
+- Etykiety rund: limonkowy tag `NB_MONO` nad kolumną.
+- Łączniki `calcLines`: zmiana koloru/grubości na `stroke:#111`, `strokeWidth:3`. Logika pozycji, auto-scroll/auto-pan — bez zmian.
 
-- Typ `'neobrutal'`, preset "NEO-BRUTALISM" na liście kreatora (ensure + bump działa).
-- `/v2/overlay` z `theme:'neobrutal'` renderuje NeobrutalStage; glass/y2k/standard bez regresji (przełączyć tam i z powrotem).
-- **Scorebar top:0 — twardy pomiar geometrii** w DevTools 1920×1080: `getBoundingClientRect().top` ≈ 0 (<1 px). Korekta w `offsetY` presetu, nie w resolverze.
-- Nazwa do 25 znaków mieści się (schodkowy font + ellipsis); brak pigułek serii / "BO5//" / "MATCH POINT".
-- Bloki: grube czarne obrysy + `6px 6px 0` cienie, ZERO gradientów/blura/glow.
-- **TRANSPARENTNOŚĆ OBS**: scena przezroczysta poza blokami (test `/v2/overlay` na czarnym tle — żadnego pełnoekranowego jasnego tła).
-- Karta zawodnika: swap ranga↔"GOL!" (limonkowy blok); offset rangi działa PRZED i PO swapie; brak rangi → bez kwadratu.
-- Boost stack: paski płaskie; stany `<10` (pomarańcz + "LOW") i `=100` (limonka).
-- Boost gauge: okrągły, płaski pierścień (linecap `butt`), obrys + twardy cień; domyślnie prawy dół 230 px zakrywa natywny wskaźnik; stany przez kolor.
-- Pozycje boost/gauge dostrojone w preview (sensowny default).
-- Edytowalne dla neobrutal: scoreboard (pozycja+cover), boost (pozycje), gauge (pozycja+rozmiar), ranga (rozmiar+offset). Kolory/font/skew/opacity/gradient ukryte.
-- `NEOBRUTAL_PRESET_VERSION=1` ustawiony; glass i y2k nietknięte; TS/lint czysto.
+**Postgame (`PostgameScoreboardHeader` + `PostgameSummary` + `PostgameShared`)**:
+- Nagłówek ~90px: `[A pełny NB_BLUE, NB_FONT 900 38 biały, NB_BORDER+nbShadow] [wynik NB_ACID, 2× cyfra 46 czarna (przegrany #888), z-index:2] [B pełny NB_ORANGE]`.
+- Statystyki — tryptyk per wiersz ~46px, gap 10:
+  - Wartość A: blok; strona wygrywająca → pełny `NB_BLUE` biały tekst; inaczej biały blok, czarny tekst.
+  - Etykieta: blok `NB_PAPER`, `NB_MONO 14` UPPERCASE `letterSpacing .18em`.
+  - Wartość B: analog., wygrywająca → `NB_ORANGE`.
+  - Remis → obie strony biały blok.
+- Brak pigułek serii, brak glow.
+- Statystyki indywidualne graczy: jeśli `standard/glass` je pokazuje, w neobrutal renderować pod tryptykiem prosty rząd zwartych białych bloków (nick + wartości). `RankIcon` bez zmian.
+
+### 5. Czego nie ruszać
+
+- `standard` i `sharp-glass` studia — bez zmian (regress test wizualny po wdrożeniu).
+- Overlay meczowy v2 (glass/y2k/neobrutal) — osobny obszar.
+- `useStudioData`, `usePostgameRelay`, rotacja next_3, Twitch poll, `VALID_KEY`, `calcLines`, auto-scroll/pan.
+- `RankIcon`.
+
+### 6. Definition of Done
+
+- [ ] `StudioTheme` ma `'neobrutal'`; Select w `/studio` ofertuje `Neo-Brutalism`; `?theme=neobrutal` renderuje motyw.
+- [ ] 4 widoki w neobrutal: tło + siatka, nagłówek-sygnatura, tag widoku, bloki z `3px` obrysem i `6px 6px 0` cieniem, ZERO gradientów/blura/glow.
+- [ ] Długie nazwy: ellipsis/nowrap.
+- [ ] Hierarchia win/lose: limonka vs `NB_DIM` czytelna w recent/bracket/postgame.
+- [ ] Bracket: grube czarne łączniki; auto-scroll/pan bez zmian.
+- [ ] Recent: zero skew, brak przyciętych wierszy (slice do wysokości).
+- [ ] `standard` i `sharp-glass` bez regresji.
+- [ ] Animacje framer-motion działają jak dotąd.
+- [ ] TS/lint czysto.
