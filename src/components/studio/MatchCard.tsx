@@ -872,15 +872,19 @@ function NbRow({
 
 function NbMatchView({
   match,
+  gameMode,
   upcomingMatches,
   pollResults,
 }: {
   match: MatchData;
+  gameMode: string;
   upcomingMatches: MatchData[];
   pollResults?: PollResults;
 }) {
   const visibleUpcoming = upcomingMatches.filter((m) => !isFullyTbdMatch(m));
   const activeKey = `Runda ${match.round_index} Mecz ${match.match_index ?? '?'}`;
+  const playersPerTeam =
+    gameMode === '1v1' ? 1 : gameMode === '3v3' ? 3 : 2;
   return (
     <motion.div
       layout
@@ -888,9 +892,19 @@ function NbMatchView({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -16 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
-      style={{ width: '100%', maxWidth: 1280 }}
+      style={{ width: '100%', maxWidth: STUDIO_CONTENT_MAX_WIDTH }}
     >
-      <NbRow match={match} active pollPct={pollResults?.[activeKey]} />
+      <NbHeader
+        roundIndex={match.round_index}
+        matchIndex={match.match_index}
+        bestOf={match.best_of}
+      />
+      <NbActiveMatchBlock
+        match={match}
+        gameMode={gameMode}
+        playersPerTeam={playersPerTeam}
+        pollPct={pollResults?.[activeKey]}
+      />
       {visibleUpcoming.length > 0 && (
         <div
           style={{
@@ -904,7 +918,7 @@ function NbMatchView({
             display: 'inline-block',
             padding: '2px 10px',
             background: NB_WHITE,
-            marginBottom: 14,
+            margin: '18px 0 10px',
           }}
         >
           Następne
@@ -928,5 +942,442 @@ function NbMatchView({
         })}
       </AnimatePresence>
     </motion.div>
+  );
+}
+
+/* ───── NEO-BRUTALISM: nagłówek + panele graczy + bannery ───── */
+
+function NbHeader({
+  roundIndex,
+  matchIndex,
+  bestOf,
+}: {
+  roundIndex: number;
+  matchIndex?: number;
+  bestOf: number;
+}) {
+  const cell: React.CSSProperties = {
+    border: NB_BORDER,
+    padding: '10px 18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontFamily: NB_MONO,
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: '.18em',
+    textTransform: 'uppercase',
+    color: NB_INK,
+    background: NB_WHITE,
+  };
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'stretch',
+        boxShadow: nbShadowSmall,
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ ...cell, flex: 1 }}>
+        R{roundIndex}
+        {matchIndex != null ? ` · M${matchIndex}` : ''}
+      </div>
+      <div
+        style={{
+          ...cell,
+          marginLeft: -3,
+          background: NB_ACID,
+          fontFamily: NB_FONT,
+          fontWeight: 900,
+          fontStyle: 'italic',
+          fontSize: 18,
+          letterSpacing: '.2em',
+          padding: '10px 28px',
+        }}
+      >
+        Wkrótce
+      </div>
+      <div style={{ ...cell, marginLeft: -3, flex: 1 }}>FORMAT BO{bestOf}</div>
+    </div>
+  );
+}
+
+function NbActiveMatchBlock({
+  match,
+  gameMode,
+  playersPerTeam,
+  pollPct,
+}: {
+  match: MatchData;
+  gameMode: string;
+  playersPerTeam: number;
+  pollPct?: number;
+}) {
+  // Layout: panel widths scale to STUDIO_CONTENT_MAX_WIDTH (956)
+  const VS_W = 72;
+  const PANEL_GAP = 6;
+  const sideW = (STUDIO_CONTENT_MAX_WIDTH - VS_W) / 2; // ≈ 442
+  const panelW = Math.floor(
+    (sideW - PANEL_GAP * (playersPerTeam - 1)) / playersPerTeam,
+  );
+  const panelH = playersPerTeam >= 3 ? 240 : 260;
+  const iconSize = playersPerTeam >= 3 ? 'lg' : 'xl';
+
+  const aPlayers = match.team_a?.players?.slice(0, playersPerTeam) ?? [];
+  const bPlayers = match.team_b?.players?.slice(0, playersPerTeam) ?? [];
+  const aSlots = Array.from({ length: playersPerTeam }, (_, i) => aPlayers[i] ?? null);
+  const bSlots = Array.from({ length: playersPerTeam }, (_, i) => bPlayers[i] ?? null);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0 }}>
+        {/* Side A */}
+        <div style={{ width: sideW, display: 'flex', gap: PANEL_GAP }}>
+          {aSlots.map((p, i) => (
+            <NbPlayerPanel
+              key={p?.discord_id ?? `a-${i}`}
+              player={p}
+              side="a"
+              gameMode={gameMode}
+              width={panelW}
+              height={panelH}
+              iconSize={iconSize}
+              index={i}
+            />
+          ))}
+        </div>
+        {/* VS */}
+        <div
+          style={{
+            width: VS_W,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: NB_ACID,
+            border: NB_BORDER,
+            boxShadow: nbShadow,
+            marginLeft: -3,
+            marginRight: -3,
+            zIndex: 2,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: NB_FONT,
+              fontWeight: 900,
+              fontSize: 32,
+              color: NB_INK,
+              letterSpacing: '-.02em',
+            }}
+          >
+            VS
+          </span>
+          {pollPct != null && (
+            <span
+              style={{
+                fontFamily: NB_MONO,
+                fontSize: 10,
+                letterSpacing: '.12em',
+                color: NB_INK,
+                marginTop: 4,
+              }}
+            >
+              {pollPct}%
+            </span>
+          )}
+        </div>
+        {/* Side B */}
+        <div style={{ width: sideW, display: 'flex', gap: PANEL_GAP }}>
+          {bSlots.map((p, i) => (
+            <NbPlayerPanel
+              key={p?.discord_id ?? `b-${i}`}
+              player={p}
+              side="b"
+              gameMode={gameMode}
+              width={panelW}
+              height={panelH}
+              iconSize={iconSize}
+              index={i + playersPerTeam}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Team banners */}
+      <div style={{ display: 'flex', gap: 0, marginTop: 14 }}>
+        <NbTeamBanner
+          name={match.team_a?.name ?? 'TBD'}
+          side="a"
+          team={match.team_a}
+          width={sideW + VS_W / 2}
+        />
+        <NbTeamBanner
+          name={match.team_b?.name ?? 'TBD'}
+          side="b"
+          team={match.team_b}
+          width={sideW + VS_W / 2}
+        />
+      </div>
+    </div>
+  );
+}
+
+function NbPlayerPanel({
+  player,
+  side,
+  gameMode,
+  width,
+  height,
+  iconSize,
+  index,
+}: {
+  player: PlayerData | null;
+  side: 'a' | 'b';
+  gameMode: string;
+  width: number;
+  height: number;
+  iconSize: 'lg' | 'xl';
+  index: number;
+}) {
+  const accent = side === 'a' ? NB_BLUE : NB_ORANGE;
+
+  if (!player) {
+    return (
+      <div
+        style={{
+          width,
+          height,
+          border: NB_BORDER,
+          boxShadow: nbShadowSmall,
+          background: NB_WHITE,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: NB_FONT,
+          fontWeight: 900,
+          fontSize: 24,
+          color: NB_DIM,
+          textTransform: 'uppercase',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 10,
+            background: accent,
+            borderTop: NB_BORDER,
+          }}
+        />
+        TBD
+      </div>
+    );
+  }
+
+  const mmr = getMmrForMode(player, gameMode);
+  const rank = resolveRank(player, gameMode);
+  const displayName = player.nick_in_game ?? player.nick;
+  const nameFs = iconSize === 'xl' ? 14 : 11;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: index * 0.06, ease: 'easeOut' }}
+      style={{
+        width,
+        height,
+        border: NB_BORDER,
+        boxShadow: nbShadow,
+        background: NB_WHITE,
+        position: 'relative',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* MMR watermark */}
+      {mmr != null && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            overflow: 'hidden',
+          }}
+        >
+          <span
+            style={{
+              writingMode: 'vertical-rl',
+              textOrientation: 'mixed',
+              fontFamily: NB_FONT,
+              fontWeight: 900,
+              fontSize: 92,
+              lineHeight: 0.85,
+              color: 'rgba(17,17,17,.08)',
+              userSelect: 'none',
+            }}
+          >
+            {mmr}
+          </span>
+        </div>
+      )}
+
+      {/* Top name bar */}
+      <div
+        style={{
+          height: 36,
+          background: NB_INK,
+          color: NB_WHITE,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '0 10px',
+          borderBottom: NB_BORDER,
+          position: 'relative',
+          zIndex: 2,
+        }}
+      >
+        <span
+          title={displayName}
+          style={{
+            fontFamily: NB_FONT,
+            fontWeight: 800,
+            fontSize: nameFs,
+            textTransform: 'uppercase',
+            letterSpacing: '.05em',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: '100%',
+          }}
+        >
+          {displayName}
+        </span>
+      </div>
+
+      {/* Rank icon */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          zIndex: 2,
+        }}
+      >
+        <RankIcon rank={rank} size={iconSize} />
+      </div>
+
+      {/* MMR strip */}
+      {mmr != null && (
+        <div
+          style={{
+            padding: '4px 10px',
+            fontFamily: NB_MONO,
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '.18em',
+            color: NB_INK,
+            textTransform: 'uppercase',
+            borderTop: NB_BORDER_THIN,
+            background: NB_WHITE,
+            textAlign: 'center',
+            position: 'relative',
+            zIndex: 2,
+          }}
+        >
+          MMR · {mmr}
+        </div>
+      )}
+
+      {/* Accent bottom bar */}
+      <div
+        style={{
+          height: 10,
+          background: accent,
+          borderTop: NB_BORDER,
+          position: 'relative',
+          zIndex: 2,
+        }}
+      />
+    </motion.div>
+  );
+}
+
+function NbTeamBanner({
+  name,
+  side,
+  team,
+  width,
+}: {
+  name: string;
+  side: 'a' | 'b';
+  team: TeamData | null;
+  width: number;
+}) {
+  const bg = side === 'a' ? NB_BLUE : NB_ORANGE;
+  const checkedIn = team?.checked_in === true;
+  const statusText = checkedIn
+    ? `CHECK-IN · ${formatMatchTime(team?.checked_in_at)}`
+    : 'OCZEKUJE';
+  const statusColor = checkedIn ? NB_INK : NB_DIM;
+
+  return (
+    <div
+      style={{
+        width,
+        marginLeft: side === 'b' ? -3 : 0,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <div
+        style={{
+          background: bg,
+          color: NB_WHITE,
+          border: NB_BORDER,
+          boxShadow: nbShadow,
+          padding: '12px 18px',
+          fontFamily: NB_FONT,
+          fontWeight: 900,
+          fontSize: 22,
+          textTransform: 'uppercase',
+          letterSpacing: '-.01em',
+          textAlign: side === 'a' ? 'right' : 'left',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+        title={name}
+      >
+        {name}
+      </div>
+      <div
+        style={{
+          marginTop: 4,
+          padding: '0 6px',
+          fontFamily: NB_MONO,
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '.2em',
+          color: statusColor,
+          textTransform: 'uppercase',
+          textAlign: side === 'a' ? 'right' : 'left',
+        }}
+      >
+        {statusText}
+      </div>
+    </div>
   );
 }
