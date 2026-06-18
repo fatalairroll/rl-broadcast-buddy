@@ -341,7 +341,7 @@ export function RecentMatchesTable({ matches, theme = 'standard' }: RecentMatche
 /* ─────────────────── NEO-BRUTALISM ─────────────────── */
 
 const NB_ROW_H = 62;
-const NB_ROW_GAP = 14;
+const NB_ROW_GAP = 10;
 
 function NbRecentMatchesTable({ matches }: { matches: MatchData[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -382,7 +382,7 @@ function NbRecentMatchesTable({ matches }: { matches: MatchData[] }) {
     );
   }
 
-  const visible = matches.slice(0, maxRows * 2);
+  const visible = matches.slice(0, maxRows);
 
   return (
     <div
@@ -390,12 +390,10 @@ function NbRecentMatchesTable({ matches }: { matches: MatchData[] }) {
       style={{
         width: '100%',
         height: 'calc(100vh - 220px)',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gridAutoRows: NB_ROW_H,
-        columnGap: NB_ROW_GAP,
-        rowGap: NB_ROW_GAP,
-        alignContent: 'start',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: NB_ROW_GAP,
+        alignItems: 'stretch',
       }}
     >
       <AnimatePresence mode="popLayout">
