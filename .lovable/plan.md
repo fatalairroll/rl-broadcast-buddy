@@ -1,91 +1,137 @@
-## Phase 10 — Motyw "NEO-BRUTALISM" dla STUDIA (4 widoki)
+# Poprawki NEO-BRUTALISM — studio
 
-Dodaje trzeci motyw studia (`neobrutal`) obok `standard` i `sharp-glass`. Wszystkie 4 widoki (`next_3`, `recent`, `bracket`, `postgame`) dostają płaską, brutalistyczną warstwę wizualną. Logika danych i overlay meczowy v2 — nietknięte.
+Trzy ogniska. Standard, sharp-glass i overlay meczowy v2 — bez zmian (poza wspólną logiką bracketu z pkt 2, regress-test glass obowiązkowy).
 
-### 1. Typ motywu i tokeny
+Wszystkie widoki neobrutal pozostają w `StudioContentFrame` i respektują `STUDIO_CONTENT_MAX_WIDTH = 956` oraz `STUDIO_CAMERA_SAFE_RIGHT = 450`. Żadnych własnych szerokości > 956 ani gridów wielokolumnowych wypychających poza ten obszar.
 
-**`src/types/studio.ts`** — rozszerzyć `StudioTheme`:
-```ts
-export type StudioTheme = 'standard' | 'sharp-glass' | 'neobrutal';
+---
+
+## 1. Recent — jedna kolumna
+
+Plik: `src/components/studio/RecentMatchesTable.tsx` → `NbRecentMatchesTable`.
+
+Aktualnie: `gridTemplateColumns: '1fr 1fr'`, `height: 'calc(100vh - 220px)'`, `visible = matches.slice(0, maxRows * 2)`. Druga kolumna wjeżdża w strefę kamery.
+
+Zmiana:
+
+- Zamiast `grid` — `flex column` z `gap` (analogicznie do glass: `GLASS_ROW_GAP = 4`, tutaj zachowamy neobrutal `NB_ROW_GAP = 10`).
+- Szerokość 100 % (kontener już w `StudioContentFrame` = 956 px max).
+- Wysokość wiersza: `NB_ROW_H = 62` (bez zmian).
+- Logika `maxRows` jak w glass: `ResizeObserver` na kontenerze, `floor((availableH + gap) / (rowH + gap))`, `visible = matches.slice(0, maxRows)` (już bez `* 2`).
+- Wysokość kontenera: dopasować do trybu standard/glass — użyć `height: 'calc(100vh - 220px)'` lub bez stałej, polegając na flex w `StudioContentFrame`. Wybór: `calc(100vh - 220px)`, by zachować spójność z istniejącą logiką pomiaru i nie przycinać dołu.
+- Wiersz neobrutal (`NbRecentRow`) — bez zmian wizualnych (NB_ACID u zwycięzcy, blok wyniku z czarnym tłem, NB_DIM u przegranego).
+- `motion.div` x-slide jak dotąd.
+
+Test akceptacyjny: porównać liczbę widocznych meczów neobrutal vs standard przy tym samym datasecie (rozdzielczość 1920×1080, `?obs=1`) — neobrutal nie pokazuje mniej niż standard, nic nie wyjeżdża w prawo ani nie jest przycięte u dołu.
+
+---
+
+## 2. Bracket — kotwiczenie pierwszej widocznej rundy od góry
+
+Plik: `src/components/studio/BracketView.tsx`.
+
+Stan obecny: pozycjonowanie slotu liczone z `roundOffset` (indeks W OKNIE) — `visibleRounds.map(([...], roundOffset) => getSlotLayout(roundOffset, cardH))`. Jednak nazwa parametru w `getContainerHeight(absoluteRoundIndex)` myli i sugeruje absolutny indeks; w realiach jest podawany `visualRoundOffset - 1`. Ponadto brak twardego testu, że ŻADNE miejsce nie używa `roundIdx` (klucza `round_index`) do liczenia wysokości/offsetu slotu.
+
+Zmiany:
+
+1. **Audyt i rename**: w `getContainerHeight` i `getSlotLayout` zmienić nazwy parametrów na `windowIdx` (z komentarzem: „indeks rundy w bieżącym oknie 0/1/2, NIGDY absolutny `round_index`"). Potwierdzić w komentarzu, że `roundOffset` z `visibleRounds.map(..., roundOffset)` jest jedynym źródłem prawdy.
+2. **windowIdx === 0 → flex-start, height = cardH** — już tak działa (`getSlotLayout(0)`). Doprecyzować w kodzie i utrzymać.
+3. **windowIdx ≥ 1 → center, height = getContainerHeight(windowIdx − 1, cardH) bazowane WYŁĄCZNIE na windowIdx**.
+4. **`calcLines`**: pozycje liczone z `getBoundingClientRect` — to już layout-based i automatycznie spójne z punktami 1–3. Bez zmian w SVG.
+5. **Top offset wspólny dla wszystkich motywów neobrutal/glass**: dla bracketu w trybie neobrutal dodać `paddingTop` o wartości `BRACKET_TOP_OFFSET` analogicznie do glass (lub własna stała `NB_BRACKET_TOP_OFFSET` jeśli wartość ma być różna). To gwarantuje stałą górną Y pierwszej widocznej kolumny — niezależnie czy faza 1 czy faza 2 jest pierwszą widoczną.
+6. Reset `containerRef.style.transform` przy zmianie `startIdx` — już jest (`useEffect [startIdx, selectedPoolId]`). Zostawić.
+
+Test akceptacyjny: dwa zrzuty (faza 1 jako pierwsza widoczna, faza 2 jako pierwsza widoczna). Górna krawędź pierwszej kolumny na IDENTYCZNEJ Y. Sprawdzić w obu motywach (neobrutal i glass — regress). Standard bracket — wizualnie bez zmian (nie używa BRACKET_TOP_OFFSET).
+
+---
+
+## 3. Next_3 — najwyższy mecz z panelami graczy
+
+Plik: `src/components/studio/MatchCard.tsx` → `NbMatchView` / nowe komponenty.
+
+Aktualnie wszystkie mecze pokazane jako jednolite wiersze `NbRow`. Wymagamy: główny (najwyższy) mecz = panele graczy + nagłówek + bannery drużyn; pod nim kolejka kolejnych meczów jako wiersze (obecny `NbRow`).
+
+Nowa struktura `NbMatchView`:
+
+```text
+┌───────────────────────────────────────────────────────────┐
+│  [BLOK: R{x} M{y}]    [BLOK ACID: WKRÓTCE]    [BO{n}]     │  ← NbHeader
+├───────────────────────────────────────────────────────────┤
+│ [panel A1][panel A2][..]    VS    [panel B1][panel B2][..]│  ← NbPlayerPanels
+│ [NB_BLUE: NAZWA A         ]    [NB_ORANGE: NAZWA B       ]│  ← NbTeamBanners
+│ [mono · OCZEKUJE / CHECK-IN OK]  [mono · ...              ]│
+├───────────────────────────────────────────────────────────┤
+│ NASTĘPNE                                                  │
+│ [NbRow upcoming #1]                                       │
+│ [NbRow upcoming #2]                                       │
+└───────────────────────────────────────────────────────────┘
 ```
 
-**`src/lib/studio-neobrutal-theme.ts`** (nowy) — tokeny wzorem `studio-glass-theme.ts`:
-- Kolory: `NB_BLUE=#2547FF`, `NB_ORANGE=#FF5A1F`, `NB_ACID=#D4FF3F`, `NB_INK=#111`, `NB_PAPER=#E8E4DA`, `NB_WHITE=#fff`, `NB_DIM=#999`.
-- Obrysy: `NB_BORDER='3px solid #111'`, `NB_BORDER_THIN='2px solid #111'`.
-- Cienie: `nbShadow='6px 6px 0 #111'`, `nbShadowSmall='5px 5px 0 #111'`.
-- Fonty: `NB_FONT="'Archivo', sans-serif"`, `NB_MONO="'JetBrains Mono', monospace"`.
-- `nbSceneBg` — pełne tło `NB_PAPER` + siatka blueprint 48×48 z `rgba(17,17,17,.04)`.
-- `nbBlock`, `nbBlockAcid` — bloki bazowe (white/acid + border + shadow).
-- ZERO gradientów, blura, backdrop-filter, glow.
+Wymiary dopasowane do 956 px szerokości:
 
-Fonty Archivo + JetBrains Mono — dodane już w fazie y2k/neobrutal overlay; sprawdzić `index.html`, w razie czego dorzucić preload.
+- `maxWidth: STUDIO_CONTENT_MAX_WIDTH` (956) zamiast obecnego `maxWidth: 1280` w `NbMatchView`.
+- Panel gracza: szerokość `(956/2 − ~80 dla VS) / playersPerTeam − gap`. Dla 2v2: ~190 px, dla 3v3: ~125 px. Wysokość ~260–280 px (skalować odwrotnie, by 3v3 nie wymagał szerszego layoutu).
+- VS w środku: blok kwadratowy ~72×72 NB_ACID z czarnym „VS" (NB_FONT 900, 32 px).
 
-### 2. Aktywacja motywu
+`NbHeader(roundIndex, matchIndex, bestOf)`:
 
-**`src/pages/Studio.tsx`** — w Select "Motyw graficzny" dodać opcję `Neo-Brutalism` → wartość `neobrutal`. `renderUrl` już propaguje `theme`.
+- 3 stykające się bloki (margin-right: −3 px), neobrutal w stylu „lewe = NB_WHITE + NB_INK mono, środek = NB_ACID + 'WKRÓTCE' (NB_FONT 900 italic 18 px), prawe = NB_WHITE z 'FORMAT BO{n}' mono".
+- `border: NB_BORDER`, `boxShadow: nbShadowSmall` na całości.
 
-**`src/pages/StudioRender.tsx`** — `theme` z URL już parsowany; dołożyć `'neobrutal'` jako kolejną poprawną wartość i przekazać w dół (kontekst/prop tak jak `sharp-glass`).
+`NbPlayerPanel(player, side, mode)`:
 
-Sidebar operatora — bez zmian wizualnych.
+- `border: NB_BORDER`, `boxShadow: nbShadow`, `background: NB_WHITE`.
+- Górna belka (~36 px): NB_INK tło, biały tekst — nick (`nick_in_game ?? nick`), `NB_FONT 800`, UPPERCASE, `text-overflow: ellipsis`, `font-size` skalowane do liczby graczy (2v2: 14 px, 3v3: 11 px).
+- Środek: `RankIcon` rozmiar `xl` (96 px) lub `lg` (64 px) dla 3v3, wycentrowany, bez glow (neobrutal = flat) — pominąć `glowColor`.
+- Watermark MMR: duża pionowa cyfra (writing-mode: vertical-rl) w tle, `font-family: NB_FONT`, `font-weight: 900`, `font-size: 92 px`, `color: rgba(17,17,17,.08)`, `position: absolute`, `pointer-events: none`. Pomijać gdy `mmr == null`.
+- Dolny pasek (~10 px): pełna szerokość, `background: side === 'a' ? NB_BLUE : NB_ORANGE`.
 
-### 3. Wspólne elementy motywu
+`NbTeamBanner(name, side, team)`:
 
-**`src/components/studio/StudioContentFrame.tsx`** — rozgałęzić wg motywu: gdy `theme === 'neobrutal'`, wrapper dostaje `nbSceneBg` (pełna płachta + siatka). W `standard`/`sharp-glass` zachowanie bez zmian.
+- Blok pełnej szerokości połowy (rozciąga się pod całą grupą paneli danej strony).
+- `background: NB_BLUE` / `NB_ORANGE`, `color: NB_WHITE`, `NB_FONT 900`, font-size 22 px, UPPERCASE, padding 12px 18px, `border: NB_BORDER`, `boxShadow: nbShadow`.
+- Pod bannerem mała etykieta mono: `OCZEKUJE` (NB_DIM) lub `CHECK-IN · HH:MM` (NB_INK) zależnie od `team.checked_in`.
 
-**Nagłówek-sygnatura** (identyczny na 4 widokach, lewy górny róg):
-- Kicker `NB_MONO` 13px, `letterSpacing .24em`: `MMRIVALS · {nazwa turnieju}`.
-- Tytuł `NB_FONT 900` ~58px UPPERCASE, `letterSpacing -.02em`, `NB_INK`. Tytuły per tryb: `Następne mecze`, `Zakończone mecze`, `Drabinka`, `Podsumowanie`.
-- Pasek limonki: `height:10`, `width:160`, `NB_ACID`, `NB_BORDER`, `nbShadowSmall`.
+`NbPlayerPanels`:
 
-**Tag widoku** (prawy górny róg): `NB_MONO 11px`, tło `NB_ACID`, `NB_BORDER_THIN`, padding `3px 10px`. Wartości: `STUDIO · NEXT/RESULTS/BRACKET/POSTGAME`.
+- `gameMode` z propsów (`'2v2'` → 2 graczy/stronę, `'3v3'` → 3). Adaptacyjnie czytać `match.team_a?.players.length` i `match.team_b?.players.length`.
+- TBD: jeśli brak drużyny — pokazać szare panele placeholder w tej samej liczbie co `gameMode`.
 
-Implementacja nagłówka+tagu wspólna — nowy helper `src/components/studio/NeobrutalHeader.tsx` używany z każdego widoku.
+`UpcomingQueue` neobrutal:
 
-### 4. Widoki
+- Pod bannerami: jeśli `visibleUpcoming.length > 0` — etykieta `NASTĘPNE` (mono, NB_BORDER_THIN) + sekwencja `NbRow` w wersji compact (obecna).
+- `NbRow` (kolejka) — bez zmian. Zostawić.
+- Etykieta `NASTĘPNE` ma się pojawiać dopiero gdy są realne mecze (już sprawdzone w obecnym kodzie).
 
-Każdy komponent dostaje gałąź `theme === 'neobrutal'` obok istniejących. Dane, propsy, animacje framer-motion bez zmian.
+Limity:
 
-**`MatchCard.tsx` (next_3)** — wiersz ~74px, bloki stykające się (bez gap):
-```
-[seed czarny, limonkowa cyfra 24] [nazwa A biały, NB_FONT 900 30 UPPERCASE, dolny border 8 NB_BLUE]
-[VS limonka, 22] [nazwa B (do prawej), dolny border 8 NB_ORANGE] [czas czarny: godzina biała 22 + format limonka mono 8]
-```
-Ellipsis/nowrap dla długich nazw. Rotacja kolejki bez zmian.
+- Łącznie (header + panele + bannery + 2–3 wiersze kolejki) musi zmieścić się w `STUDIO_STAGE_HEIGHT − STUDIO_PADDING_TOP − STUDIO_PADDING_BOTTOM` = ~1024 px. Wysokości:
+  - Header: ~50 px.
+  - Panele: 260 px.
+  - Bannery: ~78 px (główny 60 + check-in 18).
+  - Etykieta + 3× NbRow: ~30 + 3×(60+12) = ~246 px.
+  - Razem ~634 px → mieści się z marginesem.
 
-**`RecentMatchesTable.tsx` (recent)** — `grid-template-columns: 1fr 1fr; gap:14px`, wiersze ~62px. ZERO skew. Zwycięzca: tło `NB_ACID`. Przegrany: `NB_DIM`. Wynik: środkowy blok 26px z bocznymi borderami. Slice do dostępnej wysokości (jak w glass) — żeby nic nie obcinało.
+Aktualizacja w `MatchCard.tsx`:
 
-**`BracketView.tsx` (bracket)** — kolumny rund (gap:40), mecz = blok dwuwierszowy:
-- Wiersz A: nazwa + wynik prawo; zwycięzca tło `NB_ACID`; lewy border 6px `NB_BLUE`.
-- Wiersz B: jw.; lewy border 6px `NB_ORANGE`; TBD → `NB_DIM`.
-- Blok: `NB_BORDER + nbShadowSmall`. Wiersze rozdzielone `border-top: 3px`.
-- Etykiety rund: limonkowy tag `NB_MONO` nad kolumną.
-- Łączniki `calcLines`: zmiana koloru/grubości na `stroke:#111`, `strokeWidth:3`. Logika pozycji, auto-scroll/auto-pan — bez zmian.
+- Usunąć `maxWidth: 1280` z `NbMatchView` → `maxWidth: STUDIO_CONTENT_MAX_WIDTH` (import z `studio-layout`).
+- Wydzielić `NbHeader`, `NbPlayerPanel`, `NbPlayerPanels`, `NbTeamBanner` w obrębie tego samego pliku (poniżej `NbRow`).
+- Rotacja next_3 w `Studio` / `StudioRender` — bez zmian (`upcomingMatches` rotuje, główny mecz = `match`).
 
-**Postgame (`PostgameScoreboardHeader` + `PostgameSummary` + `PostgameShared`)**:
-- Nagłówek ~90px: `[A pełny NB_BLUE, NB_FONT 900 38 biały, NB_BORDER+nbShadow] [wynik NB_ACID, 2× cyfra 46 czarna (przegrany #888), z-index:2] [B pełny NB_ORANGE]`.
-- Statystyki — tryptyk per wiersz ~46px, gap 10:
-  - Wartość A: blok; strona wygrywająca → pełny `NB_BLUE` biały tekst; inaczej biały blok, czarny tekst.
-  - Etykieta: blok `NB_PAPER`, `NB_MONO 14` UPPERCASE `letterSpacing .18em`.
-  - Wartość B: analog., wygrywająca → `NB_ORANGE`.
-  - Remis → obie strony biały blok.
-- Brak pigułek serii, brak glow.
-- Statystyki indywidualne graczy: jeśli `standard/glass` je pokazuje, w neobrutal renderować pod tryptykiem prosty rząd zwartych białych bloków (nick + wartości). `RankIcon` bez zmian.
+---
 
-### 5. Czego nie ruszać
+## Pliki dotknięte
 
-- `standard` i `sharp-glass` studia — bez zmian (regress test wizualny po wdrożeniu).
-- Overlay meczowy v2 (glass/y2k/neobrutal) — osobny obszar.
-- `useStudioData`, `usePostgameRelay`, rotacja next_3, Twitch poll, `VALID_KEY`, `calcLines`, auto-scroll/pan.
-- `RankIcon`.
+- `src/components/studio/RecentMatchesTable.tsx` — punkt 1 (refaktor `NbRecentMatchesTable`).
+- `src/components/studio/BracketView.tsx` — punkt 2 (rename + opcjonalny top-offset neobrutal).
+- `src/components/studio/MatchCard.tsx` — punkt 3 (nowe `NbHeader`/`NbPlayerPanel`/`NbTeamBanner`, refaktor `NbMatchView`).
 
-### 6. Definition of Done
+Nie ruszamy: `StudioContentFrame`, `studio-layout.ts`, `RankIcon`, `useStudioData`, `usePostgameRelay`, Twitch poll, auto-scroll/pan logic poza pkt 2, overlay v2, standard/sharp-glass (poza wspólną logiką bracketu z regress-testem).
 
-- [ ] `StudioTheme` ma `'neobrutal'`; Select w `/studio` ofertuje `Neo-Brutalism`; `?theme=neobrutal` renderuje motyw.
-- [ ] 4 widoki w neobrutal: tło + siatka, nagłówek-sygnatura, tag widoku, bloki z `3px` obrysem i `6px 6px 0` cieniem, ZERO gradientów/blura/glow.
-- [ ] Długie nazwy: ellipsis/nowrap.
-- [ ] Hierarchia win/lose: limonka vs `NB_DIM` czytelna w recent/bracket/postgame.
-- [ ] Bracket: grube czarne łączniki; auto-scroll/pan bez zmian.
-- [ ] Recent: zero skew, brak przyciętych wierszy (slice do wysokości).
-- [ ] `standard` i `sharp-glass` bez regresji.
-- [ ] Animacje framer-motion działają jak dotąd.
-- [ ] TS/lint czysto.
+## Definition of Done
+
+- Recent neobrutal: 1 kolumna, ≤ 956 px, liczba meczów = standard, brak przycięć.
+- Bracket neobrutal i glass: pierwsza widoczna kolumna zawsze od tej samej górnej Y (faza 1 vs faza 2 — identyczne).
+- Next_3 neobrutal: główny mecz z panelami graczy (RankIcon + MMR watermark + nick), bannery drużyn w kolorach NB_BLUE/NB_ORANGE, kolejka pod spodem, adaptacja 2v2/3v3.
+- Wszystkie 3 widoki w obszarze 956 px treści, strefa kamery wolna, TS/lint czysto.
+- Standard i sharp-glass bez regresji wizualnej (manualny diff 4 widoków).
