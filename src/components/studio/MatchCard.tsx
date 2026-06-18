@@ -4,6 +4,7 @@ import type { MatchData, PlayerData, PollResults, TeamData } from '@/types/studi
 import { RankIcon } from './RankIcon';
 import { getRankFromMmr, normalizeRankName, isValidRank } from '@/lib/rank-utils';
 import { isFullyTbdMatch } from '@/lib/studio-match-utils';
+import { STUDIO_CONTENT_MAX_WIDTH } from '@/lib/studio-layout';
 import {
   type StudioTheme,
   glassBarBlue,
@@ -621,6 +622,7 @@ export function MatchCard({ match, gameMode, upcomingMatches = [], pollResults, 
     return (
       <NbMatchView
         match={match}
+        gameMode={gameMode}
         upcomingMatches={upcomingMatches}
         pollResults={pollResults}
       />
