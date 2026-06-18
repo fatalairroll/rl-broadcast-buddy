@@ -92,23 +92,28 @@ interface LineData {
   d: string;
 }
 
-function getContainerHeight(absoluteRoundIndex: number, base: number): number {
-  if (absoluteRoundIndex === 0) return base;
-  return 2 * getContainerHeight(absoluteRoundIndex - 1, base) + BASE_GAP;
+// windowIdx = indeks rundy w bieżącym oknie widocznych rund (0/1/2),
+// NIGDY absolutny round_index z drzewa turnieju. Dzięki temu pierwsza
+// widoczna kolumna ZAWSZE startuje od góry (windowIdx === 0 → flex-start).
+function getContainerHeight(windowIdx: number, base: number): number {
+  if (windowIdx === 0) return base;
+  return 2 * getContainerHeight(windowIdx - 1, base) + BASE_GAP;
 }
 
 function getSlotLayout(
-  visualRoundOffset: number,
+  windowIdx: number,
   base: number,
 ): {
   height: number;
   alignItems: 'flex-start' | 'center';
 } {
-  if (visualRoundOffset === 0) {
+  if (windowIdx === 0) {
+    // Pierwsza widoczna kolumna — kotwiczona od góry.
     return { height: base, alignItems: 'flex-start' };
   }
+  // Kolejne kolumny — centrowane względem poprzedniej, liczone z windowIdx.
   return {
-    height: getContainerHeight(visualRoundOffset, base),
+    height: getContainerHeight(windowIdx, base),
     alignItems: 'center',
   };
 }
