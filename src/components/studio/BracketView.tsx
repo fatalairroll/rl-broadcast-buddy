@@ -144,6 +144,7 @@ export function BracketView({
   const scrollGenerationRef = useRef(0);
   const panGenerationRef = useRef(0);
   const [lines, setLines] = useState<LineData[]>([]);
+  const [fits, setFits] = useState(true);
 
   const poolMatches = useMemo(() => {
     if (!usePools || !selectedPoolId) return matches;
@@ -250,6 +251,9 @@ export function BracketView({
       outer.scrollTop = maxScroll;
     }
 
+    const nextFits = container.offsetHeight <= outer.clientHeight;
+    setFits((prev) => (prev === nextFits ? prev : nextFits));
+
     calcLines();
   }, [calcLines]);
 
@@ -276,6 +280,10 @@ export function BracketView({
     if (!enableAutoScroll) return;
     const outer = outerRef.current;
     if (!outer) return;
+    if (fits) {
+      outer.scrollTop = 0;
+      return;
+    }
 
     // (auto-scroll cycle below)
 
@@ -346,7 +354,7 @@ export function BracketView({
       running = false;
       cancelAnimationFrame(rafId);
     };
-  }, [enableAutoScroll, startIdx, selectedPoolId]);
+  }, [enableAutoScroll, startIdx, selectedPoolId, fits, isGlass]);
 
   useEffect(() => {
     scrollGenerationRef.current += 1;
@@ -361,6 +369,10 @@ export function BracketView({
     const outer = outerRef.current;
     const container = containerRef.current;
     if (!outer || !container) return;
+    if (fits) {
+      container.style.transform = 'translateY(0px)';
+      return;
+    }
 
     const myGen = panGenerationRef.current;
     let rafId = 0;
@@ -454,7 +466,7 @@ export function BracketView({
       cancelAnimationFrame(rafId);
       if (container) container.style.transform = 'translateY(0px)';
     };
-  }, [isGlass, startIdx, selectedPoolId]);
+  }, [isGlass, startIdx, selectedPoolId, fits]);
 
   const setMatchRef = useCallback((matchId: string, el: HTMLDivElement | null) => {
     if (el) {
