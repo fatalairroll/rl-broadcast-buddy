@@ -1206,36 +1206,6 @@ function NbPlayerPanel({
         flexDirection: 'column',
       }}
     >
-      {/* MMR watermark */}
-      {fallbackMmr != null && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-            overflow: 'hidden',
-          }}
-        >
-          <span
-            style={{
-              writingMode: 'vertical-rl',
-              textOrientation: 'mixed',
-              fontFamily: NB_FONT,
-              fontWeight: 900,
-              fontSize: 92,
-              lineHeight: 0.85,
-              color: 'rgba(17,17,17,.08)',
-              userSelect: 'none',
-            }}
-          >
-            {fallbackMmr}
-          </span>
-        </div>
-      )}
-
       {/* Top name bar */}
       <div
         style={{
