@@ -603,11 +603,14 @@ export function BracketView({
         ref={outerRef}
         style={{
           width: '100%',
-          maxHeight: isGlass ? 'calc(100vh - 200px)' : (enableAutoScroll ? 960 : undefined),
+          maxHeight: 'calc(100vh - 200px)',
           overflowY: 'hidden',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
-          ...(isGlass ? { paddingTop: BRACKET_TOP_OFFSET } : null),
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: fits ? 'center' : 'flex-start',
+          ...(isGlass ? { paddingTop: fits ? 0 : BRACKET_TOP_OFFSET } : null),
         }}
         className="[&::-webkit-scrollbar]:hidden"
       >
