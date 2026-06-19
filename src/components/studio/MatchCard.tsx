@@ -1184,6 +1184,10 @@ function NbPlayerPanel({
   const rank = resolveRank(player, gameMode);
   const displayName = player.nick_in_game ?? player.nick;
   const nameFs = iconSize === 'xl' ? 14 : 11;
+  const fallbackMmr =
+    mmr ?? player.mmr_2v2 ?? player.mmr_3v3 ?? player.mmr_1v1 ?? null;
+  const mmrLabel = fallbackMmr != null ? `MMR · ${fallbackMmr}` : 'MMR · —';
+  const mmrFs = iconSize === 'xl' ? 16 : 14;
 
   return (
     <motion.div
@@ -1203,7 +1207,7 @@ function NbPlayerPanel({
       }}
     >
       {/* MMR watermark */}
-      {mmr != null && (
+      {fallbackMmr != null && (
         <div
           style={{
             position: 'absolute',
@@ -1227,7 +1231,7 @@ function NbPlayerPanel({
               userSelect: 'none',
             }}
           >
-            {mmr}
+            {fallbackMmr}
           </span>
         </div>
       )}
@@ -1280,26 +1284,24 @@ function NbPlayerPanel({
       </div>
 
       {/* MMR strip */}
-      {mmr != null && (
-        <div
-          style={{
-            padding: '4px 10px',
-            fontFamily: NB_MONO,
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '.18em',
-            color: NB_INK,
-            textTransform: 'uppercase',
-            borderTop: NB_BORDER_THIN,
-            background: NB_WHITE,
-            textAlign: 'center',
-            position: 'relative',
-            zIndex: 2,
-          }}
-        >
-          MMR · {mmr}
-        </div>
-      )}
+      <div
+        style={{
+          padding: '6px 10px',
+          fontFamily: NB_MONO,
+          fontSize: mmrFs,
+          fontWeight: 800,
+          letterSpacing: '.12em',
+          color: NB_INK,
+          textTransform: 'uppercase',
+          borderTop: NB_BORDER,
+          background: NB_ACID,
+          textAlign: 'center',
+          position: 'relative',
+          zIndex: 2,
+        }}
+      >
+        {mmrLabel}
+      </div>
 
       {/* Accent bottom bar */}
       <div
