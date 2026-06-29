@@ -397,7 +397,7 @@ export const defaultOverlayV2Config: OverlayV2Config = {
     orangeGlow: ORANGE_GLOW,
     supersonicColor: 'hsl(48 100% 65%)',
     nameFontFamily: 'Rajdhani, sans-serif',
-    nameFontSize: 16,
+    nameFontSize: 19.2,
     nameColor: '#ffffff',
     boostFontSize: 18,
     stats: { goals: true, assists: true, saves: true, shots: false, demos: false },

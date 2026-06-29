@@ -67,7 +67,7 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
           opacity: dimmed ? 0.4 : 1,
           fontFamily: NB_FONT,
           fontWeight: 800,
-          fontSize: 14,
+          fontSize: 16.8,
           letterSpacing: '.02em',
           textTransform: 'uppercase',
           whiteSpace: 'nowrap',
