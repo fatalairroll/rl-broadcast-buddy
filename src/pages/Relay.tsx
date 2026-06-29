@@ -878,6 +878,20 @@ def handle_event(evt: Dict[str, Any]) -> None:
             match_active = False
             if SUPABASE_LIVE_WRITES:
                 dirty_match = True
+        # Event channel — niezalezne od SUPABASE_LIVE_WRITES. Front uzywa
+        # tego do auto-inkrementacji wyniku serii BO oraz resetu po wyjsciu
+        # z serwera. WinnerTeamNum: 0 = blue, 1 = orange, None = brak / remis.
+        if name == "MatchEnded":
+            w_raw = data.get("WinnerTeamNum")
+            try:
+                winner_num = int(w_raw) if w_raw is not None else None
+                if winner_num not in (0, 1):
+                    winner_num = None
+            except Exception:
+                winner_num = None
+            db_emit_match_event("MatchEnded", winner_num)
+        elif name == "MatchDestroyed":
+            db_emit_match_event("MatchDestroyed", None)
         # Postgame Faza 1: finalize raz na mecz (MatchEnded lub PodiumStart
         # jako fallback). MatchDestroyed nie finalizuje — zostawia poprzedni
         # last_postgame nietkniety.
