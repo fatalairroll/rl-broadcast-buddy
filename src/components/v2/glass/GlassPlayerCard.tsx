@@ -230,14 +230,14 @@ function CardBody({
   const rankIconSrc = display.rank ? getRankIcon(display.rank) : null;
 
   return (
-    <div style={{ display: 'flex', width: CARD_W, height: CARD_H }}>
+    <div style={{ display: 'flex', width: CARD_W, minHeight: CARD_H }}>
       {renderBox && (
         <div
           style={{
             ...opaqueDark,
             ...chamferLeft(10),
             width: BOX_W,
-            height: CARD_H,
+            minHeight: CARD_H,
             position: 'relative',
             display: 'flex',
             alignItems: 'center',
@@ -306,7 +306,7 @@ function CardBody({
         style={{
           ...barStyleFor(display.side, !renderBox),
           width: barWidth,
-          height: CARD_H,
+          minHeight: CARD_H,
           position: 'relative',
           display: 'flex',
           alignItems: 'center',
@@ -325,26 +325,44 @@ function CardBody({
             width: '100%',
           }}
         >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={goal ? `g-${goal.nonce}` : `n-${display.player.player_name}`}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: GOAL_SWAP_MS / 1000, ease: 'easeOut' }}
-              style={{ ...glassName, fontSize: 23, overflow: 'hidden', textOverflow: 'ellipsis' }}
-            >
-              {goal ? goal.scorerName : display.player.player_name}
-            </motion.div>
-          </AnimatePresence>
+          {/* Name + MMR column */}
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={goal ? `g-${goal.nonce}` : `n-${display.player.player_name}`}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: GOAL_SWAP_MS / 1000, ease: 'easeOut' }}
+                style={{ ...glassName, fontSize: 23, overflow: 'hidden', textOverflow: 'ellipsis' }}
+              >
+                {goal ? goal.scorerName : display.player.player_name}
+              </motion.div>
+            </AnimatePresence>
+            {!goal && display.mmr != null && (
+              <div
+                style={{
+                  ...glassLabel,
+                  fontSize: 16.5,
+                  fontWeight: 800,
+                  opacity: 0.70,
+                  color: 'rgba(255,255,255,.8)',
+                  marginTop: 2,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {display.mmr} MMR
+              </div>
+            )}
+          </div>
           <div style={{ ...glassLabel, fontSize: 11, color: 'rgba(255,255,255,.8)' }}>
             {goal
               ? goal.assistName
                 ? `asysta · ${goal.assistName}`
                 : ''
-              : display.mmr != null
-                ? `${display.mmr} MMR`
-                : ''}
+              : ''}
           </div>
         </div>
       </div>
