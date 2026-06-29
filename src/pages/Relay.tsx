@@ -1607,11 +1607,14 @@ export default function Relay() {
 
       <main className="container py-6">
         <div className="mb-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm text-amber-200">
-          <strong>Nowa wersja skryptu wymagana</strong> — relay propaguje teraz
-          zdarzenia <code className="bg-secondary px-1 rounded">MatchEnded</code>
-          {' '}/ <code className="bg-secondary px-1 rounded">MatchDestroyed</code> do bazy,
-          dzieki czemu wynik serii BO inkrementuje sie sam, a wyjscie z serwera resetuje go do 0:0.
-          Pobierz <code className="bg-secondary px-1 rounded">relay.py</code> jeszcze raz i zrestartuj proces.
+          <strong>Nowa wersja skryptu wymagana</strong> — relay wykrywa teraz
+          zmiane <code className="bg-secondary px-1 rounded">MatchGuid</code> w
+          {' '}<code className="bg-secondary px-1 rounded">UpdateState</code> i resetuje stan
+          per-mecz nawet bez <code className="bg-secondary px-1 rounded">MatchCreated</code>
+          {' '}(naprawia brak detekcji kolejnego meczu bez F5). Dodatkowo: exponential backoff
+          przy reconnectcie do RL Stats API (2s→4s→…→30s) oraz propagacja
+          {' '}<code className="bg-secondary px-1 rounded">MatchEnded</code>/<code className="bg-secondary px-1 rounded">MatchDestroyed</code>
+          {' '}do bazy. Pobierz <code className="bg-secondary px-1 rounded">relay.py</code> ponownie i zrestartuj proces.
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="glass-panel lg:col-span-1">
