@@ -147,6 +147,12 @@ dirty_match: bool = False
 dirty_camera: bool = False
 clear_requested: bool = False  # nowy mecz -> wyczysc players_live
 
+# === EVENT CHANNEL (MatchEnded / MatchDestroyed) ===
+# Sygnalizujemy te eventy do bazy NIEZALEZNIE od SUPABASE_LIVE_WRITES,
+# bo overlay/operator chca natychmiast inkrementowac serie lub ja zresetowac.
+# local_event_seq inicjalizowany przy starcie z aktualnej wartosci w match_metadata.
+local_event_seq: int = 0
+
 # === OVERRIDES Z HTTP (v3) ===
 override_lock = threading.Lock()
 override_teams: Dict[str, str] = {"blue_name": "", "orange_name": ""}
