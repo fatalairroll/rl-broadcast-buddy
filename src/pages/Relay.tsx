@@ -147,6 +147,12 @@ dirty_match: bool = False
 dirty_camera: bool = False
 clear_requested: bool = False  # nowy mecz -> wyczysc players_live
 
+# === EVENT CHANNEL (MatchEnded / MatchDestroyed) ===
+# Sygnalizujemy te eventy do bazy NIEZALEZNIE od SUPABASE_LIVE_WRITES,
+# bo overlay/operator chca natychmiast inkrementowac serie lub ja zresetowac.
+# local_event_seq inicjalizowany przy starcie z aktualnej wartosci w match_metadata.
+local_event_seq: int = 0
+
 # === OVERRIDES Z HTTP (v3) ===
 override_lock = threading.Lock()
 override_teams: Dict[str, str] = {"blue_name": "", "orange_name": ""}
@@ -453,6 +459,27 @@ def db_upsert_match(payload: Dict[str, Any]) -> None:
         stats["match_writes_delta"] += 1
     except Exception as e:
         _db_err("match_metadata upsert", e)
+
+
+def db_emit_match_event(event_name: str, winner_team_num: Optional[int]) -> None:
+    """Zapis kanalu zdarzen do match_metadata (singleton id=1). Wolane synchroniczne
+    bezposrednio z handle_event — to rzadkie one-shoty (MatchEnded / MatchDestroyed),
+    wiec nie potrzebujemy workera. Zawsze inkrementujemy local_event_seq, dzieki
+    czemu front widzi zmiane nawet przy powtorzonym evencie."""
+    global local_event_seq
+    local_event_seq += 1
+    payload = {
+        "id": 1,
+        "last_event": event_name,
+        "last_event_seq": int(local_event_seq),
+        "last_winner_team_num": winner_team_num,
+        "last_event_at": _now_iso(),
+    }
+    try:
+        sb.table("match_metadata").upsert(payload, on_conflict="id").execute()
+        print(f"[EVENT] {event_name} winner={winner_team_num} seq={local_event_seq}")
+    except Exception as e:
+        _db_err(f"match_metadata event {event_name}", e)
 
 
 def db_upsert_players(rows: List[Dict[str, Any]]) -> None:
@@ -872,6 +899,20 @@ def handle_event(evt: Dict[str, Any]) -> None:
             match_active = False
             if SUPABASE_LIVE_WRITES:
                 dirty_match = True
+        # Event channel — niezalezne od SUPABASE_LIVE_WRITES. Front uzywa
+        # tego do auto-inkrementacji wyniku serii BO oraz resetu po wyjsciu
+        # z serwera. WinnerTeamNum: 0 = blue, 1 = orange, None = brak / remis.
+        if name == "MatchEnded":
+            w_raw = data.get("WinnerTeamNum")
+            try:
+                winner_num = int(w_raw) if w_raw is not None else None
+                if winner_num not in (0, 1):
+                    winner_num = None
+            except Exception:
+                winner_num = None
+            db_emit_match_event("MatchEnded", winner_num)
+        elif name == "MatchDestroyed":
+            db_emit_match_event("MatchDestroyed", None)
         # Postgame Faza 1: finalize raz na mecz (MatchEnded lub PodiumStart
         # jako fallback). MatchDestroyed nie finalizuje — zostawia poprzedni
         # last_postgame nietkniety.
@@ -1458,6 +1499,18 @@ def main() -> None:
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
 
+    # Zsynchronizuj lokalny licznik zdarzen z aktualnym stanem bazy, zeby
+    # restart relayu nie cofnal last_event_seq i nie wyzwolil ponownie
+    # ostatniego zdarzenia w przegladarce.
+    global local_event_seq
+    try:
+        res = sb.table("match_metadata").select("last_event_seq").eq("id", 1).maybe_single().execute()
+        cur = (res.data or {}).get("last_event_seq") if res else None
+        local_event_seq = int(cur or 0)
+        print(f"   Event seq: start={local_event_seq}")
+    except Exception as e:
+        print(f"   Event seq: start=0 (nie udalo sie odczytac: {e})")
+
     import atexit
     atexit.register(_shutdown_flush)
     try:
@@ -1527,6 +1580,13 @@ export default function Relay() {
       </header>
 
       <main className="container py-6">
+        <div className="mb-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm text-amber-200">
+          <strong>Nowa wersja skryptu wymagana</strong> — relay propaguje teraz
+          zdarzenia <code className="bg-secondary px-1 rounded">MatchEnded</code>
+          {' '}/ <code className="bg-secondary px-1 rounded">MatchDestroyed</code> do bazy,
+          dzieki czemu wynik serii BO inkrementuje sie sam, a wyjscie z serwera resetuje go do 0:0.
+          Pobierz <code className="bg-secondary px-1 rounded">relay.py</code> jeszcze raz i zrestartuj proces.
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="glass-panel lg:col-span-1">
             <CardHeader>

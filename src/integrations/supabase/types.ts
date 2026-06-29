@@ -171,6 +171,10 @@ export type Database = {
           id: number
           is_active: boolean
           is_overtime: boolean
+          last_event: string | null
+          last_event_at: string | null
+          last_event_seq: number
+          last_winner_team_num: number | null
           match_guid: string | null
           orange_score: number
           time_seconds: number
@@ -182,6 +186,10 @@ export type Database = {
           id?: number
           is_active?: boolean
           is_overtime?: boolean
+          last_event?: string | null
+          last_event_at?: string | null
+          last_event_seq?: number
+          last_winner_team_num?: number | null
           match_guid?: string | null
           orange_score?: number
           time_seconds?: number
@@ -193,6 +201,10 @@ export type Database = {
           id?: number
           is_active?: boolean
           is_overtime?: boolean
+          last_event?: string | null
+          last_event_at?: string | null
+          last_event_seq?: number
+          last_winner_team_num?: number | null
           match_guid?: string | null
           orange_score?: number
           time_seconds?: number

@@ -82,21 +82,62 @@ export function useSeriesAutoTracker(): void {
   }, [session?.mmr_tournament_id]);
 
   const lastScoresRef = useRef<{ blue: number; orange: number }>({ blue: 0, orange: 0 });
-  const lastIncRef = useRef<number>(0);
   const lastTournamentSetRef = useRef<string>('');
   const initializedRef = useRef<boolean>(false);
+  // Sledzimy ostatnio przeczytany seq z match_metadata. Init = -1 zeby
+  // pierwsza wartosc (np. 0 lub 7 z DB) NIE wyzwolila ponownie ostatniego
+  // zdarzenia po mount/F5.
+  const lastSeqRef = useRef<number>(-1);
 
   // Hard reset when match changes.
   useEffect(() => {
     lastScoresRef.current = { blue: 0, orange: 0 };
     lastTournamentSetRef.current = '';
-    lastIncRef.current = 0;
     initializedRef.current = false;
+    // celowo NIE resetujemy lastSeqRef — chcemy traktowac to samo zdarzenie
+    // jako juz przetworzone nawet jesli operator przepial mecz w MMRivals.
   }, [session?.mmr_match_id]);
 
   const blueScore = live.match?.blue_score;
   const orangeScore = live.match?.orange_score;
   const livePlayers = live.players;
+  const eventSeq = live.match?.last_event_seq ?? 0;
+  const eventName = live.match?.last_event ?? null;
+  const winnerTeamNum = live.match?.last_winner_team_num ?? null;
+
+  // === GLOWNY KANAL: zdarzenia z RL Stats API (MatchEnded / MatchDestroyed) ===
+  useEffect(() => {
+    if (!session) return;
+    if (session.series_auto_enabled === false) return;
+    // Inicjalizacja: pierwsza obserwacja po mount tylko ustawia baseline.
+    if (lastSeqRef.current === -1) {
+      lastSeqRef.current = eventSeq;
+      return;
+    }
+    if (eventSeq === lastSeqRef.current) return;
+    lastSeqRef.current = eventSeq;
+
+    if (eventName === 'MatchDestroyed') {
+      void updateSession({
+        team_a_series_score: 0,
+        team_b_series_score: 0,
+      });
+      lastScoresRef.current = { blue: 0, orange: 0 };
+      return;
+    }
+    if (eventName === 'MatchEnded') {
+      // Brak prawidlowego WinnerTeamNum (np. remis w trybach custom) — pomijamy.
+      if (winnerTeamNum !== 0 && winnerTeamNum !== 1) return;
+      const blueWon = winnerTeamNum === 0;
+      const blueIsA = resolveBlueIsTeamA(livePlayers, session, currentMatch);
+      const winnerIsA = blueWon ? blueIsA : !blueIsA;
+      const field = winnerIsA ? 'team_a_series_score' : 'team_b_series_score';
+      const current =
+        (winnerIsA ? session.team_a_series_score : session.team_b_series_score) ?? 0;
+      void updateSession({ [field]: current + 1 } as Partial<BroadcastSession>);
+      lastScoresRef.current = { blue: 0, orange: 0 };
+    }
+  }, [eventSeq, eventName, winnerTeamNum, session, livePlayers, currentMatch, updateSession]);
 
   useEffect(() => {
     if (!session) return;
@@ -136,37 +177,16 @@ export function useSeriesAutoTracker(): void {
           team_a_series_score: 0,
           team_b_series_score: 0,
         });
-        lastIncRef.current = Date.now();
         lastScoresRef.current = { blue: 0, orange: 0 };
       }
       lastTournamentSetRef.current = newKey;
       return;
     }
 
-    // 2) End-of-game detection: RL score reset to 0:0 after non-zero.
+    // Sledzimy ostatni niezerowy wynik — przydaje sie do roster-diff baseline.
     const blue = blueScore ?? 0;
     const orange = orangeScore ?? 0;
     const prev = lastScoresRef.current;
-
-    if (blue === 0 && orange === 0 && (prev.blue > 0 || prev.orange > 0)) {
-      const now = Date.now();
-      if (now - lastIncRef.current < 10_000) return;
-      if (prev.blue === prev.orange) {
-        lastScoresRef.current = { blue: 0, orange: 0 };
-        return;
-      }
-      const blueWon = prev.blue > prev.orange;
-      const blueIsTeamA = resolveBlueIsTeamA(livePlayers, session, currentMatch);
-      const winnerIsA = blueWon ? blueIsTeamA : !blueIsTeamA;
-      const field = winnerIsA ? 'team_a_series_score' : 'team_b_series_score';
-      const current = (winnerIsA ? session.team_a_series_score : session.team_b_series_score) ?? 0;
-      void updateSession({ [field]: current + 1 } as Partial<BroadcastSession>);
-      lastIncRef.current = now;
-      lastScoresRef.current = { blue: 0, orange: 0 };
-      return;
-    }
-
-    // 3) Track last non-zero score.
     if (blue > 0 || orange > 0) {
       if (prev.blue !== blue || prev.orange !== orange) {
         lastScoresRef.current = { blue, orange };

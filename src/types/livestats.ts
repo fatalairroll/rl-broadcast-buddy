@@ -8,6 +8,10 @@ export interface MatchMetadata {
   is_overtime: boolean;
   updated_at: string;
   is_active?: boolean;
+  last_event?: string | null;
+  last_event_seq?: number | null;
+  last_winner_team_num?: number | null;
+  last_event_at?: string | null;
 }
 
 export interface PlayerLive {

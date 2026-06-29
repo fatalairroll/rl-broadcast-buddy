@@ -131,7 +131,17 @@ export function useLiveStatsV2() {
 
   // ---- MATCH ----
   const mergedMatch: MatchMetadata | null = useMemo(() => {
-    if (frame?.match) return frame.match;
+    if (frame?.match) {
+      // WS frame nie zna kanalu zdarzen (last_event*) — bierzemy je z Supabase,
+      // zeby seriy auto-tracker zawsze widzial najnowszy MatchEnded / MatchDestroyed.
+      return {
+        ...frame.match,
+        last_event: match?.last_event ?? null,
+        last_event_seq: match?.last_event_seq ?? 0,
+        last_winner_team_num: match?.last_winner_team_num ?? null,
+        last_event_at: match?.last_event_at ?? null,
+      };
+    }
     return match;
   }, [frame, match]);
 
