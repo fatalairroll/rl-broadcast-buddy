@@ -591,13 +591,23 @@ def handle_update_state(data: Dict[str, Any]) -> None:
     global blue_score, orange_score, in_replay, last_state_update_at
     global pending_camera, dirty_match, dirty_camera
     global prev_overtime, ot_started_at, last_tick_at
+    global clock_running, clear_requested, match_active
+    global current_accum, postgame_finalized
+    global last_kickoff_at, last_goal_at
 
     last_state_update_at = time.time()
     stats["update_state_delta"] += 1
 
     guid = data.get("MatchGuid")
     if guid:
-        current_match_guid = guid
+        # Wykryj zmiane GUID BEZ MatchCreated/MatchInitialized (np. relay polaczyl
+        # sie w trakcie nowego serwera, albo gra wystartowala kolejny mecz cicho).
+        # Traktujemy to jak nowy mecz: pelny reset stanu per-mecz.
+        if current_match_guid is not None and guid != current_match_guid:
+            print(f"[MATCH] GUID change via UpdateState: {current_match_guid} -> {guid} — reset.")
+            _reset_for_new_match(guid)
+        else:
+            current_match_guid = guid
 
     game = _coerce_dict(data.get("Game"))
     teams = _coerce_list(game.get("Teams"))
