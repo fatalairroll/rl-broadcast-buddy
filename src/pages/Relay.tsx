@@ -1425,6 +1425,8 @@ def _drain_buffer(buf: str) -> str:
 
 def tcp_loop() -> None:
     print(f"[RL] Klient lokalnego TCP streamu RL Stats API ({RL_HOST}:{RL_PORT}).")
+    backoff = 2.0
+    BACKOFF_MAX = 30.0
     while True:
         sock: Optional[socket.socket] = None
         try:
@@ -1437,6 +1439,7 @@ def tcp_loop() -> None:
             except Exception:
                 pass
             print(f"[RL] Polaczono z RL Stats API na {RL_HOST}:{RL_PORT}.")
+            backoff = 2.0  # reset po udanym polaczeniu
             buf = ""
             while True:
                 chunk = sock.recv(RECV_CHUNK)
@@ -1467,8 +1470,10 @@ def tcp_loop() -> None:
                     sock.close()
                 except Exception:
                     pass
-        print(f"[RL] Reconnect za {RECONNECT_DELAY_S:.0f}s ...")
-        time.sleep(RECONNECT_DELAY_S)
+        # Exponential backoff: 2s, 4s, 8s, 16s, 30s (cap). Zerowany po udanym connect.
+        print(f"[RL] Reconnect za {backoff:.0f}s ...")
+        time.sleep(backoff)
+        backoff = min(backoff * 2.0, BACKOFF_MAX)
 
 
 # === GRACEFUL SHUTDOWN ===
