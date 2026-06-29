@@ -80,7 +80,7 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
         style={{
           ...glassContentLayer,
           ...glassName,
-          fontSize: 13,
+          fontSize: 15.6,
           color: player.is_demolished ? 'rgba(255,255,255,.4)' : '#fff',
           overflow: 'hidden',
           textOverflow: 'ellipsis',

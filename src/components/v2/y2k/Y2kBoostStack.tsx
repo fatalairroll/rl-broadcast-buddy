@@ -63,7 +63,7 @@ function PlayerRow({ player, side }: { player: PlayerLive; side: 'blue' | 'orang
           color: dimmed ? 'rgba(255,255,255,.4)' : '#fff',
           fontFamily: Y2K_FONT,
           fontWeight: 800,
-          fontSize: 14,
+          fontSize: 16.8,
           letterSpacing: '.02em',
           textShadow: y2kNameShadow,
           maxWidth: NAME_W - 28,
