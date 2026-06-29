@@ -461,6 +461,27 @@ def db_upsert_match(payload: Dict[str, Any]) -> None:
         _db_err("match_metadata upsert", e)
 
 
+def db_emit_match_event(event_name: str, winner_team_num: Optional[int]) -> None:
+    """Zapis kanalu zdarzen do match_metadata (singleton id=1). Wolane synchroniczne
+    bezposrednio z handle_event — to rzadkie one-shoty (MatchEnded / MatchDestroyed),
+    wiec nie potrzebujemy workera. Zawsze inkrementujemy local_event_seq, dzieki
+    czemu front widzi zmiane nawet przy powtorzonym evencie."""
+    global local_event_seq
+    local_event_seq += 1
+    payload = {
+        "id": 1,
+        "last_event": event_name,
+        "last_event_seq": int(local_event_seq),
+        "last_winner_team_num": winner_team_num,
+        "last_event_at": _now_iso(),
+    }
+    try:
+        sb.table("match_metadata").upsert(payload, on_conflict="id").execute()
+        print(f"[EVENT] {event_name} winner={winner_team_num} seq={local_event_seq}")
+    except Exception as e:
+        _db_err(f"match_metadata event {event_name}", e)
+
+
 def db_upsert_players(rows: List[Dict[str, Any]]) -> None:
     if not rows:
         return
