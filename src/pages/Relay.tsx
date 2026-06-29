@@ -909,31 +909,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
 
     if name in ("MatchCreated", "MatchInitialized"):
         guid = data.get("MatchGuid")
-        if guid:
-            current_match_guid = guid
-        blue_score = 0
-        orange_score = 0
-        local_time_seconds = 300.0
-        is_overtime = False
-        in_replay = False
-        clock_running = False
-        stats["mode"] = "live"
-        # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
-        players_snapshot.clear()
-        last_pushed_players.clear()
-        if SUPABASE_LIVE_WRITES:
-            clear_requested = True
-        match_active = True
-        if SUPABASE_LIVE_WRITES:
-            dirty_match = True
-        # Postgame Faza 2: nowy akumulator, NIE czyscimy last_postgame
-        # (operator widzi poprzedni mecz az do nowej finalizacji).
-        current_accum = MatchStatsAccumulator()
-        postgame_finalized = False
-        last_kickoff_at = time.time()
-        last_goal_at = 0.0
-        prev_overtime = False
-        ot_started_at = 0.0
+        _reset_for_new_match(guid)
         return
 
     if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
