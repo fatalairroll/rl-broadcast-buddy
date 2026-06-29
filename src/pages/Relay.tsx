@@ -586,6 +586,41 @@ def _coerce_list(v: Any) -> List[Any]:
 _dbg_printed = 0
 
 
+def _reset_for_new_match(guid: Optional[str]) -> None:
+    """Pelny reset stanu per-mecz. Wolane z MatchCreated/MatchInitialized oraz
+    z handle_update_state gdy GUID zmieni sie bez explicit eventu. Caller musi
+    juz trzymac state_lock."""
+    global current_match_guid, blue_score, orange_score, local_time_seconds
+    global is_overtime, in_replay, clock_running, match_active
+    global clear_requested, dirty_match, current_accum, postgame_finalized
+    global last_kickoff_at, last_goal_at, prev_overtime, ot_started_at
+    if guid:
+        current_match_guid = guid
+    blue_score = 0
+    orange_score = 0
+    local_time_seconds = 300.0
+    is_overtime = False
+    in_replay = False
+    clock_running = False
+    stats["mode"] = "live"
+    # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
+    players_snapshot.clear()
+    last_pushed_players.clear()
+    if SUPABASE_LIVE_WRITES:
+        clear_requested = True
+    match_active = True
+    if SUPABASE_LIVE_WRITES:
+        dirty_match = True
+    # Postgame Faza 2: nowy akumulator, NIE czyscimy last_postgame
+    # (operator widzi poprzedni mecz az do nowej finalizacji).
+    current_accum = MatchStatsAccumulator()
+    postgame_finalized = False
+    last_kickoff_at = time.time()
+    last_goal_at = 0.0
+    prev_overtime = False
+    ot_started_at = 0.0
+
+
 def handle_update_state(data: Dict[str, Any]) -> None:
     global current_match_guid, local_time_seconds, is_overtime
     global blue_score, orange_score, in_replay, last_state_update_at
