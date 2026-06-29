@@ -1499,6 +1499,18 @@ def main() -> None:
     print("   Tryby: mecz online, mecz z botami, replay z Match History.")
     print("   (Boost/speed widoczny tylko w spectatorze lub na wlasnej druzynie.)\\n")
 
+    # Zsynchronizuj lokalny licznik zdarzen z aktualnym stanem bazy, zeby
+    # restart relayu nie cofnal last_event_seq i nie wyzwolil ponownie
+    # ostatniego zdarzenia w przegladarce.
+    global local_event_seq
+    try:
+        res = sb.table("match_metadata").select("last_event_seq").eq("id", 1).maybe_single().execute()
+        cur = (res.data or {}).get("last_event_seq") if res else None
+        local_event_seq = int(cur or 0)
+        print(f"   Event seq: start={local_event_seq}")
+    except Exception as e:
+        print(f"   Event seq: start=0 (nie udalo sie odczytac: {e})")
+
     import atexit
     atexit.register(_shutdown_flush)
     try:
