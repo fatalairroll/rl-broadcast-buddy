@@ -586,18 +586,63 @@ def _coerce_list(v: Any) -> List[Any]:
 _dbg_printed = 0
 
 
+def _reset_for_new_match(guid: Optional[str]) -> None:
+    """Pelny reset stanu per-mecz. Wolane z MatchCreated/MatchInitialized oraz
+    z handle_update_state gdy GUID zmieni sie bez explicit eventu. Caller musi
+    juz trzymac state_lock."""
+    global current_match_guid, blue_score, orange_score, local_time_seconds
+    global is_overtime, in_replay, clock_running, match_active
+    global clear_requested, dirty_match, current_accum, postgame_finalized
+    global last_kickoff_at, last_goal_at, prev_overtime, ot_started_at
+    if guid:
+        current_match_guid = guid
+    blue_score = 0
+    orange_score = 0
+    local_time_seconds = 300.0
+    is_overtime = False
+    in_replay = False
+    clock_running = False
+    stats["mode"] = "live"
+    # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
+    players_snapshot.clear()
+    last_pushed_players.clear()
+    if SUPABASE_LIVE_WRITES:
+        clear_requested = True
+    match_active = True
+    if SUPABASE_LIVE_WRITES:
+        dirty_match = True
+    # Postgame Faza 2: nowy akumulator, NIE czyscimy last_postgame
+    # (operator widzi poprzedni mecz az do nowej finalizacji).
+    current_accum = MatchStatsAccumulator()
+    postgame_finalized = False
+    last_kickoff_at = time.time()
+    last_goal_at = 0.0
+    prev_overtime = False
+    ot_started_at = 0.0
+
+
 def handle_update_state(data: Dict[str, Any]) -> None:
     global current_match_guid, local_time_seconds, is_overtime
     global blue_score, orange_score, in_replay, last_state_update_at
     global pending_camera, dirty_match, dirty_camera
     global prev_overtime, ot_started_at, last_tick_at
+    global clock_running, clear_requested, match_active
+    global current_accum, postgame_finalized
+    global last_kickoff_at, last_goal_at
 
     last_state_update_at = time.time()
     stats["update_state_delta"] += 1
 
     guid = data.get("MatchGuid")
     if guid:
-        current_match_guid = guid
+        # Wykryj zmiane GUID BEZ MatchCreated/MatchInitialized (np. relay polaczyl
+        # sie w trakcie nowego serwera, albo gra wystartowala kolejny mecz cicho).
+        # Traktujemy to jak nowy mecz: pelny reset stanu per-mecz.
+        if current_match_guid is not None and guid != current_match_guid:
+            print(f"[MATCH] GUID change via UpdateState: {current_match_guid} -> {guid} — reset.")
+            _reset_for_new_match(guid)
+        else:
+            current_match_guid = guid
 
     game = _coerce_dict(data.get("Game"))
     teams = _coerce_list(game.get("Teams"))
@@ -864,31 +909,7 @@ def handle_event(evt: Dict[str, Any]) -> None:
 
     if name in ("MatchCreated", "MatchInitialized"):
         guid = data.get("MatchGuid")
-        if guid:
-            current_match_guid = guid
-        blue_score = 0
-        orange_score = 0
-        local_time_seconds = 300.0
-        is_overtime = False
-        in_replay = False
-        clock_running = False
-        stats["mode"] = "live"
-        # Nowy mecz / replay -> zlec workerowi DB wyczyszczenie players_live.
-        players_snapshot.clear()
-        last_pushed_players.clear()
-        if SUPABASE_LIVE_WRITES:
-            clear_requested = True
-        match_active = True
-        if SUPABASE_LIVE_WRITES:
-            dirty_match = True
-        # Postgame Faza 2: nowy akumulator, NIE czyscimy last_postgame
-        # (operator widzi poprzedni mecz az do nowej finalizacji).
-        current_accum = MatchStatsAccumulator()
-        postgame_finalized = False
-        last_kickoff_at = time.time()
-        last_goal_at = 0.0
-        prev_overtime = False
-        ot_started_at = 0.0
+        _reset_for_new_match(guid)
         return
 
     if name in ("MatchEnded", "MatchDestroyed", "PodiumStart"):
@@ -1404,6 +1425,8 @@ def _drain_buffer(buf: str) -> str:
 
 def tcp_loop() -> None:
     print(f"[RL] Klient lokalnego TCP streamu RL Stats API ({RL_HOST}:{RL_PORT}).")
+    backoff = 2.0
+    BACKOFF_MAX = 30.0
     while True:
         sock: Optional[socket.socket] = None
         try:
@@ -1416,6 +1439,7 @@ def tcp_loop() -> None:
             except Exception:
                 pass
             print(f"[RL] Polaczono z RL Stats API na {RL_HOST}:{RL_PORT}.")
+            backoff = 2.0  # reset po udanym polaczeniu
             buf = ""
             while True:
                 chunk = sock.recv(RECV_CHUNK)
@@ -1446,8 +1470,10 @@ def tcp_loop() -> None:
                     sock.close()
                 except Exception:
                     pass
-        print(f"[RL] Reconnect za {RECONNECT_DELAY_S:.0f}s ...")
-        time.sleep(RECONNECT_DELAY_S)
+        # Exponential backoff: 2s, 4s, 8s, 16s, 30s (cap). Zerowany po udanym connect.
+        print(f"[RL] Reconnect za {backoff:.0f}s ...")
+        time.sleep(backoff)
+        backoff = min(backoff * 2.0, BACKOFF_MAX)
 
 
 # === GRACEFUL SHUTDOWN ===
@@ -1581,11 +1607,14 @@ export default function Relay() {
 
       <main className="container py-6">
         <div className="mb-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm text-amber-200">
-          <strong>Nowa wersja skryptu wymagana</strong> — relay propaguje teraz
-          zdarzenia <code className="bg-secondary px-1 rounded">MatchEnded</code>
-          {' '}/ <code className="bg-secondary px-1 rounded">MatchDestroyed</code> do bazy,
-          dzieki czemu wynik serii BO inkrementuje sie sam, a wyjscie z serwera resetuje go do 0:0.
-          Pobierz <code className="bg-secondary px-1 rounded">relay.py</code> jeszcze raz i zrestartuj proces.
+          <strong>Nowa wersja skryptu wymagana</strong> — relay wykrywa teraz
+          zmiane <code className="bg-secondary px-1 rounded">MatchGuid</code> w
+          {' '}<code className="bg-secondary px-1 rounded">UpdateState</code> i resetuje stan
+          per-mecz nawet bez <code className="bg-secondary px-1 rounded">MatchCreated</code>
+          {' '}(naprawia brak detekcji kolejnego meczu bez F5). Dodatkowo: exponential backoff
+          przy reconnectcie do RL Stats API (2s→4s→…→30s) oraz propagacja
+          {' '}<code className="bg-secondary px-1 rounded">MatchEnded</code>/<code className="bg-secondary px-1 rounded">MatchDestroyed</code>
+          {' '}do bazy. Pobierz <code className="bg-secondary px-1 rounded">relay.py</code> ponownie i zrestartuj proces.
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="glass-panel lg:col-span-1">
