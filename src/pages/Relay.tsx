@@ -1580,6 +1580,13 @@ export default function Relay() {
       </header>
 
       <main className="container py-6">
+        <div className="mb-4 p-3 rounded-lg border border-amber-500/40 bg-amber-500/10 text-sm text-amber-200">
+          <strong>Nowa wersja skryptu wymagana</strong> — relay propaguje teraz
+          zdarzenia <code className="bg-secondary px-1 rounded">MatchEnded</code>
+          {' '}/ <code className="bg-secondary px-1 rounded">MatchDestroyed</code> do bazy,
+          dzieki czemu wynik serii BO inkrementuje sie sam, a wyjscie z serwera resetuje go do 0:0.
+          Pobierz <code className="bg-secondary px-1 rounded">relay.py</code> jeszcze raz i zrestartuj proces.
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <Card className="glass-panel lg:col-span-1">
             <CardHeader>
